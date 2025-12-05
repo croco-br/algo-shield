@@ -1,0 +1,20 @@
+# Development stage
+FROM node:22-alpine
+
+WORKDIR /app
+
+# Copy package files
+COPY ui/package*.json ./
+
+# Install dependencies
+RUN npm install
+
+# Copy source code
+COPY ui/ ./
+
+# Expose UI port
+EXPOSE 5173
+
+# Run in development mode for hot-reload
+CMD ["npm", "run", "dev", "--", "--host", "0.0.0.0"]
+

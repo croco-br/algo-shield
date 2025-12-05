@@ -1,0 +1,134 @@
+version: '3.8'
+
+services:
+  postgres:
+    image: postgres:17-alpine
+    container_name: algoshield-postgres
+    environment:
+      POSTGRES_USER: algoshield
+      POSTGRES_PASSWORD: algoshield_secret
+      POSTGRES_DB: algoshield
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./scripts/migrations:/migrations
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U algoshield"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    networks:
+      - algoshield-network
+
+  redis:
+    image: redis:7.4-alpine
+    container_name: algoshield-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+    networks:
+      - algoshield-network
+
+  db-init:
+    image: postgres:17-alpine
+    container_name: algoshield-db-init
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: 5432
+      POSTGRES_USER: algoshield
+      POSTGRES_PASSWORD: algoshield_secret
+      POSTGRES_DB: algoshield
+    volumes:
+      - ./scripts/migrations:/migrations
+      - ./scripts/init-db.sh:/init-db.sh
+    entrypoint: ["/bin/sh", "/init-db.sh"]
+    networks:
+      - algoshield-network
+
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile.api
+    container_name: algoshield-api
+    depends_on:
+      db-init:
+        condition: service_completed_successfully
+      redis:
+        condition: service_healthy
+    environment:
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: 5432
+      POSTGRES_USER: algoshield
+      POSTGRES_PASSWORD: algoshield_secret
+      POSTGRES_DB: algoshield
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      API_HOST: 0.0.0.0
+      API_PORT: 8080
+      ENVIRONMENT: production
+      LOG_LEVEL: info
+    ports:
+      - "8080:8080"
+    restart: unless-stopped
+    networks:
+      - algoshield-network
+
+  worker:
+    build:
+      context: .
+      dockerfile: Dockerfile.worker
+    container_name: algoshield-worker
+    depends_on:
+      db-init:
+        condition: service_completed_successfully
+      redis:
+        condition: service_healthy
+    environment:
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: 5432
+      POSTGRES_USER: algoshield
+      POSTGRES_PASSWORD: algoshield_secret
+      POSTGRES_DB: algoshield
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      WORKER_CONCURRENCY: 10
+      WORKER_BATCH_SIZE: 100
+      ENVIRONMENT: production
+      LOG_LEVEL: info
+    restart: unless-stopped
+    deploy:
+      replicas: 2
+    networks:
+      - algoshield-network
+
+  ui:
+    build:
+      context: .
+      dockerfile: Dockerfile.ui
+    container_name: algoshield-ui
+    depends_on:
+      - api
+    ports:
+      - "5173:5173"
+    restart: unless-stopped
+    networks:
+      - algoshield-network
+
+volumes:
+  postgres_data:
+  redis_data:
+
+networks:
+  algoshield-network:
+    driver: bridge
+

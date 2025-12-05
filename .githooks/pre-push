@@ -1,0 +1,44 @@
+#!/bin/bash
+
+# AlgoShield Pre-Push Hook
+# Runs comprehensive tests before push
+
+set -e
+
+echo "🚀 Running pre-push checks..."
+
+# Colors
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
+NC='\033[0m' # No Color
+
+# Run all tests (not just short ones)
+echo -e "${YELLOW}→ Running full test suite...${NC}"
+if GOEXPERIMENT=rangefunc go test -v -race -coverprofile=coverage.txt -covermode=atomic ./...; then
+    echo -e "${GREEN}✓ All tests passed${NC}"
+    
+    # Show coverage
+    COVERAGE=$(go tool cover -func=coverage.txt | grep total | awk '{print $3}')
+    echo -e "${GREEN}✓ Test coverage: $COVERAGE${NC}"
+    
+    # Clean up coverage file
+    rm -f coverage.txt
+else
+    echo -e "${RED}✗ Tests failed${NC}"
+    echo -e "${YELLOW}Push aborted. Fix the tests and try again.${NC}"
+    rm -f coverage.txt
+    exit 1
+fi
+
+# Check for TODOs or FIXMEs being added
+echo -e "${YELLOW}→ Checking for TODOs and FIXMEs...${NC}"
+TODO_COUNT=$(git diff origin/main...HEAD | grep -E "^\+.*TODO|^\+.*FIXME" | wc -l)
+if [ "$TODO_COUNT" -gt 0 ]; then
+    echo -e "${YELLOW}⚠ Found $TODO_COUNT new TODO/FIXME comments${NC}"
+    echo -e "${YELLOW}  Consider resolving them before pushing${NC}"
+fi
+
+echo -e "${GREEN}✓ All pre-push checks passed!${NC}"
+exit 0
+

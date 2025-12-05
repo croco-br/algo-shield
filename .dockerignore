@@ -1,0 +1,46 @@
+# Git
+.git
+.gitignore
+
+# Documentation
+*.md
+LICENSE
+
+# CI/CD
+.github
+
+# IDEs
+.vscode
+.idea
+*.swp
+*.swo
+
+# Build artifacts
+bin/
+dist/
+build/
+
+# Node modules
+node_modules/
+.svelte-kit/
+ui/node_modules/
+ui/.svelte-kit/
+ui/build/
+
+# Go
+*.test
+*.out
+vendor/
+
+# Environment
+.env
+.env.local
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+logs/
+
