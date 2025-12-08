@@ -3,6 +3,7 @@ package rules
 import (
 	"context"
 	"encoding/json"
+	"log"
 	"time"
 
 	"github.com/algo-shield/algo-shield/src/pkg/models"
@@ -60,7 +61,10 @@ func (e *Engine) LoadRules(ctx context.Context) error {
 			continue
 		}
 
-		json.Unmarshal(conditionsJSON, &rule.Conditions)
+		if err := json.Unmarshal(conditionsJSON, &rule.Conditions); err != nil {
+			log.Printf("Failed to unmarshal rule conditions for rule %s: %v", rule.Name, err)
+			continue
+		}
 		rules = append(rules, rule)
 	}
 
@@ -80,7 +84,6 @@ func (e *Engine) Evaluate(ctx context.Context, event models.TransactionEvent) (*
 	riskScore := 0.0
 	matchedRules := make([]string, 0)
 	status := models.StatusApproved
-	riskLevel := models.RiskLow
 
 	// Evaluate each rule
 	for _, rule := range e.rules {
@@ -104,6 +107,7 @@ func (e *Engine) Evaluate(ctx context.Context, event models.TransactionEvent) (*
 	}
 
 	// Determine risk level based on score
+	var riskLevel models.RiskLevel
 	switch {
 	case riskScore >= 80:
 		riskLevel = models.RiskHigh

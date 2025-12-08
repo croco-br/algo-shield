@@ -93,7 +93,11 @@ func (h *RuleHandler) GetRule(c *fiber.Ctx) error {
 		})
 	}
 
-	json.Unmarshal(conditionsJSON, &rule.Conditions)
+	if err := json.Unmarshal(conditionsJSON, &rule.Conditions); err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"error": "Failed to parse rule conditions",
+		})
+	}
 
 	return c.JSON(rule)
 }
@@ -129,7 +133,9 @@ func (h *RuleHandler) ListRules(c *fiber.Ctx) error {
 			continue
 		}
 
-		json.Unmarshal(conditionsJSON, &rule.Conditions)
+		if err := json.Unmarshal(conditionsJSON, &rule.Conditions); err != nil {
+			continue
+		}
 		rules = append(rules, rule)
 	}
 

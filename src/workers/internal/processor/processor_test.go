@@ -7,7 +7,6 @@ import (
 	"time"
 
 	"github.com/algo-shield/algo-shield/src/pkg/models"
-	"github.com/algo-shield/algo-shield/src/workers/internal/rules"
 	"github.com/google/uuid"
 )
 
@@ -199,9 +198,6 @@ func TestProcessTransactionWithMockEngine(t *testing.T) {
 			dbInsertCalled := false
 			var insertedData map[string]any
 
-			// Create mock engine that returns the predefined result
-			mockEngine := &rules.Engine{}
-
 			// Create processor with mocked dependencies
 			// Note: In a real scenario, we'd use interfaces and proper mocks
 			// For this test, we're testing the logic flow
@@ -301,11 +297,6 @@ func TestProcessTransactionWithMockEngine(t *testing.T) {
 			// Use context to verify it's properly passed
 			if ctx == nil {
 				t.Error("Context should not be nil")
-			}
-
-			// Verify mock engine is set up correctly
-			if mockEngine == nil {
-				t.Error("Mock engine should be initialized")
 			}
 		})
 	}

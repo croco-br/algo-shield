@@ -7,9 +7,9 @@ import (
 
 func TestLoad(t *testing.T) {
 	// Set test environment variables
-	os.Setenv("POSTGRES_HOST", "testhost")
-	os.Setenv("POSTGRES_PORT", "5433")
-	os.Setenv("API_PORT", "9090")
+	_ = os.Setenv("POSTGRES_HOST", "testhost")
+	_ = os.Setenv("POSTGRES_PORT", "5433")
+	_ = os.Setenv("API_PORT", "9090")
 
 	cfg, err := Load()
 	if err != nil {
@@ -29,9 +29,9 @@ func TestLoad(t *testing.T) {
 	}
 
 	// Clean up
-	os.Unsetenv("POSTGRES_HOST")
-	os.Unsetenv("POSTGRES_PORT")
-	os.Unsetenv("API_PORT")
+	_ = os.Unsetenv("POSTGRES_HOST")
+	_ = os.Unsetenv("POSTGRES_PORT")
+	_ = os.Unsetenv("API_PORT")
 }
 
 func TestGetDatabaseDSN(t *testing.T) {
@@ -68,4 +68,3 @@ func TestGetRedisAddr(t *testing.T) {
 		t.Errorf("Expected Redis address '%s', got '%s'", expected, addr)
 	}
 }
-

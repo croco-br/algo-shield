@@ -6,46 +6,46 @@ YELLOW := $(shell tput -Txterm setaf 3)
 BLUE   := $(shell tput -Txterm setaf 4)
 RESET  := $(shell tput -Txterm sgr0)
 
-help: ## Mostra esta mensagem de ajuda
-	@echo '${BLUE}Comandos disponíveis:${RESET}'
+help: ## Show this help message
+	@echo '${BLUE}Available commands:${RESET}'
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "  ${GREEN}%-15s${RESET} %s\n", $$1, $$2}'
 
-install: ## Instala todas as dependências (Go + npm)
-	@echo "${YELLOW}Instalando dependências Go...${RESET}"
+install: ## Install all dependencies (Go + npm)
+	@echo "${YELLOW}Installing Go dependencies...${RESET}"
 	@go mod download
-	@echo "${YELLOW}Instalando dependências UI (npm)...${RESET}"
+	@echo "${YELLOW}Installing UI dependencies (npm)...${RESET}"
 	@cd src/ui && npm install
-	@echo "${GREEN}✓ Todas as dependências instaladas!${RESET}"
+	@echo "${GREEN}✓ All dependencies installed!${RESET}"
 
-up: ## Sobe todos os serviços no Docker (API + Worker + UI + infra)
-	@echo "${YELLOW}Iniciando todos os serviços...${RESET}"
+up: ## Start all services in Docker (API + Worker + UI + infra)
+	@echo "${YELLOW}Starting all services...${RESET}"
 	@docker-compose up -d --build
-	@echo "${GREEN}✓ Serviços iniciados!${RESET}"
+	@echo "${GREEN}✓ Services started!${RESET}"
 	@echo "${BLUE}API:${RESET} http://localhost:8080"
 	@echo "${BLUE}UI:${RESET}  http://localhost:5173"
 
-down: ## Para todos os serviços
-	@echo "${YELLOW}Parando todos os serviços...${RESET}"
+down: ## Stop all services
+	@echo "${YELLOW}Stopping all services...${RESET}"
 	@docker-compose down
-	@echo "${GREEN}✓ Serviços parados!${RESET}"
+	@echo "${GREEN}✓ Services stopped!${RESET}"
 
-logs: ## Visualiza logs dos serviços
+logs: ## View service logs
 	@docker-compose logs -f
 
-test: ## Executa todos os testes em paralelo com race detector
-	@echo "${YELLOW}Executando todos os testes com race detector...${RESET}"
+test: ## Run all tests in parallel with race detector
+	@echo "${YELLOW}Running all tests with race detector...${RESET}"
 	@go test -race -v -parallel 4 ./src/...
-	@echo "${GREEN}✓ Testes concluídos!${RESET}"
+	@echo "${GREEN}✓ Tests completed!${RESET}"
 
-bench: ## Executa benchmark do motor de regras
-	@echo "${YELLOW}Executando benchmark do motor de regras...${RESET}"
+bench: ## Run rules engine benchmark
+	@echo "${YELLOW}Running rules engine benchmark...${RESET}"
 	@go test -bench=. -benchmem -benchtime=5s -run=^$$ ./src/workers/internal/rules/...
-	@echo "${GREEN}✓ Benchmark concluído!${RESET}"
+	@echo "${GREEN}✓ Benchmark completed!${RESET}"
 
-clean: ## Remove artefatos de build e volumes Docker
-	@echo "${YELLOW}Limpando artefatos...${RESET}"
+clean: ## Remove build artifacts and Docker volumes
+	@echo "${YELLOW}Cleaning artifacts...${RESET}"
 	@rm -rf bin/ coverage.out coverage.html
 	@rm -rf src/ui/node_modules src/ui/.svelte-kit
 	@docker-compose down -v
 	@go clean -testcache -cache
-	@echo "${GREEN}✓ Limpeza concluída!${RESET}"
+	@echo "${GREEN}✓ Cleanup completed!${RESET}"
