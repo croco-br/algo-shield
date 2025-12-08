@@ -18,9 +18,9 @@ deps-go:
 
 # Check and install UI dependencies
 deps-ui:
-	@if [ ! -d "ui/node_modules" ]; then \
+	@if [ ! -d "src/ui/node_modules" ]; then \
 		echo "${YELLOW}Installing UI dependencies (npm install)...${RESET}"; \
-		cd ui && npm install; \
+		cd src/ui && npm install; \
 	else \
 		echo "${GREEN}UI dependencies already installed${RESET}"; \
 	fi
@@ -30,9 +30,9 @@ check-deps: deps-go ## Check and install all dependencies
 
 build: deps-go ## Build all binaries
 	@echo "${GREEN}Building API...${RESET}"
-	@GOEXPERIMENT=rangefunc go build -ldflags="-w -s" -o bin/api ./api/cmd/main.go
+	@GOEXPERIMENT=greenteagc,rangefunc go build -ldflags="-w -s" -o bin/api ./src/api/cmd/main.go
 	@echo "${GREEN}Building Worker...${RESET}"
-	@GOEXPERIMENT=rangefunc go build -ldflags="-w -s" -o bin/worker ./workers/cmd/main.go
+	@GOEXPERIMENT=greenteagc,rangefunc go build -ldflags="-w -s" -o bin/worker ./src/workers/cmd/main.go
 	@echo "${GREEN}Build completed!${RESET}"
 
 run-api: build ## Run API locally
@@ -45,11 +45,11 @@ run-worker: build ## Run Worker locally
 
 dev-ui: deps-ui ## Run UI in development mode
 	@echo "${GREEN}Starting UI development server...${RESET}"
-	@cd ui && npm run dev
+	@cd src/ui && npm run dev
 
 test: deps-go ## Run tests
 	@echo "${GREEN}Running tests...${RESET}"
-	@GOEXPERIMENT=rangefunc go test -v ./...
+	@GOEXPERIMENT=greenteagc,rangefunc go test -v ./...
 
 docker-build: ## Build Docker images
 	@echo "${GREEN}Building Docker images...${RESET}"
@@ -57,7 +57,7 @@ docker-build: ## Build Docker images
 
 docker-up: ## Start all services with Docker Compose
 	@echo "${GREEN}Starting all services...${RESET}"
-	@docker-compose up -d
+	@docker-compose up -d --build
 	@echo "${GREEN}Services started!${RESET}"
 	@echo "${YELLOW}API:    http://localhost:8080${RESET}"
 	@echo "${YELLOW}UI:     http://localhost:5173${RESET}"
@@ -97,14 +97,14 @@ dev-all: deps ## Install dependencies and show instructions to run all services
 clean: ## Clean build artifacts
 	@echo "${GREEN}Cleaning...${RESET}"
 	@rm -rf bin/
-	@rm -rf ui/node_modules
-	@rm -rf ui/.svelte-kit
+	@rm -rf src/ui/node_modules
+	@rm -rf src/ui/.svelte-kit
 	@docker-compose down -v
 
 clean-deps: ## Clean all dependencies
 	@echo "${GREEN}Cleaning dependencies...${RESET}"
-	@rm -rf ui/node_modules
-	@rm -rf ui/.svelte-kit
+	@rm -rf src/ui/node_modules
+	@rm -rf src/ui/.svelte-kit
 	@go clean -modcache
 
 deps: deps-go deps-ui ## Download and install all dependencies
@@ -113,10 +113,10 @@ deps: deps-go deps-ui ## Download and install all dependencies
 deps-force: ## Force reinstall all dependencies
 	@echo "${YELLOW}Force reinstalling dependencies...${RESET}"
 	@go mod download
-	@cd ui && rm -rf node_modules && npm install
+	@cd src/ui && rm -rf node_modules && npm install
 	@echo "${GREEN}Dependencies reinstalled!${RESET}"
 
 install-hooks: ## Install Git hooks for automated testing
 	@echo "${GREEN}Installing Git hooks...${RESET}"
-	@./scripts/install-hooks.sh
+	@./src/scripts/install-hooks.sh
 

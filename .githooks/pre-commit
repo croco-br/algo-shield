@@ -28,7 +28,7 @@ fi
 echo -e "${YELLOW}→ Running Go unit tests...${NC}"
 
 # Run Go tests
-if GOEXPERIMENT=rangefunc go test -v -short ./...; then
+if GOEXPERIMENT=greenteagc,rangefunc go test -v -short ./...; then
     echo -e "${GREEN}✓ Go tests passed${NC}"
 else
     echo -e "${RED}✗ Go tests failed${NC}"

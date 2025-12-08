@@ -69,7 +69,7 @@ docker-compose up -d
 
 1. Install Git hooks (recommended):
 ```bash
-./scripts/install-hooks.sh
+./src/scripts/install-hooks.sh
 ```
 
 2. Install dependencies:
@@ -90,7 +90,7 @@ export POSTGRES_USER=algoshield
 export POSTGRES_PASSWORD=algoshield_secret
 export POSTGRES_DB=algoshield
 
-psql -h localhost -U algoshield -d algoshield -f scripts/migrations/001_initial_schema.sql
+psql -h localhost -U algoshield -d algoshield -f src/scripts/migrations/001_initial_schema.sql
 ```
 
 4. Start the API:
@@ -284,7 +284,7 @@ Configuration is managed through environment variables:
 
 AlgoShield is designed for maximum performance:
 
-1. **Compiled with Go 1.23** using `GOEXPERIMENT=rangefunc` for enhanced performance
+1. **Compiled with Go 1.23** using `GOEXPERIMENT=greenteagc,rangefunc` for enhanced performance
 2. **Connection pooling** for PostgreSQL and Redis
 3. **Rule caching** with Redis to minimize database queries
 4. **Async processing** through Redis queues

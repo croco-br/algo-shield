@@ -89,12 +89,12 @@ jobs:
       - name: Build API
         env:
           GOEXPERIMENT: rangefunc
-        run: go build -ldflags="-w -s" -o bin/api ./api/cmd/main.go
+        run: go build -ldflags="-w -s" -o bin/api ./src/api/cmd/main.go
       
       - name: Build Worker
         env:
           GOEXPERIMENT: rangefunc
-        run: go build -ldflags="-w -s" -o bin/worker ./workers/cmd/main.go
+        run: go build -ldflags="-w -s" -o bin/worker ./src/workers/cmd/main.go
 
   lint:
     name: Lint

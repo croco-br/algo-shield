@@ -4,13 +4,13 @@ FROM node:25-alpine
 WORKDIR /app
 
 # Copy package files
-COPY ui/package*.json ./
+COPY src/ui/package*.json ./
 
 # Install dependencies
 RUN npm install
 
 # Copy source code
-COPY ui/ ./
+COPY src/ui/ ./
 
 # Expose UI port
 EXPOSE 5173

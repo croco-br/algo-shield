@@ -23,9 +23,9 @@ build/
 # Node modules
 node_modules/
 .svelte-kit/
-ui/node_modules/
-ui/.svelte-kit/
-ui/build/
+src/ui/node_modules/
+src/ui/.svelte-kit/
+src/ui/build/
 
 # Go
 *.test

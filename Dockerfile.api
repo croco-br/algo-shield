@@ -14,8 +14,8 @@ RUN go mod download
 COPY . .
 
 # Build the API with optimizations
-ENV GOEXPERIMENT=rangefunc
-RUN CGO_ENABLED=0 GOOS=linux go build -ldflags="-w -s" -o api ./api/cmd/main.go
+ENV GOEXPERIMENT=greenteagc,rangefunc
+RUN CGO_ENABLED=0 GOOS=linux go build -ldflags="-w -s" -o api ./src/api/cmd/main.go
 
 # Runtime stage
 FROM alpine:latest

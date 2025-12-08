@@ -14,7 +14,7 @@ Este documento descreve os Git hooks configurados para o projeto AlgoShield.
 Para instalar os Git hooks no seu ambiente local:
 
 ```bash
-./scripts/install-hooks.sh
+./src/scripts/install-hooks.sh
 ```
 
 Isso irá:

@@ -37,5 +37,5 @@ go.work
 logs/
 
 # Build artifacts
-api/api
-workers/workers
+src/api/api
+src/workers/workers

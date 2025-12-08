@@ -15,7 +15,7 @@ NC='\033[0m' # No Color
 
 # Run all tests (not just short ones)
 echo -e "${YELLOW}→ Running full test suite...${NC}"
-if GOEXPERIMENT=rangefunc go test -v -race -coverprofile=coverage.txt -covermode=atomic ./...; then
+if GOEXPERIMENT=greenteagc,rangefunc go test -v -race -coverprofile=coverage.txt -covermode=atomic ./...; then
     echo -e "${GREEN}✓ All tests passed${NC}"
     
     # Show coverage

@@ -10,7 +10,7 @@ services:
       - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
-      - ./scripts/migrations:/migrations
+      - ./src/scripts/migrations:/migrations
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U algoshield"]
       interval: 5s
@@ -47,8 +47,8 @@ services:
       POSTGRES_PASSWORD: algoshield_secret
       POSTGRES_DB: algoshield
     volumes:
-      - ./scripts/migrations:/migrations
-      - ./scripts/init-db.sh:/init-db.sh
+      - ./src/scripts/migrations:/migrations
+      - ./src/scripts/init-db.sh:/init-db.sh
     entrypoint: ["/bin/sh", "/init-db.sh"]
     networks:
       - algoshield-network
@@ -85,7 +85,6 @@ services:
     build:
       context: .
       dockerfile: Dockerfile.worker
-    container_name: algoshield-worker
     depends_on:
       db-init:
         condition: service_completed_successfully
@@ -105,7 +104,7 @@ services:
       LOG_LEVEL: info
     restart: unless-stopped
     deploy:
-      replicas: 2
+      replicas: 1
     networks:
       - algoshield-network
 
