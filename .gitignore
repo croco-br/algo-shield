@@ -39,3 +39,17 @@ logs/
 # Build artifacts
 src/api/api
 src/workers/workers
+
+#cursor rules
+.cursorrules
+
+#coverage
+coverage.txt
+coverage.html
+
+#node modules
+node_modules/
+.svelte-kit/
+src/ui/node_modules/
+src/ui/.svelte-kit/
+src/ui/build/

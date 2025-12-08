@@ -1,122 +1,51 @@
-.PHONY: help build run stop clean test dev docker-build docker-up docker-down deps-go deps-ui check-deps
+.PHONY: help install up down logs test bench clean
 
-# Colors for output
+# Colors
 GREEN  := $(shell tput -Txterm setaf 2)
 YELLOW := $(shell tput -Txterm setaf 3)
+BLUE   := $(shell tput -Txterm setaf 4)
 RESET  := $(shell tput -Txterm sgr0)
 
-help: ## Show this help
-	@echo '${YELLOW}Available commands:${RESET}'
-	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | sort | awk 'BEGIN {FS = ":.*?## "}; {printf "  ${GREEN}%-20s${RESET} %s\n", $$1, $$2}'
+help: ## Mostra esta mensagem de ajuda
+	@echo '${BLUE}Comandos disponíveis:${RESET}'
+	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "  ${GREEN}%-15s${RESET} %s\n", $$1, $$2}'
 
-# Check and install Go dependencies
-deps-go:
-	@if [ ! -d "vendor" ] && [ ! -f "go.sum" ]; then \
-		echo "${YELLOW}Installing Go dependencies...${RESET}"; \
-		go mod download; \
-	fi
+install: ## Instala todas as dependências (Go + npm)
+	@echo "${YELLOW}Instalando dependências Go...${RESET}"
+	@go mod download
+	@echo "${YELLOW}Instalando dependências UI (npm)...${RESET}"
+	@cd src/ui && npm install
+	@echo "${GREEN}✓ Todas as dependências instaladas!${RESET}"
 
-# Check and install UI dependencies
-deps-ui:
-	@if [ ! -d "src/ui/node_modules" ]; then \
-		echo "${YELLOW}Installing UI dependencies (npm install)...${RESET}"; \
-		cd src/ui && npm install; \
-	else \
-		echo "${GREEN}UI dependencies already installed${RESET}"; \
-	fi
-
-check-deps: deps-go ## Check and install all dependencies
-	@echo "${GREEN}All dependencies checked!${RESET}"
-
-build: deps-go ## Build all binaries
-	@echo "${GREEN}Building API...${RESET}"
-	@GOEXPERIMENT=greenteagc,rangefunc go build -ldflags="-w -s" -o bin/api ./src/api/cmd/main.go
-	@echo "${GREEN}Building Worker...${RESET}"
-	@GOEXPERIMENT=greenteagc,rangefunc go build -ldflags="-w -s" -o bin/worker ./src/workers/cmd/main.go
-	@echo "${GREEN}Build completed!${RESET}"
-
-run-api: build ## Run API locally
-	@echo "${GREEN}Starting API...${RESET}"
-	@./bin/api
-
-run-worker: build ## Run Worker locally
-	@echo "${GREEN}Starting Worker...${RESET}"
-	@./bin/worker
-
-dev-ui: deps-ui ## Run UI in development mode
-	@echo "${GREEN}Starting UI development server...${RESET}"
-	@cd src/ui && npm run dev
-
-test: deps-go ## Run tests
-	@echo "${GREEN}Running tests...${RESET}"
-	@GOEXPERIMENT=greenteagc,rangefunc go test -v ./...
-
-docker-build: ## Build Docker images
-	@echo "${GREEN}Building Docker images...${RESET}"
-	@docker-compose build
-
-docker-up: ## Start all services with Docker Compose
-	@echo "${GREEN}Starting all services...${RESET}"
+up: ## Sobe todos os serviços no Docker (API + Worker + UI + infra)
+	@echo "${YELLOW}Iniciando todos os serviços...${RESET}"
 	@docker-compose up -d --build
-	@echo "${GREEN}Services started!${RESET}"
-	@echo "${YELLOW}API:    http://localhost:8080${RESET}"
-	@echo "${YELLOW}UI:     http://localhost:5173${RESET}"
+	@echo "${GREEN}✓ Serviços iniciados!${RESET}"
+	@echo "${BLUE}API:${RESET} http://localhost:8080"
+	@echo "${BLUE}UI:${RESET}  http://localhost:5173"
 
-docker-down: ## Stop all services
-	@echo "${GREEN}Stopping all services...${RESET}"
+down: ## Para todos os serviços
+	@echo "${YELLOW}Parando todos os serviços...${RESET}"
 	@docker-compose down
+	@echo "${GREEN}✓ Serviços parados!${RESET}"
 
-docker-logs: ## View logs
+logs: ## Visualiza logs dos serviços
 	@docker-compose logs -f
 
-dev-infra: ## Start infrastructure (postgres & redis) for local development
-	@echo "${GREEN}Starting PostgreSQL and Redis...${RESET}"
-	@docker-compose up -d postgres redis
-	@echo "${GREEN}Infrastructure started!${RESET}"
-	@echo "${YELLOW}PostgreSQL: localhost:5432${RESET}"
-	@echo "${YELLOW}Redis:      localhost:6379${RESET}"
+test: ## Executa todos os testes em paralelo com race detector
+	@echo "${YELLOW}Executando todos os testes com race detector...${RESET}"
+	@GOEXPERIMENT=greenteagc,rangefunc go test -race -v -parallel 4 ./src/...
+	@echo "${GREEN}✓ Testes concluídos!${RESET}"
 
-dev-all: deps ## Install dependencies and show instructions to run all services
-	@echo "${GREEN}Dependencies installed!${RESET}"
-	@echo ""
-	@echo "${YELLOW}To run all services locally, open 4 terminals:${RESET}"
-	@echo ""
-	@echo "Terminal 1 - Infrastructure:"
-	@echo "  ${GREEN}make dev-infra${RESET}"
-	@echo ""
-	@echo "Terminal 2 - API:"
-	@echo "  ${GREEN}make run-api${RESET}"
-	@echo ""
-	@echo "Terminal 3 - Worker:"
-	@echo "  ${GREEN}make run-worker${RESET}"
-	@echo ""
-	@echo "Terminal 4 - UI:"
-	@echo "  ${GREEN}make dev-ui${RESET}"
-	@echo ""
+bench: ## Executa benchmark do motor de regras
+	@echo "${YELLOW}Executando benchmark do motor de regras...${RESET}"
+	@GOEXPERIMENT=greenteagc,rangefunc go test -bench=. -benchmem -benchtime=5s -run=^$$ ./src/workers/internal/rules/...
+	@echo "${GREEN}✓ Benchmark concluído!${RESET}"
 
-clean: ## Clean build artifacts
-	@echo "${GREEN}Cleaning...${RESET}"
-	@rm -rf bin/
-	@rm -rf src/ui/node_modules
-	@rm -rf src/ui/.svelte-kit
+clean: ## Remove artefatos de build e volumes Docker
+	@echo "${YELLOW}Limpando artefatos...${RESET}"
+	@rm -rf bin/ coverage.out coverage.html
+	@rm -rf src/ui/node_modules src/ui/.svelte-kit
 	@docker-compose down -v
-
-clean-deps: ## Clean all dependencies
-	@echo "${GREEN}Cleaning dependencies...${RESET}"
-	@rm -rf src/ui/node_modules
-	@rm -rf src/ui/.svelte-kit
-	@go clean -modcache
-
-deps: deps-go deps-ui ## Download and install all dependencies
-	@echo "${GREEN}All dependencies installed!${RESET}"
-
-deps-force: ## Force reinstall all dependencies
-	@echo "${YELLOW}Force reinstalling dependencies...${RESET}"
-	@go mod download
-	@cd src/ui && rm -rf node_modules && npm install
-	@echo "${GREEN}Dependencies reinstalled!${RESET}"
-
-install-hooks: ## Install Git hooks for automated testing
-	@echo "${GREEN}Installing Git hooks...${RESET}"
-	@./src/scripts/install-hooks.sh
-
+	@go clean -testcache -cache
+	@echo "${GREEN}✓ Limpeza concluída!${RESET}"
