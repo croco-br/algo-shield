@@ -34,12 +34,12 @@ logs: ## Visualiza logs dos serviços
 
 test: ## Executa todos os testes em paralelo com race detector
 	@echo "${YELLOW}Executando todos os testes com race detector...${RESET}"
-	@GOEXPERIMENT=greenteagc,rangefunc go test -race -v -parallel 4 ./src/...
+	@go test -race -v -parallel 4 ./src/...
 	@echo "${GREEN}✓ Testes concluídos!${RESET}"
 
 bench: ## Executa benchmark do motor de regras
 	@echo "${YELLOW}Executando benchmark do motor de regras...${RESET}"
-	@GOEXPERIMENT=greenteagc,rangefunc go test -bench=. -benchmem -benchtime=5s -run=^$$ ./src/workers/internal/rules/...
+	@go test -bench=. -benchmem -benchtime=5s -run=^$$ ./src/workers/internal/rules/...
 	@echo "${GREEN}✓ Benchmark concluído!${RESET}"
 
 clean: ## Remove artefatos de build e volumes Docker

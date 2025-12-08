@@ -1,6 +1,6 @@
 services:
   postgres:
-    image: postgres:18-alpine
+    image: postgres:17-alpine
     container_name: algoshield-postgres
     environment:
       POSTGRES_USER: algoshield
@@ -35,7 +35,7 @@ services:
       - algoshield-network
 
   db-init:
-    image: postgres:18-alpine
+    image: postgres:17-alpine
     container_name: algoshield-db-init
     depends_on:
       postgres:
