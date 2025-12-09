@@ -23,6 +23,7 @@ up: ## Start all services in Docker (API + Worker + UI + infra)
 	@echo "${GREEN}✓ Services started!${RESET}"
 	@echo "${BLUE}API:${RESET} http://localhost:8080"
 	@echo "${BLUE}UI:${RESET}  http://localhost:5173"
+	@make logs
 
 down: ## Stop all services
 	@echo "${YELLOW}Stopping all services...${RESET}"

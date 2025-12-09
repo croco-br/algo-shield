@@ -90,7 +90,7 @@ func TestEvaluateAmountRule(t *testing.T) {
 	}
 }
 
-func TestEvaluateBlacklistRule(t *testing.T) {
+func TestEvaluateBlocklistRule(t *testing.T) {
 	engine := &Engine{}
 
 	tests := []struct {
@@ -100,25 +100,25 @@ func TestEvaluateBlacklistRule(t *testing.T) {
 		expected bool
 	}{
 		{
-			name: "From account is blacklisted",
+			name: "From account is blocklisted",
 			event: models.TransactionEvent{
 				ExternalID:  "txn-001",
 				Amount:      1000.0,
 				Currency:    "USD",
-				FromAccount: "acc-blacklisted",
+				FromAccount: "acc-blocklisted",
 				ToAccount:   "acc-456",
 				Type:        "transfer",
 			},
 			rule: models.Rule{
 				ID:       uuid.New(),
-				Name:     "Blacklist Rule",
-				Type:     models.RuleTypeBlacklist,
+				Name:     "Blocklist Rule",
+				Type:     models.RuleTypeBlocklist,
 				Action:   models.ActionBlock,
 				Priority: 1,
 				Enabled:  true,
 				Conditions: map[string]any{
-					"blacklisted_accounts": []interface{}{
-						"acc-blacklisted",
+					"blocklisted_accounts": []interface{}{
+						"acc-blocklisted",
 						"acc-fraud",
 					},
 				},
@@ -127,25 +127,25 @@ func TestEvaluateBlacklistRule(t *testing.T) {
 			expected: true,
 		},
 		{
-			name: "To account is blacklisted",
+			name: "To account is blocklisted",
 			event: models.TransactionEvent{
 				ExternalID:  "txn-002",
 				Amount:      1000.0,
 				Currency:    "USD",
 				FromAccount: "acc-123",
-				ToAccount:   "acc-blacklisted",
+				ToAccount:   "acc-blocklisted",
 				Type:        "transfer",
 			},
 			rule: models.Rule{
 				ID:       uuid.New(),
-				Name:     "Blacklist Rule",
-				Type:     models.RuleTypeBlacklist,
+				Name:     "Blocklist Rule",
+				Type:     models.RuleTypeBlocklist,
 				Action:   models.ActionBlock,
 				Priority: 1,
 				Enabled:  true,
 				Conditions: map[string]any{
-					"blacklisted_accounts": []interface{}{
-						"acc-blacklisted",
+					"blocklisted_accounts": []interface{}{
+						"acc-blocklisted",
 						"acc-fraud",
 					},
 				},
@@ -154,7 +154,7 @@ func TestEvaluateBlacklistRule(t *testing.T) {
 			expected: true,
 		},
 		{
-			name: "No account is blacklisted",
+			name: "No account is blocklisted",
 			event: models.TransactionEvent{
 				ExternalID:  "txn-003",
 				Amount:      1000.0,
@@ -165,14 +165,14 @@ func TestEvaluateBlacklistRule(t *testing.T) {
 			},
 			rule: models.Rule{
 				ID:       uuid.New(),
-				Name:     "Blacklist Rule",
-				Type:     models.RuleTypeBlacklist,
+				Name:     "Blocklist Rule",
+				Type:     models.RuleTypeBlocklist,
 				Action:   models.ActionBlock,
 				Priority: 1,
 				Enabled:  true,
 				Conditions: map[string]any{
-					"blacklisted_accounts": []interface{}{
-						"acc-blacklisted",
+					"blocklisted_accounts": []interface{}{
+						"acc-blocklisted",
 						"acc-fraud",
 					},
 				},
@@ -181,27 +181,27 @@ func TestEvaluateBlacklistRule(t *testing.T) {
 			expected: false,
 		},
 		{
-			name: "Empty blacklist",
+			name: "Empty blocklist",
 			event: models.TransactionEvent{
 				FromAccount: "acc-123",
 				ToAccount:   "acc-456",
 			},
 			rule: models.Rule{
 				Conditions: map[string]any{
-					"blacklisted_accounts": []interface{}{},
+					"blocklisted_accounts": []interface{}{},
 				},
 			},
 			expected: false,
 		},
 		{
-			name: "Invalid blacklist format",
+			name: "Invalid blocklist format",
 			event: models.TransactionEvent{
 				FromAccount: "acc-123",
 				ToAccount:   "acc-456",
 			},
 			rule: models.Rule{
 				Conditions: map[string]any{
-					"blacklisted_accounts": "invalid",
+					"blocklisted_accounts": "invalid",
 				},
 			},
 			expected: false,
@@ -210,9 +210,9 @@ func TestEvaluateBlacklistRule(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result := engine.evaluateBlacklistRule(tt.event, tt.rule)
+			result := engine.evaluateBlocklistRule(tt.event, tt.rule)
 			if result != tt.expected {
-				t.Errorf("evaluateBlacklistRule() = %v, want %v", result, tt.expected)
+				t.Errorf("evaluateBlocklistRule() = %v, want %v", result, tt.expected)
 			}
 		})
 	}
@@ -326,14 +326,14 @@ func TestEvaluate(t *testing.T) {
 			},
 			{
 				ID:       uuid.New(),
-				Name:     "Blacklist Rule",
-				Type:     models.RuleTypeBlacklist,
+				Name:     "Blocklist Rule",
+				Type:     models.RuleTypeBlocklist,
 				Action:   models.ActionBlock,
 				Priority: 2,
 				Enabled:  true,
 				Conditions: map[string]any{
-					"blacklisted_accounts": []interface{}{
-						"acc-blacklisted",
+					"blocklisted_accounts": []interface{}{
+						"acc-blocklisted",
 						"acc-fraud",
 					},
 				},
@@ -398,12 +398,12 @@ func TestEvaluate(t *testing.T) {
 			expectedRules:     []string{"High Amount Rule"},
 		},
 		{
-			name: "High risk transaction - blacklisted account",
+			name: "High risk transaction - blocklisted account",
 			event: models.TransactionEvent{
 				ExternalID:  "txn-003",
 				Amount:      5000.0,
 				Currency:    "USD",
-				FromAccount: "acc-blacklisted",
+				FromAccount: "acc-blocklisted",
 				ToAccount:   "acc-456",
 				Type:        "domestic",
 				Timestamp:   time.Now(),
@@ -412,7 +412,7 @@ func TestEvaluate(t *testing.T) {
 			expectedRiskLevel: models.RiskHigh,
 			expectedMinScore:  100.0,
 			expectedMaxScore:  100.0,
-			expectedRules:     []string{"Blacklist Rule"},
+			expectedRules:     []string{"Blocklist Rule"},
 		},
 		{
 			name: "Multiple rules matched",
@@ -437,7 +437,7 @@ func TestEvaluate(t *testing.T) {
 				ExternalID:  "txn-005",
 				Amount:      20000.0,
 				Currency:    "USD",
-				FromAccount: "acc-blacklisted",
+				FromAccount: "acc-blocklisted",
 				ToAccount:   "acc-456",
 				Type:        "international",
 				Timestamp:   time.Now(),
@@ -446,7 +446,7 @@ func TestEvaluate(t *testing.T) {
 			expectedRiskLevel: models.RiskHigh,
 			expectedMinScore:  145.0,
 			expectedMaxScore:  145.0,
-			expectedRules:     []string{"High Amount Rule", "Blacklist Rule", "International Pattern Rule"},
+			expectedRules:     []string{"High Amount Rule", "Blocklist Rule", "International Pattern Rule"},
 		},
 	}
 

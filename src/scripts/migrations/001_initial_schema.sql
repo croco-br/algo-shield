@@ -1,6 +1,6 @@
 -- Create transactions table
 CREATE TABLE IF NOT EXISTS transactions (
-    id UUID PRIMARY KEY,
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     external_id VARCHAR(255) UNIQUE NOT NULL,
     amount DECIMAL(20, 2) NOT NULL,
     currency VARCHAR(3) NOT NULL,
@@ -19,7 +19,7 @@ CREATE TABLE IF NOT EXISTS transactions (
 
 -- Create rules table
 CREATE TABLE IF NOT EXISTS rules (
-    id UUID PRIMARY KEY,
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     name VARCHAR(255) NOT NULL,
     description TEXT,
     type VARCHAR(50) NOT NULL,
@@ -46,6 +46,6 @@ INSERT INTO rules (id, name, description, type, action, priority, enabled, condi
     (gen_random_uuid(), 'High Amount Transaction', 'Flag transactions above $10,000', 'amount', 'score', 10, true, '{"amount_threshold": 10000}', 30),
     (gen_random_uuid(), 'Very High Amount Transaction', 'Block transactions above $50,000', 'amount', 'block', 5, true, '{"amount_threshold": 50000}', 100),
     (gen_random_uuid(), 'Transaction Velocity Check', 'Flag accounts with more than 10 transactions per hour', 'velocity', 'score', 20, true, '{"transaction_count": 10, "time_window_seconds": 3600}', 40),
-    (gen_random_uuid(), 'Blacklist Check', 'Block transactions from blacklisted accounts', 'blacklist', 'block', 1, true, '{"blacklisted_accounts": []}', 100)
+    (gen_random_uuid(), 'Blocklist Check', 'Block transactions from blocklisted accounts', 'blocklist', 'block', 1, true, '{"blocklisted_accounts": []}', 100)
 ON CONFLICT DO NOTHING;
 

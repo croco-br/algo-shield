@@ -9,12 +9,12 @@ import (
 type RuleType string
 
 const (
-	RuleTypeAmount     RuleType = "amount"
-	RuleTypeVelocity   RuleType = "velocity"
-	RuleTypeBlacklist  RuleType = "blacklist"
-	RuleTypePattern    RuleType = "pattern"
-	RuleTypeGeography  RuleType = "geography"
-	RuleTypeCustom     RuleType = "custom"
+	RuleTypeAmount    RuleType = "amount"
+	RuleTypeVelocity  RuleType = "velocity"
+	RuleTypeBlocklist RuleType = "blocklist"
+	RuleTypePattern   RuleType = "pattern"
+	RuleTypeGeography RuleType = "geography"
+	RuleTypeCustom    RuleType = "custom"
 )
 
 type RuleAction string
@@ -44,8 +44,7 @@ type RuleConfig struct {
 	AmountThreshold     *float64 `json:"amount_threshold,omitempty"`
 	TransactionCount    *int     `json:"transaction_count,omitempty"`
 	TimeWindowSeconds   *int     `json:"time_window_seconds,omitempty"`
-	BlacklistedAccounts []string `json:"blacklisted_accounts,omitempty"`
+	BlocklistedAccounts []string `json:"blocklisted_accounts,omitempty"`
 	Pattern             *string  `json:"pattern,omitempty"`
 	CustomExpression    *string  `json:"custom_expression,omitempty"`
 }
-

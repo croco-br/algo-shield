@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
+	import { api } from '$lib/api';
 
 	interface Rule {
 		id: string;
@@ -21,12 +22,10 @@
 	let editingRule: Partial<Rule> = {};
 	let isEditing = false;
 
-	const API_BASE = 'http://localhost:8080/api/v1';
-
 	const ruleTypes = [
 		{ value: 'amount', label: 'Amount Threshold' },
 		{ value: 'velocity', label: 'Transaction Velocity' },
-		{ value: 'blacklist', label: 'Blacklist' },
+		{ value: 'blocklist', label: 'Blocklist' },
 		{ value: 'pattern', label: 'Pattern Match' },
 		{ value: 'custom', label: 'Custom' }
 	];
@@ -45,8 +44,7 @@
 	async function loadRules() {
 		loading = true;
 		try {
-			const response = await fetch(`${API_BASE}/rules`);
-			const data = await response.json();
+			const data = await api.get<{ rules: Rule[] }>('/api/v1/rules');
 			rules = data.rules || [];
 		} catch (error) {
 			console.error('Failed to load rules:', error);
@@ -82,21 +80,13 @@
 
 	async function saveRule() {
 		try {
-			const url = isEditing
-				? `${API_BASE}/rules/${editingRule.id}`
-				: `${API_BASE}/rules`;
-			const method = isEditing ? 'PUT' : 'POST';
-
-			const response = await fetch(url, {
-				method,
-				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify(editingRule)
-			});
-
-			if (response.ok) {
-				closeModal();
-				loadRules();
+			if (isEditing) {
+				await api.put(`/api/v1/rules/${editingRule.id}`, editingRule);
+			} else {
+				await api.post('/api/v1/rules', editingRule);
 			}
+			closeModal();
+			loadRules();
 		} catch (error) {
 			console.error('Failed to save rule:', error);
 		}
@@ -106,13 +96,8 @@
 		if (!confirm('Are you sure you want to delete this rule?')) return;
 
 		try {
-			const response = await fetch(`${API_BASE}/rules/${id}`, {
-				method: 'DELETE'
-			});
-
-			if (response.ok) {
-				loadRules();
-			}
+			await api.delete(`/api/v1/rules/${id}`);
+			loadRules();
 		} catch (error) {
 			console.error('Failed to delete rule:', error);
 		}

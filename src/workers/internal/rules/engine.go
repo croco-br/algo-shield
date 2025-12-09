@@ -140,8 +140,8 @@ func (e *Engine) evaluateRule(ctx context.Context, event models.TransactionEvent
 		return e.evaluateAmountRule(event, rule)
 	case models.RuleTypeVelocity:
 		return e.evaluateVelocityRule(ctx, event, rule)
-	case models.RuleTypeBlacklist:
-		return e.evaluateBlacklistRule(event, rule)
+	case models.RuleTypeBlocklist:
+		return e.evaluateBlocklistRule(event, rule)
 	case models.RuleTypePattern:
 		return e.evaluatePatternRule(event, rule)
 	default:
@@ -186,13 +186,13 @@ func (e *Engine) evaluateVelocityRule(ctx context.Context, event models.Transact
 	return count > int(maxCount)
 }
 
-func (e *Engine) evaluateBlacklistRule(event models.TransactionEvent, rule models.Rule) bool {
-	blacklist, ok := rule.Conditions["blacklisted_accounts"].([]interface{})
+func (e *Engine) evaluateBlocklistRule(event models.TransactionEvent, rule models.Rule) bool {
+	blocklist, ok := rule.Conditions["blocklisted_accounts"].([]interface{})
 	if !ok {
 		return false
 	}
 
-	for _, account := range blacklist {
+	for _, account := range blocklist {
 		if accountStr, ok := account.(string); ok {
 			if accountStr == event.FromAccount || accountStr == event.ToAccount {
 				return true

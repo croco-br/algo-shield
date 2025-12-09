@@ -14,13 +14,19 @@
 
 	// Check authentication for protected routes
 	$: {
-		if ($page.url.pathname !== '/login' && !user) {
+		const publicRoutes = ['/login'];
+		const isPublicRoute = publicRoutes.some(route => $page.url.pathname.startsWith(route));
+		if (!isPublicRoute && !user) {
 			goto('/login');
 		}
 	}
 
-	function logout() {
-		authStore.logout();
+	// Check if user has admin role
+	$: isAdmin = user?.roles?.some((role: any) => role.name === 'admin') || false;
+	$: hasRuleEditor = user?.roles?.some((role: any) => role.name === 'rule_editor' || role.name === 'admin') || false;
+
+	async function logout() {
+		await authStore.logout();
 		goto('/login');
 	}
 
@@ -69,12 +75,25 @@
 						>
 							Synthetic Test
 						</a>
+						{#if isAdmin}
+							<a 
+								href="/permissions" 
+								class="nav-link"
+								class:active={$page.url.pathname === '/permissions'}
+							>
+								Permissions
+							</a>
+						{/if}
 					</div>
 
 					<div class="user-menu-container">
 						<button class="user-button" on:click={toggleUserMenu}>
 							<div class="user-avatar">
-								{user.name.charAt(0).toUpperCase()}
+								{#if user.picture_url}
+									<img src={user.picture_url} alt={user.name} />
+								{:else}
+									{user.name.charAt(0).toUpperCase()}
+								{/if}
 							</div>
 							<div class="user-info">
 								<div class="user-name">{user.name}</div>
@@ -90,8 +109,10 @@
 								<div class="user-menu-header">
 									<div class="user-name">{user.name}</div>
 									<div class="user-email">{user.email}</div>
-									<div class="auth-type-badge">
-										{user.authType === 'sso' ? 'SSO' : 'Local'}
+									<div class="user-roles">
+										{#each (user.roles || []) as role}
+											<span class="role-badge">{role.name}</span>
+										{/each}
 									</div>
 								</div>
 								<button class="menu-item logout" on:click={logout}>
@@ -202,6 +223,13 @@
 		justify-content: center;
 		font-weight: 600;
 		font-size: 1.125rem;
+		overflow: hidden;
+	}
+
+	.user-avatar img {
+		width: 100%;
+		height: 100%;
+		object-fit: cover;
 	}
 
 	.user-info {
@@ -254,14 +282,21 @@
 		margin-bottom: 0.5rem;
 	}
 
-	.auth-type-badge {
+	.user-roles {
+		display: flex;
+		flex-wrap: wrap;
+		gap: 0.5rem;
+		margin-top: 0.5rem;
+	}
+
+	.role-badge {
 		display: inline-block;
 		padding: 0.25rem 0.75rem;
-		background: var(--surface);
+		background: var(--primary);
+		color: white;
 		border-radius: 4px;
 		font-size: 0.75rem;
 		font-weight: 500;
-		color: var(--text-secondary);
 	}
 
 	.menu-item {

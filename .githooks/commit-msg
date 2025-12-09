@@ -46,7 +46,7 @@ if ! echo "$COMMIT_MSG" | grep -qE "$CONVENTIONAL_COMMIT_REGEX"; then
     echo "  feat: add transaction velocity check"
     echo "  fix(api): correct rule evaluation logic"
     echo "  docs: update API documentation"
-    echo "  test(rules): add unit tests for blacklist rules"
+    echo "  test(rules): add unit tests for blocklist rules"
     echo ""
     exit 1
 fi

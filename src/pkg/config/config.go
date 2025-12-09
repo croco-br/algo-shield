@@ -14,6 +14,7 @@ type Config struct {
 	API      APIConfig
 	Worker   WorkerConfig
 	General  GeneralConfig
+	Auth     AuthConfig
 }
 
 type DatabaseConfig struct {
@@ -44,6 +45,11 @@ type GeneralConfig struct {
 	LogLevel    string
 }
 
+type AuthConfig struct {
+	JWTSecret          string
+	JWTExpirationHours int
+}
+
 func Load() (*Config, error) {
 	// Load .env file if exists (ignore error in production)
 	_ = godotenv.Load()
@@ -71,6 +77,10 @@ func Load() (*Config, error) {
 		General: GeneralConfig{
 			Environment: getEnv("ENVIRONMENT", "development"),
 			LogLevel:    getEnv("LOG_LEVEL", "info"),
+		},
+		Auth: AuthConfig{
+			JWTSecret:          getEnv("JWT_SECRET", "change-me-in-production"),
+			JWTExpirationHours: getEnvInt("JWT_EXPIRATION_HOURS", 24),
 		},
 	}
 
@@ -107,4 +117,3 @@ func getEnvInt(key string, defaultValue int) int {
 	}
 	return defaultValue
 }
-

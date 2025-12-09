@@ -29,6 +29,17 @@ body {
 	line-height: 1.6;
 }
 
+/* Text selection styling */
+::selection {
+	background-color: var(--primary);
+	color: white;
+}
+
+::-moz-selection {
+	background-color: var(--primary);
+	color: white;
+}
+
 .container {
 	max-width: 1200px;
 	margin: 0 auto;
@@ -78,11 +89,34 @@ body {
 	border-radius: 6px;
 	font-size: 1rem;
 	transition: border-color 0.2s;
+	color: var(--text);
+	background: white;
+}
+
+/* Remove spinner buttons from number inputs */
+.input[type="number"] {
+	-moz-appearance: textfield;
+}
+
+.input[type="number"]::-webkit-outer-spin-button,
+.input[type="number"]::-webkit-inner-spin-button {
+	-webkit-appearance: none;
+	margin: 0;
 }
 
 .input:focus {
 	outline: none;
 	border-color: var(--primary);
+}
+
+.input::selection {
+	background-color: var(--primary);
+	color: white;
+}
+
+.input::-moz-selection {
+	background-color: var(--primary);
+	color: white;
 }
 
 .select {
@@ -93,6 +127,23 @@ body {
 	font-size: 1rem;
 	background: white;
 	cursor: pointer;
+	color: var(--text);
+	transition: border-color 0.2s;
+}
+
+.select:focus {
+	outline: none;
+	border-color: var(--primary);
+}
+
+.select::selection {
+	background-color: var(--primary);
+	color: white;
+}
+
+.select::-moz-selection {
+	background-color: var(--primary);
+	color: white;
 }
 
 .label {

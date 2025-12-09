@@ -53,3 +53,4 @@ node_modules/
 src/ui/node_modules/
 src/ui/.svelte-kit/
 src/ui/build/
+.todo

@@ -7,7 +7,12 @@ until PGPASSWORD=$POSTGRES_PASSWORD psql -h "$POSTGRES_HOST" -U "$POSTGRES_USER"
 done
 
 echo "PostgreSQL is ready. Running migrations..."
-PGPASSWORD=$POSTGRES_PASSWORD psql -h "$POSTGRES_HOST" -U "$POSTGRES_USER" -d "$POSTGRES_DB" -f /migrations/001_initial_schema.sql
+
+# Run all migrations in order (sorted by filename)
+for migration in $(ls -1 /migrations/*.sql | sort -V); do
+    echo "Running migration: $(basename $migration)"
+    PGPASSWORD=$POSTGRES_PASSWORD psql -h "$POSTGRES_HOST" -U "$POSTGRES_USER" -d "$POSTGRES_DB" -f "$migration"
+done
 
 echo "Database initialized successfully!"
 

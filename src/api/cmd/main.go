@@ -51,7 +51,7 @@ func main() {
 	})
 
 	// Setup routes
-	routes.Setup(app, db.Pool, redis.Client)
+	routes.Setup(app, db.Pool, redis.Client, cfg)
 
 	// Graceful shutdown
 	c := make(chan os.Signal, 1)

@@ -220,13 +220,13 @@ Checks transaction frequency:
 }
 ```
 
-### Blacklist Rule
+### Blocklist Rule
 Blocks specific accounts:
 ```json
 {
-  "type": "blacklist",
+  "type": "blocklist",
   "conditions": {
-    "blacklisted_accounts": ["ACC123", "ACC456"]
+    "blocklisted_accounts": ["ACC123", "ACC456"]
   }
 }
 ```
