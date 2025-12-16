@@ -124,14 +124,7 @@ jobs:
           args: '-no-fail -fmt json -out gosec-report.json ./...'
         continue-on-error: true
         id: gosec
-      
-      - name: Upload Gosec results
-        uses: actions/upload-artifact@v4
-        if: always()
-        with:
-          name: gosec-results
-          path: gosec-report.json
-      
+        
       # SAST - Semgrep
       - name: Run Semgrep
         uses: returntocorp/semgrep-action@v1
