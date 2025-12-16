@@ -100,7 +100,6 @@ jobs:
     name: Security Scan
     runs-on: ubuntu-latest
     needs: build
-    if: always()
     
     steps:
       - name: Checkout code
@@ -279,7 +278,6 @@ jobs:
     name: Test
     runs-on: ubuntu-latest
     needs: security
-    if: always()
     
     services:
       postgres:
