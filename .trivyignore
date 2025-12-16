@@ -1,0 +1,7 @@
+# Trivy ignore file
+# Add CVE IDs or package names to ignore false positives
+# Format: CVE-YYYY-NNNNN or package@version
+
+# Example:
+# CVE-2023-12345
+# example-package@1.2.3

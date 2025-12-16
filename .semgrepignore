@@ -1,0 +1,8 @@
+# Semgrep ignore patterns
+# Add files or directories to ignore
+
+# Example:
+# node_modules/
+# vendor/
+# *.min.js
+# dist/

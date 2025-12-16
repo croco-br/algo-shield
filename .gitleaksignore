@@ -1,0 +1,7 @@
+# Gitleaks ignore patterns
+# Add patterns to ignore false positives
+
+# Example patterns:
+# ^test/.*$
+# ^.*\.test\.go$
+# ^.*example.*$

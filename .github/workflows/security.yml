@@ -1,0 +1,206 @@
+name: Security Scan
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main, develop ]
+  schedule:
+    # Run weekly on Mondays at 00:00 UTC
+    - cron: '0 0 * * 1'
+
+jobs:
+  # SAST - Static Application Security Testing
+  sast:
+    name: SAST Analysis
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      # Gosec - Go Security Checker
+      - name: Run Gosec Security Scanner
+        uses: securego/gosec@master
+        with:
+          args: '-no-fail -fmt json -out gosec-report.json ./...'
+      
+      - name: Upload Gosec results
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: gosec-results
+          path: gosec-report.json
+      
+      # Semgrep - Multi-language SAST
+      - name: Run Semgrep
+        uses: returntocorp/semgrep-action@v1
+        with:
+          config: >-
+            p/security-audit
+            p/golang
+            p/javascript
+            p/typescript
+          generateSarif: "1"
+      
+      - name: Upload Semgrep results to GitHub Security
+        uses: github/codeql-action/upload-sarif@v3
+        if: always()
+        with:
+          sarif_file: semgrep.sarif
+
+  # Dependency Vulnerability Scanning
+  dependency-scan:
+    name: Dependency Vulnerability Scan
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      # Trivy - Comprehensive vulnerability scanner
+      - name: Run Trivy vulnerability scanner in repo mode
+        uses: aquasecurity/trivy-action@master
+        with:
+          scan-type: 'fs'
+          scan-ref: '.'
+          format: 'sarif'
+          output: 'trivy-results.sarif'
+          severity: 'CRITICAL,HIGH'
+      
+      - name: Upload Trivy results to GitHub Security
+        uses: github/codeql-action/upload-sarif@v3
+        if: always()
+        with:
+          sarif_file: trivy-results.sarif
+      
+      # Go dependencies scan
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.25.4'
+      
+      - name: Run Trivy on Go dependencies
+        uses: aquasecurity/trivy-action@master
+        with:
+          scan-type: 'fs'
+          scan-ref: '.'
+          format: 'table'
+          scanners: 'vuln'
+          severity: 'CRITICAL,HIGH,MEDIUM'
+      
+      # Node.js dependencies scan
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      
+      - name: Install npm dependencies
+        working-directory: ./src/ui
+        run: npm ci
+      
+      - name: Run npm audit
+        working-directory: ./src/ui
+        run: npm audit --audit-level=moderate || true
+        continue-on-error: true
+      
+      - name: Run Trivy on Node.js dependencies
+        uses: aquasecurity/trivy-action@master
+        with:
+          scan-type: 'fs'
+          scan-ref: './src/ui'
+          format: 'table'
+          scanners: 'vuln'
+          severity: 'CRITICAL,HIGH,MEDIUM'
+
+  # Secret Detection
+  secret-scan:
+    name: Secret Detection
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # Full history for better secret detection
+      
+      # Gitleaks - Secret detection
+      - name: Run Gitleaks
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      
+      # TruffleHog - Alternative secret scanner
+      - name: Run TruffleHog
+        uses: trufflesecurity/trufflehog@main
+        with:
+          path: ./
+          base: ${{ github.event.repository.default_branch }}
+          head: HEAD
+
+  # Docker Image Scanning (if building images)
+  docker-scan:
+    name: Docker Image Scan
+    runs-on: ubuntu-latest
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+      
+      - name: Build Docker images
+        run: |
+          docker build -f Dockerfile.api -t algoshield-api:test .
+          docker build -f Dockerfile.worker -t algoshield-worker:test .
+          docker build -f Dockerfile.ui -t algoshield-ui:test .
+      
+      - name: Run Trivy vulnerability scanner on Docker images
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: 'algoshield-api:test'
+          format: 'sarif'
+          output: 'trivy-image-api.sarif'
+          severity: 'CRITICAL,HIGH'
+      
+      - name: Upload Trivy image results
+        uses: github/codeql-action/upload-sarif@v3
+        if: always()
+        with:
+          sarif_file: trivy-image-api.sarif
+
+  # Security Summary
+  security-summary:
+    name: Security Summary
+    runs-on: ubuntu-latest
+    needs: [sast, dependency-scan, secret-scan]
+    if: always()
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        if: always()
+      
+      - name: Security Scan Summary
+        run: |
+          echo "## 🔒 Security Scan Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### ✅ Completed Scans:" >> $GITHUB_STEP_SUMMARY
+          echo "- SAST Analysis (Gosec, Semgrep)" >> $GITHUB_STEP_SUMMARY
+          echo "- Dependency Vulnerability Scan (Trivy, npm audit)" >> $GITHUB_STEP_SUMMARY
+          echo "- Secret Detection (Gitleaks, TruffleHog)" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### 📊 Results:" >> $GITHUB_STEP_SUMMARY
+          echo "Check the Security tab in GitHub for detailed findings." >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### 🔍 Tools Used:" >> $GITHUB_STEP_SUMMARY
+          echo "- **Gosec**: Go security checker" >> $GITHUB_STEP_SUMMARY
+          echo "- **Semgrep**: Multi-language SAST" >> $GITHUB_STEP_SUMMARY
+          echo "- **Trivy**: Vulnerability scanner" >> $GITHUB_STEP_SUMMARY
+          echo "- **Gitleaks**: Secret detection" >> $GITHUB_STEP_SUMMARY
+          echo "- **TruffleHog**: Secret scanning" >> $GITHUB_STEP_SUMMARY
