@@ -30,4 +30,3 @@ func (l *Logger) Debug(format string, v ...interface{}) {
 func (l *Logger) Warn(format string, v ...interface{}) {
 	l.logger.Printf("[WARN] "+format, v...)
 }
-

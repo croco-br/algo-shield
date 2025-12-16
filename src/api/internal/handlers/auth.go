@@ -3,6 +3,7 @@ package handlers
 import (
 	"context"
 	"fmt"
+	"log"
 	"time"
 
 	"github.com/algo-shield/algo-shield/src/api/internal/services"
@@ -137,9 +138,11 @@ func (h *AuthHandler) Login(c *fiber.Ctx) error {
 		})
 	}
 
-	// Update last login
+	// Update last login (non-critical, don't fail login if this fails)
 	now := time.Now()
-	h.userService.UpdateLastLogin(ctx, user.ID, &now)
+	if err := h.userService.UpdateLastLogin(ctx, user.ID, &now); err != nil {
+		log.Printf("Failed to update last login for user %s: %v", user.ID, err)
+	}
 
 	// Generate JWT token
 	jwtToken, err := h.generateJWT(user)

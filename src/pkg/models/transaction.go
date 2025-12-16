@@ -24,21 +24,21 @@ const (
 )
 
 type Transaction struct {
-	ID              uuid.UUID         `json:"id"`
-	ExternalID      string            `json:"external_id"`
-	Amount          float64           `json:"amount"`
-	Currency        string            `json:"currency"`
-	FromAccount     string            `json:"from_account"`
-	ToAccount       string            `json:"to_account"`
-	Type            string            `json:"type"`
-	Status          TransactionStatus `json:"status"`
-	RiskScore       float64           `json:"risk_score"`
-	RiskLevel       RiskLevel         `json:"risk_level"`
-	ProcessingTime  int64             `json:"processing_time_ms"`
-	MatchedRules    []string          `json:"matched_rules"`
-	Metadata        map[string]any    `json:"metadata"`
-	CreatedAt       time.Time         `json:"created_at"`
-	ProcessedAt     *time.Time        `json:"processed_at"`
+	ID             uuid.UUID         `json:"id"`
+	ExternalID     string            `json:"external_id"`
+	Amount         float64           `json:"amount"`
+	Currency       string            `json:"currency"`
+	FromAccount    string            `json:"from_account"`
+	ToAccount      string            `json:"to_account"`
+	Type           string            `json:"type"`
+	Status         TransactionStatus `json:"status"`
+	RiskScore      float64           `json:"risk_score"`
+	RiskLevel      RiskLevel         `json:"risk_level"`
+	ProcessingTime int64             `json:"processing_time_ms"`
+	MatchedRules   []string          `json:"matched_rules"`
+	Metadata       map[string]any    `json:"metadata"`
+	CreatedAt      time.Time         `json:"created_at"`
+	ProcessedAt    *time.Time        `json:"processed_at"`
 }
 
 type TransactionEvent struct {
@@ -61,4 +61,3 @@ type TransactionResult struct {
 	ProcessingTime int64             `json:"processing_time_ms"`
 	Message        string            `json:"message"`
 }
-

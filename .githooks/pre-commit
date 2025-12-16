@@ -25,25 +25,26 @@ if [ ! -f "go.mod" ]; then
     exit 1
 fi
 
-echo -e "${YELLOW}→ Running Go unit tests...${NC}"
+# Format Go code first
+echo -e "${YELLOW}→ Formatting Go code...${NC}"
+go fmt ./...
+# Check if any Go files were reformatted
+FORMATTED_FILES=$(git diff --name-only --diff-filter=ACM | grep '\.go$' || true)
+if [ -n "$FORMATTED_FILES" ]; then
+    echo -e "${YELLOW}⚠ Some Go files were reformatted${NC}"
+    echo -e "${YELLOW}Reformatted files have been staged automatically${NC}"
+    echo "$FORMATTED_FILES" | xargs git add
+fi
+echo -e "${GREEN}✓ Go code formatted${NC}"
 
 # Run Go tests
+echo -e "${YELLOW}→ Running Go unit tests...${NC}"
 if GOEXPERIMENT=greenteagc,rangefunc go test -v -short ./...; then
     echo -e "${GREEN}✓ Go tests passed${NC}"
 else
     echo -e "${RED}✗ Go tests failed${NC}"
     echo -e "${YELLOW}Commit aborted. Fix the tests and try again.${NC}"
     exit 1
-fi
-
-# Check for common issues
-echo -e "${YELLOW}→ Checking Go formatting...${NC}"
-if [ -n "$(gofmt -l .)" ]; then
-    echo -e "${RED}✗ Go files need formatting${NC}"
-    echo -e "${YELLOW}Run: go fmt ./...${NC}"
-    exit 1
-else
-    echo -e "${GREEN}✓ Go formatting is correct${NC}"
 fi
 
 # Check for go.mod/go.sum consistency

@@ -68,4 +68,3 @@ func TestTransactionCreation(t *testing.T) {
 		t.Errorf("Expected amount 100.50, got %f", txn.Amount)
 	}
 }
-

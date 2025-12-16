@@ -14,4 +14,3 @@ func CORS() fiber.Handler {
 		MaxAge:           86400,
 	})
 }
-

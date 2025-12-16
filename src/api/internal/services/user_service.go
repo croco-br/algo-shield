@@ -3,6 +3,7 @@ package services
 import (
 	"context"
 	"database/sql"
+	"log"
 	"time"
 
 	"github.com/algo-shield/algo-shield/src/pkg/models"
@@ -122,12 +123,19 @@ func (s *UserService) CreateUser(ctx context.Context, email, name, passwordHash 
 		UpdatedAt:    time.Now(),
 	}
 
+	// Start transaction
+	tx, err := s.db.Begin(ctx)
+	if err != nil {
+		return nil, err
+	}
+	defer tx.Rollback(ctx)
+
+	// Insert user
 	query := `
 		INSERT INTO users (id, email, name, password_hash, auth_type, active, created_at, updated_at)
 		VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
 	`
-
-	_, err := s.db.Exec(ctx, query,
+	_, err = tx.Exec(ctx, query,
 		user.ID, user.Email, user.Name, user.PasswordHash,
 		user.AuthType, user.Active, user.CreatedAt, user.UpdatedAt,
 	)
@@ -136,15 +144,36 @@ func (s *UserService) CreateUser(ctx context.Context, email, name, passwordHash 
 	}
 
 	// Assign default viewer role to new users (by name)
+	// This is non-critical - user creation succeeds even if role assignment fails
 	var viewerRoleID uuid.UUID
 	roleQuery := `SELECT id FROM roles WHERE name = 'viewer' LIMIT 1`
-	if err := s.db.QueryRow(ctx, roleQuery).Scan(&viewerRoleID); err == nil {
-		if err := s.AssignRole(ctx, user.ID, viewerRoleID); err != nil {
-			// Log error but don't fail user creation
+	err = tx.QueryRow(ctx, roleQuery).Scan(&viewerRoleID)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			log.Printf("Warning: 'viewer' role not found, user %s created without default role", user.ID)
+		} else {
+			log.Printf("Error querying for 'viewer' role for user %s: %v", user.ID, err)
+		}
+	} else {
+		// Role found, assign it within the transaction
+		assignRoleQuery := `
+			INSERT INTO user_roles (user_id, role_id, assigned_at)
+			VALUES ($1, $2, $3)
+			ON CONFLICT (user_id, role_id) DO NOTHING
+		`
+		_, err = tx.Exec(ctx, assignRoleQuery, user.ID, viewerRoleID, time.Now())
+		if err != nil {
+			log.Printf("Error assigning default 'viewer' role to user %s: %v", user.ID, err)
+			// Continue with user creation even if role assignment fails
 		}
 	}
 
-	// Load roles and groups
+	// Commit transaction
+	if err := tx.Commit(ctx); err != nil {
+		return nil, err
+	}
+
+	// Load roles and groups (read-only operations, outside transaction)
 	if err := s.loadUserRoles(ctx, user); err != nil {
 		return nil, err
 	}

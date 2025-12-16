@@ -59,4 +59,3 @@ func (h *HealthHandler) Ready(c *fiber.Ctx) error {
 		"status": "ready",
 	})
 }
-

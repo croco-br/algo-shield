@@ -41,4 +41,3 @@ func (r *RedisClient) Close() error {
 func (r *RedisClient) Health(ctx context.Context) error {
 	return r.Client.Ping(ctx).Err()
 }
-
