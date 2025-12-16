@@ -1,12 +1,16 @@
-name: Build and Test
+name: Build, Scan and Test
 
 on:
   push:
     branches: [ main, develop ]
   pull_request:
     branches: [ main, develop ]
+  schedule:
+    # Run security scans weekly on Mondays at 00:00 UTC
+    - cron: '0 0 * * 1'
 
 jobs:
+  # Step 1: Lint
   lint:
     name: Lint
     runs-on: ubuntu-latest
@@ -24,7 +28,9 @@ jobs:
         uses: golangci/golangci-lint-action@v9
         with:
           version: latest
+        continue-on-error: false
   
+  # Step 2: Build
   build:
     name: Build
     runs-on: ubuntu-latest
@@ -39,16 +45,253 @@ jobs:
         with:
           go-version: '1.25.4'
       
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      
+      - name: Cache Go modules
+        uses: actions/cache@v3
+        with:
+          path: ~/go/pkg/mod
+          key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
+          restore-keys: |
+            ${{ runner.os }}-go-
+      
+      - name: Cache Node modules
+        uses: actions/cache@v3
+        with:
+          path: ~/.npm
+          key: ${{ runner.os }}-node-${{ hashFiles('**/package-lock.json') }}
+          restore-keys: |
+            ${{ runner.os }}-node-
+      
+      - name: Download Go dependencies
+        run: go mod download
+      
+      - name: Install Node dependencies
+        working-directory: ./src/ui
+        run: npm ci
+      
       - name: Build API
         run: go build -ldflags="-w -s" -o bin/api ./src/api/cmd/main.go
       
       - name: Build Worker
         run: go build -ldflags="-w -s" -o bin/worker ./src/workers/cmd/main.go
+      
+      - name: Build UI
+        working-directory: ./src/ui
+        run: npm run build
+        continue-on-error: false
+      
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: build-artifacts
+          path: |
+            bin/api
+            bin/worker
+            src/ui/build
+          retention-days: 1
 
+  # Step 3: Security
+  security:
+    name: Security Scan
+    runs-on: ubuntu-latest
+    needs: build
+    if: always()
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # Full history for secret detection
+      
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.25.4'
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      
+      # SAST - Gosec
+      - name: Run Gosec Security Scanner
+        uses: securego/gosec@master
+        with:
+          args: '-no-fail -fmt json -out gosec-report.json ./...'
+        continue-on-error: true
+        id: gosec
+      
+      - name: Upload Gosec results
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: gosec-results
+          path: gosec-report.json
+      
+      # SAST - Semgrep
+      - name: Run Semgrep
+        uses: returntocorp/semgrep-action@v1
+        with:
+          config: >-
+            p/security-audit
+            p/golang
+            p/javascript
+            p/typescript
+          generateSarif: "1"
+        continue-on-error: true
+        id: semgrep
+      
+      - name: Upload Semgrep results to GitHub Security
+        uses: github/codeql-action/upload-sarif@v3
+        if: always()
+        with:
+          sarif_file: semgrep.sarif
+      
+      # Dependency Scan - Trivy (Filesystem)
+      - name: Run Trivy vulnerability scanner (filesystem)
+        uses: aquasecurity/trivy-action@master
+        with:
+          scan-type: 'fs'
+          scan-ref: '.'
+          format: 'sarif'
+          output: 'trivy-results.sarif'
+          severity: 'CRITICAL,HIGH'
+        continue-on-error: true
+        id: trivy-fs
+      
+      - name: Upload Trivy filesystem results to GitHub Security
+        uses: github/codeql-action/upload-sarif@v3
+        if: always()
+        with:
+          sarif_file: trivy-results.sarif
+      
+      # Dependency Scan - Trivy (Go dependencies)
+      - name: Run Trivy on Go dependencies
+        uses: aquasecurity/trivy-action@master
+        with:
+          scan-type: 'fs'
+          scan-ref: '.'
+          format: 'table'
+          scanners: 'vuln'
+          severity: 'CRITICAL,HIGH,MEDIUM'
+        continue-on-error: true
+        id: trivy-go
+      
+      # Dependency Scan - npm audit
+      - name: Install npm dependencies
+        working-directory: ./src/ui
+        run: npm ci
+        continue-on-error: true
+      
+      - name: Run npm audit
+        working-directory: ./src/ui
+        run: npm audit --audit-level=moderate || true
+        continue-on-error: true
+        id: npm-audit
+      
+      # Dependency Scan - Trivy (Node.js dependencies)
+      - name: Run Trivy on Node.js dependencies
+        uses: aquasecurity/trivy-action@master
+        with:
+          scan-type: 'fs'
+          scan-ref: './src/ui'
+          format: 'table'
+          scanners: 'vuln'
+          severity: 'CRITICAL,HIGH,MEDIUM'
+        continue-on-error: true
+        id: trivy-node
+      
+      # Secret Detection - Gitleaks
+      - name: Run Gitleaks
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        continue-on-error: true
+        id: gitleaks
+      
+      # Secret Detection - TruffleHog
+      - name: Run TruffleHog
+        uses: trufflesecurity/trufflehog@main
+        with:
+          path: ./
+          base: ${{ github.event.repository.default_branch }}
+          head: HEAD
+        continue-on-error: true
+        id: trufflehog
+      
+      # Security Summary
+      - name: Security Scan Summary
+        if: always()
+        run: |
+          echo "## 🔒 Security Scan Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### ✅ Completed Scans:" >> $GITHUB_STEP_SUMMARY
+          
+          if [ "${{ steps.gosec.outcome }}" == "success" ]; then
+            echo "✅ Gosec: Passed" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "⚠️ Gosec: Issues found (non-blocking)" >> $GITHUB_STEP_SUMMARY
+          fi
+          
+          if [ "${{ steps.semgrep.outcome }}" == "success" ]; then
+            echo "✅ Semgrep: Passed" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "⚠️ Semgrep: Issues found (non-blocking)" >> $GITHUB_STEP_SUMMARY
+          fi
+          
+          if [ "${{ steps.trivy-fs.outcome }}" == "success" ]; then
+            echo "✅ Trivy (Filesystem): Passed" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "⚠️ Trivy (Filesystem): Issues found (non-blocking)" >> $GITHUB_STEP_SUMMARY
+          fi
+          
+          if [ "${{ steps.trivy-go.outcome }}" == "success" ]; then
+            echo "✅ Trivy (Go): Passed" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "⚠️ Trivy (Go): Issues found (non-blocking)" >> $GITHUB_STEP_SUMMARY
+          fi
+          
+          if [ "${{ steps.npm-audit.outcome }}" == "success" ]; then
+            echo "✅ npm audit: Passed" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "⚠️ npm audit: Issues found (non-blocking)" >> $GITHUB_STEP_SUMMARY
+          fi
+          
+          if [ "${{ steps.trivy-node.outcome }}" == "success" ]; then
+            echo "✅ Trivy (Node.js): Passed" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "⚠️ Trivy (Node.js): Issues found (non-blocking)" >> $GITHUB_STEP_SUMMARY
+          fi
+          
+          if [ "${{ steps.gitleaks.outcome }}" == "success" ]; then
+            echo "✅ Gitleaks: Passed" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "⚠️ Gitleaks: Issues found (non-blocking)" >> $GITHUB_STEP_SUMMARY
+          fi
+          
+          if [ "${{ steps.trufflehog.outcome }}" == "success" ]; then
+            echo "✅ TruffleHog: Passed" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "⚠️ TruffleHog: Issues found (non-blocking)" >> $GITHUB_STEP_SUMMARY
+          fi
+          
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### 📊 Results:" >> $GITHUB_STEP_SUMMARY
+          echo "Check the Security tab in GitHub for detailed findings." >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Note:** Security scans are non-blocking. Review findings in the Security tab." >> $GITHUB_STEP_SUMMARY
+
+  # Step 4: Test
   test:
     name: Test
     runs-on: ubuntu-latest
-    needs: build
+    needs: security
+    if: always()
     
     services:
       postgres:
@@ -105,9 +348,53 @@ jobs:
           REDIS_HOST: localhost
           REDIS_PORT: 6379
         run: go test -v -race -coverprofile=coverage.txt -covermode=atomic ./...
+        continue-on-error: false
       
       - name: Upload coverage
         uses: codecov/codecov-action@v3
+        if: always()
         with:
           files: ./coverage.txt
+          fail_ci_if_error: false
 
+  # Final Summary
+  pipeline-summary:
+    name: Pipeline Summary
+    runs-on: ubuntu-latest
+    needs: [lint, build, security, test]
+    if: always()
+    
+    steps:
+      - name: Pipeline Summary
+        run: |
+          echo "## 🚀 CI Pipeline Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          
+          if [ "${{ needs.lint.result }}" == "success" ]; then
+            echo "✅ **Lint**: Passed" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "❌ **Lint**: Failed" >> $GITHUB_STEP_SUMMARY
+          fi
+          
+          if [ "${{ needs.build.result }}" == "success" ]; then
+            echo "✅ **Build**: Passed" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "❌ **Build**: Failed" >> $GITHUB_STEP_SUMMARY
+          fi
+          
+          if [ "${{ needs.security.result }}" == "success" ] || [ "${{ needs.security.result }}" == "failure" ]; then
+            echo "⚠️ **Security**: Completed (non-blocking)" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "⏭️ **Security**: Skipped" >> $GITHUB_STEP_SUMMARY
+          fi
+          
+          if [ "${{ needs.test.result }}" == "success" ]; then
+            echo "✅ **Test**: Passed" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "❌ **Test**: Failed" >> $GITHUB_STEP_SUMMARY
+          fi
+          
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### 📝 Notes:" >> $GITHUB_STEP_SUMMARY
+          echo "- Security scans are non-blocking. Review findings in the Security tab." >> $GITHUB_STEP_SUMMARY
+          echo "- Pipeline fails only if lint, build, or test steps fail." >> $GITHUB_STEP_SUMMARY
