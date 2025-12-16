@@ -163,13 +163,7 @@ jobs:
           severity: 'CRITICAL,HIGH'
         continue-on-error: true
         id: trivy-fs
-      
-      - name: Upload Trivy filesystem results to GitHub Security
-        uses: github/codeql-action/upload-sarif@v3
-        if: always()
-        with:
-          sarif_file: trivy-results.sarif
-      
+            
       # Dependency Scan - Trivy (Go dependencies)
       - name: Run Trivy on Go dependencies
         uses: aquasecurity/trivy-action@master
