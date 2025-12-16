@@ -128,7 +128,11 @@ func (s *UserService) CreateUser(ctx context.Context, email, name, passwordHash 
 	if err != nil {
 		return nil, err
 	}
-	defer tx.Rollback(ctx)
+	defer func() {
+		if err := tx.Rollback(ctx); err != nil && err != sql.ErrTxDone {
+			log.Printf("Error rolling back transaction: %v", err)
+		}
+	}()
 
 	// Insert user
 	query := `
