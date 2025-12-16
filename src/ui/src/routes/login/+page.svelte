@@ -68,7 +68,10 @@
 <div class="login-container">
 	<div class="login-card">
 		<div class="login-header">
-			<h1>🛡️ AlgoShield</h1>
+			<div class="brand-header">
+				<img src="/gopher.png" alt="AlgoShield" class="brand-icon" />
+				<h1>AlgoShield</h1>
+			</div>
 			<p>Fraud Detection & Anti-Money Laundering</p>
 		</div>
 
@@ -195,6 +198,20 @@
 	.login-header {
 		text-align: center;
 		margin-bottom: 2rem;
+	}
+
+	.brand-header {
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		gap: 0.75rem;
+		margin-bottom: 0.5rem;
+	}
+
+	.brand-icon {
+		width: 48px;
+		height: 48px;
+		object-fit: contain;
 	}
 
 	.login-header h1 {

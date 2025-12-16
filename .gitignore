@@ -54,3 +54,11 @@ src/ui/node_modules/
 src/ui/.svelte-kit/
 src/ui/build/
 .todo
+
+
+#agents
+.agent
+.bmad   
+.claude
+.cursor
+docs/

@@ -56,7 +56,10 @@
 			<div class="container">
 				<nav>
 					<div class="nav-brand">
-						<h1>🛡️ AlgoShield</h1>
+						<div class="brand-header">
+							<img src="/gopher.png" alt="AlgoShield" class="brand-icon" />
+							<h1>AlgoShield</h1>
+						</div>
 						<p>Fraud Detection & Anti-Money Laundering</p>
 					</div>
 
@@ -153,6 +156,18 @@
 		align-items: center;
 		justify-content: space-between;
 		gap: 2rem;
+	}
+
+	.brand-header {
+		display: flex;
+		align-items: center;
+		gap: 0.75rem;
+	}
+
+	.brand-icon {
+		width: 40px;
+		height: 40px;
+		object-fit: contain;
 	}
 
 	.nav-brand h1 {
