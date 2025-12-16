@@ -4,22 +4,47 @@
 	import { page } from '$app/stores';
 	import { goto } from '$app/navigation';
 	import { onMount } from 'svelte';
+	import { browser } from '$app/environment';
 
 	let user: any = null;
 	let showUserMenu = false;
+	let checkingAuth = true;
+	let authChecked = false;
 
 	authStore.subscribe(value => {
 		user = value;
+		// Mark auth check as complete once we have a definitive user state
+		if (browser && !authChecked) {
+			authChecked = true;
+			checkingAuth = false;
+		}
 	});
 
 	// Check authentication for protected routes
 	$: {
 		const publicRoutes = ['/login'];
 		const isPublicRoute = publicRoutes.some(route => $page.url.pathname.startsWith(route));
-		if (!isPublicRoute && !user) {
+		
+		// Only redirect if we're done checking auth and user is not logged in
+		// Don't redirect if we're already on a public route
+		if (browser && !checkingAuth && !isPublicRoute && !user) {
 			goto('/login');
 		}
 	}
+
+	// Computed: should show header (only when user is authenticated and not on login page)
+	$: showHeader = user && !checkingAuth && !$page.url.pathname.startsWith('/login');
+
+	onMount(() => {
+		// If no token exists, mark auth check as complete immediately
+		if (browser) {
+			const token = localStorage.getItem('auth_token');
+			if (!token) {
+				authChecked = true;
+				checkingAuth = false;
+			}
+		}
+	});
 
 	// Check if user has admin role
 	$: isAdmin = user?.roles?.some((role: any) => role.name === 'admin') || false;
@@ -51,7 +76,7 @@
 </script>
 
 <div class="app">
-	{#if user}
+	{#if showHeader}
 		<header>
 			<div class="container">
 				<nav>
@@ -134,8 +159,14 @@
 		</header>
 	{/if}
 
-	<main class:no-header={!user}>
-		<slot />
+	<main class:no-header={!showHeader}>
+		{#if checkingAuth && !user && !$page.url.pathname.startsWith('/login')}
+			<div class="loading-container">
+				<div class="loading-spinner"></div>
+			</div>
+		{:else}
+			<slot />
+		{/if}
 	</main>
 </div>
 
@@ -344,6 +375,28 @@
 
 	main.no-header {
 		padding: 0;
+	}
+
+	.loading-container {
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		min-height: 50vh;
+	}
+
+	.loading-spinner {
+		width: 40px;
+		height: 40px;
+		border: 4px solid var(--border);
+		border-top-color: var(--primary);
+		border-radius: 50%;
+		animation: spin 0.8s linear infinite;
+	}
+
+	@keyframes spin {
+		to {
+			transform: rotate(360deg);
+		}
 	}
 </style>
 
