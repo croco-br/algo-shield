@@ -6,10 +6,13 @@ import (
 )
 
 func TestLoad(t *testing.T) {
-	// Set test environment variables
+	// Set test environment variables (including required secrets)
 	_ = os.Setenv("POSTGRES_HOST", "testhost")
 	_ = os.Setenv("POSTGRES_PORT", "5433")
 	_ = os.Setenv("API_PORT", "9090")
+	// Set required secrets with strong values for testing
+	_ = os.Setenv("JWT_SECRET", "test-jwt-secret-key-minimum-32-characters-long-for-validation")
+	_ = os.Setenv("POSTGRES_PASSWORD", "test-db-password-minimum-16-chars")
 
 	cfg, err := Load()
 	if err != nil {
@@ -32,6 +35,8 @@ func TestLoad(t *testing.T) {
 	_ = os.Unsetenv("POSTGRES_HOST")
 	_ = os.Unsetenv("POSTGRES_PORT")
 	_ = os.Unsetenv("API_PORT")
+	_ = os.Unsetenv("JWT_SECRET")
+	_ = os.Unsetenv("POSTGRES_PASSWORD")
 }
 
 func TestGetDatabaseDSN(t *testing.T) {
