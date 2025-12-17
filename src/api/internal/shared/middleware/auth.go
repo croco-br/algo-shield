@@ -3,12 +3,12 @@ package middleware
 import (
 	"strings"
 
-	"github.com/algo-shield/algo-shield/src/api/internal/handlers"
+	"github.com/algo-shield/algo-shield/src/api/internal/auth"
 	"github.com/algo-shield/algo-shield/src/pkg/models"
 	"github.com/gofiber/fiber/v2"
 )
 
-func AuthMiddleware(authHandler *handlers.AuthHandler) fiber.Handler {
+func AuthMiddleware(authHandler *auth.Handler) fiber.Handler {
 	return func(c *fiber.Ctx) error {
 		authHeader := c.Get("Authorization")
 		if authHeader == "" {

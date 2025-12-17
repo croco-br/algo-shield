@@ -1,9 +1,13 @@
 package routes
 
 import (
-	"github.com/algo-shield/algo-shield/src/api/internal/handlers"
-	"github.com/algo-shield/algo-shield/src/api/internal/middleware"
-	"github.com/algo-shield/algo-shield/src/api/internal/services"
+	"github.com/algo-shield/algo-shield/src/api/internal/auth"
+	"github.com/algo-shield/algo-shield/src/api/internal/health"
+	"github.com/algo-shield/algo-shield/src/api/internal/permissions"
+	"github.com/algo-shield/algo-shield/src/api/internal/rules"
+	"github.com/algo-shield/algo-shield/src/api/internal/shared/middleware"
+	"github.com/algo-shield/algo-shield/src/api/internal/transactions"
+	"github.com/algo-shield/algo-shield/src/api/internal/user"
 	"github.com/algo-shield/algo-shield/src/pkg/config"
 	"github.com/gofiber/fiber/v2"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -15,24 +19,26 @@ func Setup(app *fiber.App, db *pgxpool.Pool, redis *redis.Client, cfg *config.Co
 	app.Use(middleware.Logger())
 	app.Use(middleware.CORS())
 
-	// Services
-	userService := services.NewUserService(db)
+	// Initialize slices
+	userService := user.NewService(db, cfg)
+	authService := auth.NewService(db, cfg, userService)
+	authHandler := auth.NewHandler(authService, userService)
 
-	// Handlers
-	healthHandler := handlers.NewHealthHandler(db, redis)
-	transactionHandler := handlers.NewTransactionHandler(db, redis)
-	ruleHandler := handlers.NewRuleHandler(db, redis)
-	authHandler := handlers.NewAuthHandler(userService, cfg)
-	permissionsHandler := handlers.NewPermissionsHandler(userService)
+	permissionsService := permissions.NewService(db)
+	permissionsHandler := permissions.NewHandler(permissionsService)
+
+	healthHandler := health.NewHandler(db, redis)
+	transactionHandler := transactions.NewHandler(db, redis)
+	ruleHandler := rules.NewHandler(db, redis)
 
 	// Health routes (public)
 	app.Get("/health", healthHandler.Health)
 	app.Get("/ready", healthHandler.Ready)
 
 	// Auth routes (public)
-	auth := app.Group("/api/v1/auth")
-	auth.Post("/register", authHandler.Register)
-	auth.Post("/login", authHandler.Login)
+	authGroup := app.Group("/api/v1/auth")
+	authGroup.Post("/register", authHandler.Register)
+	authGroup.Post("/login", authHandler.Login)
 
 	// API v1 (protected)
 	v1 := app.Group("/api/v1")
@@ -43,29 +49,29 @@ func Setup(app *fiber.App, db *pgxpool.Pool, redis *redis.Client, cfg *config.Co
 	v1.Post("/auth/logout", authHandler.Logout)
 
 	// Transaction routes (protected)
-	transactions := v1.Group("/transactions")
-	transactions.Post("/", transactionHandler.ProcessTransaction)
-	transactions.Get("/", transactionHandler.ListTransactions)
-	transactions.Get("/:id", transactionHandler.GetTransaction)
+	transactionsGroup := v1.Group("/transactions")
+	transactionsGroup.Post("/", transactionHandler.ProcessTransaction)
+	transactionsGroup.Get("/", transactionHandler.ListTransactions)
+	transactionsGroup.Get("/:id", transactionHandler.GetTransaction)
 
 	// Rule routes (protected)
-	rules := v1.Group("/rules")
-	rules.Get("/", ruleHandler.ListRules)
-	rules.Get("/:id", ruleHandler.GetRule)
+	rulesGroup := v1.Group("/rules")
+	rulesGroup.Get("/", ruleHandler.ListRules)
+	rulesGroup.Get("/:id", ruleHandler.GetRule)
 
 	// Rule modification requires rule_editor or admin role
-	rulesProtected := rules.Group("", middleware.RequireAnyRole("admin", "rule_editor"))
+	rulesProtected := rulesGroup.Group("", middleware.RequireAnyRole("admin", "rule_editor"))
 	rulesProtected.Post("/", ruleHandler.CreateRule)
 	rulesProtected.Put("/:id", ruleHandler.UpdateRule)
 	rulesProtected.Delete("/:id", ruleHandler.DeleteRule)
 
 	// Permissions management (admin only)
-	permissions := v1.Group("/permissions", middleware.RequireRole("admin"))
-	permissions.Get("/users", permissionsHandler.ListUsers)
-	permissions.Get("/users/:id", permissionsHandler.GetUser)
-	permissions.Put("/users/:id/active", permissionsHandler.UpdateUserActive)
-	permissions.Post("/users/:userId/roles", permissionsHandler.AssignRole)
-	permissions.Delete("/users/:userId/roles/:roleId", permissionsHandler.RemoveRole)
-	permissions.Get("/roles", permissionsHandler.ListRoles)
-	permissions.Get("/groups", permissionsHandler.ListGroups)
+	permissionsGroup := v1.Group("/permissions", middleware.RequireRole("admin"))
+	permissionsGroup.Get("/users", permissionsHandler.ListUsers)
+	permissionsGroup.Get("/users/:id", permissionsHandler.GetUser)
+	permissionsGroup.Put("/users/:id/active", permissionsHandler.UpdateUserActive)
+	permissionsGroup.Post("/users/:userId/roles", permissionsHandler.AssignRole)
+	permissionsGroup.Delete("/users/:userId/roles/:roleId", permissionsHandler.RemoveRole)
+	permissionsGroup.Get("/roles", permissionsHandler.ListRoles)
+	permissionsGroup.Get("/groups", permissionsHandler.ListGroups)
 }

@@ -72,7 +72,7 @@ func Load() (*Config, error) {
 		},
 		Worker: WorkerConfig{
 			Concurrency: getEnvInt("WORKER_CONCURRENCY", 10),
-			BatchSize:   getEnvInt("WORKER_BATCH_SIZE", 100),
+			BatchSize:   getEnvInt("WORKER_BATCH_SIZE", 50),
 		},
 		General: GeneralConfig{
 			Environment: getEnv("ENVIRONMENT", "development"),

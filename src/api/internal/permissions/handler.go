@@ -1,27 +1,26 @@
-package handlers
+package permissions
 
 import (
 	"context"
 
-	"github.com/algo-shield/algo-shield/src/api/internal/services"
 	"github.com/gofiber/fiber/v2"
 	"github.com/google/uuid"
 )
 
-type PermissionsHandler struct {
-	userService *services.UserService
+type Handler struct {
+	service *Service
 }
 
-func NewPermissionsHandler(userService *services.UserService) *PermissionsHandler {
-	return &PermissionsHandler{
-		userService: userService,
+func NewHandler(service *Service) *Handler {
+	return &Handler{
+		service: service,
 	}
 }
 
 // ListUsers returns all users with their roles and groups
-func (h *PermissionsHandler) ListUsers(c *fiber.Ctx) error {
+func (h *Handler) ListUsers(c *fiber.Ctx) error {
 	ctx := context.Background()
-	users, err := h.userService.ListUsers(ctx)
+	users, err := h.service.ListUsers(ctx)
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
 			"error": "Failed to fetch users",
@@ -34,7 +33,7 @@ func (h *PermissionsHandler) ListUsers(c *fiber.Ctx) error {
 }
 
 // GetUser returns a specific user by ID
-func (h *PermissionsHandler) GetUser(c *fiber.Ctx) error {
+func (h *Handler) GetUser(c *fiber.Ctx) error {
 	userIDParam := c.Params("id")
 	userID, err := uuid.Parse(userIDParam)
 	if err != nil {
@@ -44,7 +43,7 @@ func (h *PermissionsHandler) GetUser(c *fiber.Ctx) error {
 	}
 
 	ctx := context.Background()
-	user, err := h.userService.GetUserByID(ctx, userID)
+	user, err := h.service.GetUserByID(ctx, userID)
 	if err != nil {
 		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{
 			"error": "User not found",
@@ -55,7 +54,7 @@ func (h *PermissionsHandler) GetUser(c *fiber.Ctx) error {
 }
 
 // AssignRole assigns a role to a user
-func (h *PermissionsHandler) AssignRole(c *fiber.Ctx) error {
+func (h *Handler) AssignRole(c *fiber.Ctx) error {
 	userIDParam := c.Params("userId")
 	userID, err := uuid.Parse(userIDParam)
 	if err != nil {
@@ -64,9 +63,7 @@ func (h *PermissionsHandler) AssignRole(c *fiber.Ctx) error {
 		})
 	}
 
-	var req struct {
-		RoleID uuid.UUID `json:"role_id"`
-	}
+	var req AssignRoleRequest
 	if err := c.BodyParser(&req); err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
 			"error": "Invalid request body",
@@ -74,7 +71,7 @@ func (h *PermissionsHandler) AssignRole(c *fiber.Ctx) error {
 	}
 
 	ctx := context.Background()
-	if err := h.userService.AssignRole(ctx, userID, req.RoleID); err != nil {
+	if err := h.service.AssignRole(ctx, userID, req.RoleID); err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
 			"error": "Failed to assign role",
 		})
@@ -86,7 +83,7 @@ func (h *PermissionsHandler) AssignRole(c *fiber.Ctx) error {
 }
 
 // RemoveRole removes a role from a user
-func (h *PermissionsHandler) RemoveRole(c *fiber.Ctx) error {
+func (h *Handler) RemoveRole(c *fiber.Ctx) error {
 	userIDParam := c.Params("userId")
 	userID, err := uuid.Parse(userIDParam)
 	if err != nil {
@@ -104,7 +101,7 @@ func (h *PermissionsHandler) RemoveRole(c *fiber.Ctx) error {
 	}
 
 	ctx := context.Background()
-	if err := h.userService.RemoveRole(ctx, userID, roleID); err != nil {
+	if err := h.service.RemoveRole(ctx, userID, roleID); err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
 			"error": "Failed to remove role",
 		})
@@ -116,9 +113,9 @@ func (h *PermissionsHandler) RemoveRole(c *fiber.Ctx) error {
 }
 
 // ListRoles returns all available roles
-func (h *PermissionsHandler) ListRoles(c *fiber.Ctx) error {
+func (h *Handler) ListRoles(c *fiber.Ctx) error {
 	ctx := context.Background()
-	roles, err := h.userService.ListRoles(ctx)
+	roles, err := h.service.ListRoles(ctx)
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
 			"error": "Failed to fetch roles",
@@ -131,9 +128,9 @@ func (h *PermissionsHandler) ListRoles(c *fiber.Ctx) error {
 }
 
 // ListGroups returns all available groups
-func (h *PermissionsHandler) ListGroups(c *fiber.Ctx) error {
+func (h *Handler) ListGroups(c *fiber.Ctx) error {
 	ctx := context.Background()
-	groups, err := h.userService.ListGroups(ctx)
+	groups, err := h.service.ListGroups(ctx)
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
 			"error": "Failed to fetch groups",
@@ -146,7 +143,7 @@ func (h *PermissionsHandler) ListGroups(c *fiber.Ctx) error {
 }
 
 // UpdateUserActive updates user active status
-func (h *PermissionsHandler) UpdateUserActive(c *fiber.Ctx) error {
+func (h *Handler) UpdateUserActive(c *fiber.Ctx) error {
 	userIDParam := c.Params("id")
 	userID, err := uuid.Parse(userIDParam)
 	if err != nil {
@@ -155,9 +152,7 @@ func (h *PermissionsHandler) UpdateUserActive(c *fiber.Ctx) error {
 		})
 	}
 
-	var req struct {
-		Active bool `json:"active"`
-	}
+	var req UpdateUserActiveRequest
 	if err := c.BodyParser(&req); err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
 			"error": "Invalid request body",
@@ -165,7 +160,7 @@ func (h *PermissionsHandler) UpdateUserActive(c *fiber.Ctx) error {
 	}
 
 	ctx := context.Background()
-	if err := h.userService.UpdateUserActive(ctx, userID, req.Active); err != nil {
+	if err := h.service.UpdateUserActive(ctx, userID, req.Active); err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
 			"error": "Failed to update user",
 		})

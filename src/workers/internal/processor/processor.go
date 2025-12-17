@@ -2,32 +2,50 @@ package processor
 
 import (
 	"context"
-	"encoding/json"
 	"log"
 	"time"
 
 	"github.com/algo-shield/algo-shield/src/pkg/models"
-	"github.com/algo-shield/algo-shield/src/workers/internal/rules"
-	"github.com/google/uuid"
+	"github.com/algo-shield/algo-shield/src/workers/internal/queue"
+	engine "github.com/algo-shield/algo-shield/src/workers/internal/rules"
+	"github.com/algo-shield/algo-shield/src/workers/internal/transactions"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/redis/go-redis/v9"
 )
 
 type Processor struct {
-	db          *pgxpool.Pool
-	redis       *redis.Client
-	engine      *rules.Engine
-	concurrency int
-	batchSize   int
+	transactionService *transactions.Service
+	queueService       *queue.QueueService
+	ruleEngine         *engine.Engine
+	metricsCollector   *MetricsCollector
+	retryConfig        RetryConfig
+	concurrency        int
+	batchSize          int
 }
 
 func NewProcessor(db *pgxpool.Pool, redis *redis.Client, concurrency, batchSize int) *Processor {
+	// Create history provider for engine
+	historyProvider := transactions.NewPostgresHistoryRepository(db)
+
+	// Create single instance of rule engine with history provider
+	ruleEngine := engine.NewEngine(db, redis, historyProvider)
+
+	// Create transaction service with injected engine
+	transactionService := transactions.NewService(db, redis, ruleEngine)
+
+	// Default batch size to 50 if not provided
+	if batchSize <= 0 {
+		batchSize = 50
+	}
+
 	return &Processor{
-		db:          db,
-		redis:       redis,
-		engine:      rules.NewEngine(db, redis),
-		concurrency: concurrency,
-		batchSize:   batchSize,
+		transactionService: transactionService,
+		queueService:       queue.NewQueueService(redis),
+		ruleEngine:         ruleEngine,
+		metricsCollector:   NewMetricsCollector(),
+		retryConfig:        DefaultRetryConfig(),
+		concurrency:        concurrency,
+		batchSize:          batchSize,
 	}
 }
 
@@ -35,7 +53,7 @@ func (p *Processor) Start(ctx context.Context) error {
 	log.Println("Starting transaction processor...")
 
 	// Load rules initially
-	if err := p.engine.LoadRules(ctx); err != nil {
+	if err := p.ruleEngine.LoadRules(ctx); err != nil {
 		return err
 	}
 
@@ -48,8 +66,19 @@ func (p *Processor) Start(ctx context.Context) error {
 	}
 
 	<-ctx.Done()
+
+	// Log final metrics
+	metrics := p.metricsCollector.GetMetrics()
+	log.Printf("Processor stopping. Metrics: processed=%d, failed=%d, avg_duration=%v",
+		metrics.TotalProcessed, metrics.TotalFailed, metrics.AverageDuration)
+
 	log.Println("Stopping transaction processor...")
 	return nil
+}
+
+// GetMetrics returns current processing metrics
+func (p *Processor) GetMetrics() Metrics {
+	return p.metricsCollector.GetMetrics()
 }
 
 func (p *Processor) reloadRulesPeriodically(ctx context.Context) {
@@ -61,7 +90,7 @@ func (p *Processor) reloadRulesPeriodically(ctx context.Context) {
 		case <-ctx.Done():
 			return
 		case <-ticker.C:
-			if err := p.engine.LoadRules(ctx); err != nil {
+			if err := p.ruleEngine.LoadRules(ctx); err != nil {
 				log.Printf("Failed to reload rules: %v", err)
 			} else {
 				log.Println("Rules reloaded successfully")
@@ -79,76 +108,100 @@ func (p *Processor) worker(ctx context.Context, id int) {
 			log.Printf("Worker %d stopping", id)
 			return
 		default:
-			p.processNextTransaction(ctx)
+			// Process in batches if batchSize > 1, otherwise process one at a time
+			if p.batchSize > 1 {
+				p.processBatch(ctx)
+			} else {
+				p.processNextTransaction(ctx)
+			}
 		}
 	}
 }
 
 func (p *Processor) processNextTransaction(ctx context.Context) {
-	// Block and wait for transaction from queue
-	result, err := p.redis.BRPop(ctx, 1*time.Second, "transaction:queue").Result()
+	// Pop transaction from queue
+	event, err := p.queueService.PopTransaction(ctx)
 	if err != nil {
-		return // Timeout or error, continue
-	}
-
-	if len(result) < 2 {
+		// Check if it's a timeout (expected) vs actual error
+		if err == queue.ErrTimeout {
+			// Timeout is expected, just continue
+			return
+		}
+		// Log actual errors
+		log.Printf("Queue error: %v", err)
 		return
 	}
 
-	eventJSON := result[1]
-	var event models.TransactionEvent
-
-	if err := json.Unmarshal([]byte(eventJSON), &event); err != nil {
-		log.Printf("Failed to unmarshal transaction event: %v", err)
+	if event == nil {
 		return
 	}
 
-	// Process transaction
-	if err := p.processTransaction(ctx, event); err != nil {
-		log.Printf("Failed to process transaction: %v", err)
+	// Process with metrics and retry
+	duration, err := MeasureExecution(ctx, func() error {
+		return Retry(ctx, p.retryConfig, func() error {
+			// Add timeout to context
+			processCtx, cancel := context.WithTimeout(ctx, 300*time.Millisecond)
+			defer cancel()
+
+			return p.transactionService.ProcessTransaction(processCtx, *event)
+		})
+	})
+
+	success := err == nil
+	p.metricsCollector.RecordProcessing(duration, success)
+
+	if err != nil {
+		log.Printf("Failed to process transaction %s after retries: %v (duration: %v)", event.ExternalID, err, duration)
+	} else {
+		log.Printf("Processed transaction %s successfully (duration: %v)", event.ExternalID, duration)
 	}
 }
 
-func (p *Processor) processTransaction(ctx context.Context, event models.TransactionEvent) error {
-	startTime := time.Now()
+// processBatch processes multiple transactions in a batch
+func (p *Processor) processBatch(ctx context.Context) {
+	events := make([]*models.TransactionEvent, 0, p.batchSize)
 
-	// Evaluate transaction against rules
-	result, err := p.engine.Evaluate(ctx, event)
-	if err != nil {
-		return err
+	// Collect batch
+	for i := 0; i < p.batchSize; i++ {
+		event, err := p.queueService.PopTransaction(ctx)
+		if err != nil {
+			if err == queue.ErrTimeout {
+				break // No more items available
+			}
+			log.Printf("Queue error while collecting batch: %v", err)
+			continue
+		}
+		if event != nil {
+			events = append(events, event)
+		}
 	}
 
-	// Store transaction in database
-	transactionID := uuid.New()
-	now := time.Now()
-	processingTime := time.Since(startTime).Milliseconds()
-
-	matchedRulesJSON, _ := json.Marshal(result.MatchedRules)
-	metadataJSON, _ := json.Marshal(event.Metadata)
-
-	query := `
-		INSERT INTO transactions (
-			id, external_id, amount, currency, from_account, to_account, 
-			type, status, risk_score, risk_level, processing_time, 
-			matched_rules, metadata, created_at, processed_at
-		) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
-	`
-
-	_, err = p.db.Exec(ctx, query,
-		transactionID, event.ExternalID, event.Amount, event.Currency,
-		event.FromAccount, event.ToAccount, event.Type, result.Status,
-		result.RiskScore, result.RiskLevel, processingTime,
-		matchedRulesJSON, metadataJSON, now, now,
-	)
-
-	if err != nil {
-		return err
+	if len(events) == 0 {
+		return
 	}
 
-	log.Printf(
-		"Processed transaction %s: status=%s, risk_score=%.2f, risk_level=%s, time=%dms",
-		event.ExternalID, result.Status, result.RiskScore, result.RiskLevel, processingTime,
-	)
+	// Process batch with metrics
+	duration, err := MeasureExecution(ctx, func() error {
+		batchCtx, cancel := context.WithTimeout(ctx, 300*time.Millisecond*time.Duration(len(events)))
+		defer cancel()
 
-	return nil
+		for _, event := range events {
+			if err := Retry(batchCtx, p.retryConfig, func() error {
+				return p.transactionService.ProcessTransaction(batchCtx, *event)
+			}); err != nil {
+				return err
+			}
+		}
+		return nil
+	})
+
+	success := err == nil
+	p.metricsCollector.RecordProcessing(duration, success)
+
+	if err != nil {
+		log.Printf("Failed to process batch of %d transactions: %v (duration: %v)", len(events), err, duration)
+	} else {
+		log.Printf("Processed batch of %d transactions successfully (duration: %v, avg: %v)",
+			len(events), duration, duration/time.Duration(len(events)))
+	}
 }

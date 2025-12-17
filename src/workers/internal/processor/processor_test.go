@@ -103,8 +103,8 @@ func TestNewProcessor(t *testing.T) {
 				t.Errorf("batchSize = %v, want %v", processor.batchSize, tt.batchSize)
 			}
 
-			if processor.engine == nil {
-				t.Error("engine should be initialized")
+			if processor.ruleEngine == nil {
+				t.Error("ruleEngine should be initialized")
 			}
 		})
 	}
@@ -426,8 +426,8 @@ func TestProcessorConfiguration(t *testing.T) {
 				}
 
 				// Verify engine is initialized
-				if processor.engine == nil {
-					t.Error("engine should be initialized")
+				if processor.ruleEngine == nil {
+					t.Error("ruleEngine should be initialized")
 				}
 			}
 		})

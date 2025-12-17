@@ -1,4 +1,4 @@
-package handlers
+package health
 
 import (
 	"context"
@@ -9,19 +9,19 @@ import (
 	"github.com/redis/go-redis/v9"
 )
 
-type HealthHandler struct {
+type Handler struct {
 	db    *pgxpool.Pool
 	redis *redis.Client
 }
 
-func NewHealthHandler(db *pgxpool.Pool, redis *redis.Client) *HealthHandler {
-	return &HealthHandler{
+func NewHandler(db *pgxpool.Pool, redis *redis.Client) *Handler {
+	return &Handler{
 		db:    db,
 		redis: redis,
 	}
 }
 
-func (h *HealthHandler) Health(c *fiber.Ctx) error {
+func (h *Handler) Health(c *fiber.Ctx) error {
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 	defer cancel()
 
@@ -54,7 +54,7 @@ func (h *HealthHandler) Health(c *fiber.Ctx) error {
 	return c.Status(statusCode).JSON(health)
 }
 
-func (h *HealthHandler) Ready(c *fiber.Ctx) error {
+func (h *Handler) Ready(c *fiber.Ctx) error {
 	return c.JSON(fiber.Map{
 		"status": "ready",
 	})
