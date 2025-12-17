@@ -15,10 +15,17 @@ import (
 	"github.com/redis/go-redis/v9"
 )
 
-// Repository defines the interface for rule data access operations
-type Repository interface {
-	// LoadRules loads enabled rules from database or cache (used by worker)
+// RuleReader defines the interface for reading rules (used by worker)
+// This interface follows Interface Segregation Principle - worker only needs LoadRules
+type RuleReader interface {
+	// LoadRules loads enabled rules from database or cache
 	LoadRules(ctx context.Context) ([]models.Rule, error)
+}
+
+// Repository defines the interface for full rule data access operations (used by API)
+// This interface includes all CRUD operations needed by the API
+type Repository interface {
+	RuleReader // Embed RuleReader to include LoadRules
 	// CreateRule creates a new rule
 	CreateRule(ctx context.Context, rule *models.Rule) error
 	// GetRule retrieves a rule by ID

@@ -12,15 +12,16 @@ import (
 
 // RuleService handles rule loading and caching for the worker
 // Uses atomic.Value for lock-free reads and safe concurrent updates
+// Uses RuleReader interface (ISP) - worker only needs LoadRules, not full CRUD
 type RuleService struct {
-	repo  rules.Repository
-	rules atomic.Value // stores []models.Rule
+	repo  rules.RuleReader // Only needs read access, not full Repository
+	rules atomic.Value     // stores []models.Rule
 }
 
 // NewRuleService creates a new rule service for the worker
 func NewRuleService(db *pgxpool.Pool, redis *redis.Client) *RuleService {
 	rs := &RuleService{
-		repo: rules.NewPostgresRepository(db, redis),
+		repo: rules.NewPostgresRepository(db, redis), // PostgresRepository implements RuleReader
 	}
 	// Initialize with empty slice
 	rs.rules.Store(make([]models.Rule, 0))
