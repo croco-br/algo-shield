@@ -12,17 +12,17 @@ import (
 	"github.com/gofiber/fiber/v2"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
-	"github.com/jackc/pgx/v5/pgxpool"
-	"github.com/redis/go-redis/v9"
 )
 
 type Handler struct {
 	repo rules.Repository
 }
 
-func NewHandler(db *pgxpool.Pool, redis *redis.Client) *Handler {
+// NewHandler creates a new rule handler with dependency injection
+// Follows Dependency Inversion Principle - receives interface, not concrete type
+func NewHandler(repo rules.Repository) *Handler {
 	return &Handler{
-		repo: rules.NewPostgresRepository(db, redis),
+		repo: repo,
 	}
 }
 

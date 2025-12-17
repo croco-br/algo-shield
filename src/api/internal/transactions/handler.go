@@ -8,16 +8,15 @@ import (
 	"github.com/algo-shield/algo-shield/src/pkg/models"
 	"github.com/gofiber/fiber/v2"
 	"github.com/google/uuid"
-	"github.com/jackc/pgx/v5/pgxpool"
-	"github.com/redis/go-redis/v9"
 )
 
 type Handler struct {
-	service *Service
+	service Service
 }
 
-func NewHandler(db *pgxpool.Pool, redis *redis.Client) *Handler {
-	service := NewService(db, redis)
+// NewHandler creates a new transaction handler with dependency injection
+// Follows Dependency Inversion Principle - receives interface, not concrete type
+func NewHandler(service Service) *Handler {
 	return &Handler{
 		service: service,
 	}

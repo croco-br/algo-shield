@@ -5,16 +5,29 @@ import (
 	"time"
 
 	"github.com/gofiber/fiber/v2"
-	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/redis/go-redis/v9"
 )
 
-type Handler struct {
-	db    *pgxpool.Pool
-	redis *redis.Client
+// DatabaseHealthChecker defines interface for database health checks
+// Follows Dependency Inversion Principle
+type DatabaseHealthChecker interface {
+	Ping(ctx context.Context) error
 }
 
-func NewHandler(db *pgxpool.Pool, redis *redis.Client) *Handler {
+// RedisHealthChecker defines interface for Redis health checks
+// Follows Dependency Inversion Principle
+type RedisHealthChecker interface {
+	Ping(ctx context.Context) *redis.StatusCmd
+}
+
+type Handler struct {
+	db    DatabaseHealthChecker
+	redis RedisHealthChecker
+}
+
+// NewHandler creates a new health handler with dependency injection
+// Follows Dependency Inversion Principle - receives interfaces, not concrete types
+func NewHandler(db DatabaseHealthChecker, redis RedisHealthChecker) *Handler {
 	return &Handler{
 		db:    db,
 		redis: redis,

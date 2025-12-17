@@ -11,6 +11,7 @@ import (
 	"github.com/algo-shield/algo-shield/src/api/internal/transactions"
 	"github.com/algo-shield/algo-shield/src/api/internal/user"
 	"github.com/algo-shield/algo-shield/src/pkg/config"
+	rulespkg "github.com/algo-shield/algo-shield/src/pkg/rules"
 	"github.com/gofiber/fiber/v2"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/redis/go-redis/v9"
@@ -34,9 +35,14 @@ func Setup(app *fiber.App, db *pgxpool.Pool, redis *redis.Client, cfg *config.Co
 	roleHandler := roles.NewHandler(roleService)
 	groupHandler := groups.NewHandler(groupService)
 
+	// Create services and repositories for dependency injection
+	transactionService := transactions.NewService(db, redis)
+	transactionHandler := transactions.NewHandler(transactionService)
+
+	ruleRepo := rulespkg.NewPostgresRepository(db, redis)
+	ruleHandler := rules.NewHandler(ruleRepo)
+
 	healthHandler := health.NewHandler(db, redis)
-	transactionHandler := transactions.NewHandler(db, redis)
-	ruleHandler := rules.NewHandler(db, redis)
 
 	// Health routes (public)
 	app.Get("/health", healthHandler.Health)

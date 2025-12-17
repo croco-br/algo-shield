@@ -10,19 +10,27 @@ import (
 	"github.com/redis/go-redis/v9"
 )
 
-type Service struct {
+// Service defines the interface for transaction business logic
+// This interface follows Dependency Inversion Principle
+type Service interface {
+	ProcessTransaction(ctx context.Context, event models.TransactionEvent) error
+	GetTransaction(ctx context.Context, id uuid.UUID) (*models.Transaction, error)
+	ListTransactions(ctx context.Context, limit, offset int) ([]models.Transaction, error)
+}
+
+type service struct {
 	repo  Repository
 	redis *redis.Client
 }
 
-func NewService(db *pgxpool.Pool, redis *redis.Client) *Service {
-	return &Service{
+func NewService(db *pgxpool.Pool, redis *redis.Client) Service {
+	return &service{
 		repo:  NewPostgresRepository(db),
 		redis: redis,
 	}
 }
 
-func (s *Service) ProcessTransaction(ctx context.Context, event models.TransactionEvent) error {
+func (s *service) ProcessTransaction(ctx context.Context, event models.TransactionEvent) error {
 	eventJSON, err := json.Marshal(event)
 	if err != nil {
 		return err
@@ -32,10 +40,10 @@ func (s *Service) ProcessTransaction(ctx context.Context, event models.Transacti
 	return s.redis.LPush(ctx, "transaction:queue", eventJSON).Err()
 }
 
-func (s *Service) GetTransaction(ctx context.Context, id uuid.UUID) (*models.Transaction, error) {
+func (s *service) GetTransaction(ctx context.Context, id uuid.UUID) (*models.Transaction, error) {
 	return s.repo.GetTransaction(ctx, id)
 }
 
-func (s *Service) ListTransactions(ctx context.Context, limit, offset int) ([]models.Transaction, error) {
+func (s *service) ListTransactions(ctx context.Context, limit, offset int) ([]models.Transaction, error) {
 	return s.repo.ListTransactions(ctx, limit, offset)
 }
