@@ -6,6 +6,7 @@ import (
 	"log"
 	"time"
 
+	"github.com/algo-shield/algo-shield/src/api/internal"
 	"github.com/algo-shield/algo-shield/src/pkg/config"
 	"github.com/algo-shield/algo-shield/src/pkg/models"
 	"github.com/golang-jwt/jwt/v5"
@@ -136,7 +137,8 @@ func (s *Service) ValidateToken(tokenString string) (*models.User, error) {
 			return nil, fmt.Errorf("invalid token claims")
 		}
 
-		ctx := context.Background()
+		ctx, cancel := context.WithTimeout(context.Background(), internal.DEFAULT_TIMEOUT)
+		defer cancel()
 		userID, err := uuid.Parse(userIDStr)
 		if err != nil {
 			return nil, err

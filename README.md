@@ -69,7 +69,7 @@ docker-compose up -d
 
 1. Install Git hooks (recommended):
 ```bash
-./src/scripts/install-hooks.sh
+./scripts/install-hooks.sh
 ```
 
 2. Install dependencies:
@@ -90,7 +90,7 @@ export POSTGRES_USER=algoshield
 export POSTGRES_PASSWORD=algoshield_secret
 export POSTGRES_DB=algoshield
 
-psql -h localhost -U algoshield -d algoshield -f src/scripts/migrations/001_initial_schema.sql
+psql -h localhost -U algoshield -d algoshield -f scripts/migrations/001_initial_schema.sql
 ```
 
 4. Start the API:

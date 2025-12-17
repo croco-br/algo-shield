@@ -17,8 +17,6 @@ type UserRepository interface {
 	GetUserByID(ctx context.Context, userID uuid.UUID) (*models.User, error)
 	CreateUser(ctx context.Context, user *models.User) error
 	UpdateLastLogin(ctx context.Context, userID uuid.UUID, lastLoginAt *time.Time) error
-	LoadUserRoles(ctx context.Context, user *models.User) error
-	LoadUserGroups(ctx context.Context, user *models.User) error
 }
 
 // PostgresUserRepository is the PostgreSQL implementation of UserRepository
@@ -62,14 +60,6 @@ func (r *PostgresUserRepository) GetUserByEmail(ctx context.Context, email strin
 		user.LastLoginAt = &lastLoginAt.Time
 	}
 
-	// Load roles and groups
-	if err := r.LoadUserRoles(ctx, &user); err != nil {
-		return nil, err
-	}
-	if err := r.LoadUserGroups(ctx, &user); err != nil {
-		return nil, err
-	}
-
 	return &user, nil
 }
 
@@ -102,14 +92,6 @@ func (r *PostgresUserRepository) GetUserByID(ctx context.Context, userID uuid.UU
 		user.LastLoginAt = &lastLoginAt.Time
 	}
 
-	// Load roles and groups
-	if err := r.LoadUserRoles(ctx, &user); err != nil {
-		return nil, err
-	}
-	if err := r.LoadUserGroups(ctx, &user); err != nil {
-		return nil, err
-	}
-
 	return &user, nil
 }
 
@@ -129,103 +111,6 @@ func (r *PostgresUserRepository) CreateUser(ctx context.Context, user *models.Us
 func (r *PostgresUserRepository) UpdateLastLogin(ctx context.Context, userID uuid.UUID, lastLoginAt *time.Time) error {
 	query := `UPDATE users SET last_login_at = $1, updated_at = $2 WHERE id = $3`
 	_, err := r.db.Exec(ctx, query, lastLoginAt, time.Now(), userID)
-	return err
-}
-
-func (r *PostgresUserRepository) LoadUserRoles(ctx context.Context, user *models.User) error {
-	query := `
-		SELECT r.id, r.name, r.description, r.created_at, r.updated_at
-		FROM roles r
-		INNER JOIN user_roles ur ON r.id = ur.role_id
-		WHERE ur.user_id = $1
-		UNION
-		SELECT r.id, r.name, r.description, r.created_at, r.updated_at
-		FROM roles r
-		INNER JOIN group_roles gr ON r.id = gr.role_id
-		INNER JOIN user_groups ug ON gr.group_id = ug.group_id
-		WHERE ug.user_id = $1
-	`
-
-	rows, err := r.db.Query(ctx, query, user.ID)
-	if err != nil {
-		return err
-	}
-	defer rows.Close()
-
-	roles := make([]models.Role, 0)
-	roleMap := make(map[uuid.UUID]bool) // To avoid duplicates
-
-	for rows.Next() {
-		var role models.Role
-		if err := rows.Scan(&role.ID, &role.Name, &role.Description, &role.CreatedAt, &role.UpdatedAt); err != nil {
-			continue
-		}
-		if !roleMap[role.ID] {
-			roles = append(roles, role)
-			roleMap[role.ID] = true
-		}
-	}
-
-	user.Roles = roles
-	return nil
-}
-
-func (r *PostgresUserRepository) LoadUserGroups(ctx context.Context, user *models.User) error {
-	query := `
-		SELECT g.id, g.name, g.description, g.created_at, g.updated_at
-		FROM groups g
-		INNER JOIN user_groups ug ON g.id = ug.group_id
-		WHERE ug.user_id = $1
-	`
-
-	rows, err := r.db.Query(ctx, query, user.ID)
-	if err != nil {
-		return err
-	}
-	defer rows.Close()
-
-	groups := make([]models.Group, 0)
-	for rows.Next() {
-		var group models.Group
-		if err := rows.Scan(&group.ID, &group.Name, &group.Description, &group.CreatedAt, &group.UpdatedAt); err != nil {
-			continue
-		}
-		groups = append(groups, group)
-	}
-
-	user.Groups = groups
-	return nil
-}
-
-// RoleRepository defines the interface for role operations
-type RoleRepository interface {
-	GetRoleIDByName(ctx context.Context, tx pgx.Tx, name string) (uuid.UUID, error)
-	AssignRoleToUser(ctx context.Context, tx pgx.Tx, userID, roleID uuid.UUID) error
-}
-
-// PostgresRoleRepository is the PostgreSQL implementation of RoleRepository
-type PostgresRoleRepository struct {
-	db *pgxpool.Pool
-}
-
-func NewPostgresRoleRepository(db *pgxpool.Pool) RoleRepository {
-	return &PostgresRoleRepository{db: db}
-}
-
-func (r *PostgresRoleRepository) GetRoleIDByName(ctx context.Context, tx pgx.Tx, name string) (uuid.UUID, error) {
-	var roleID uuid.UUID
-	query := `SELECT id FROM roles WHERE name = $1 LIMIT 1`
-	err := tx.QueryRow(ctx, query, name).Scan(&roleID)
-	return roleID, err
-}
-
-func (r *PostgresRoleRepository) AssignRoleToUser(ctx context.Context, tx pgx.Tx, userID, roleID uuid.UUID) error {
-	query := `
-		INSERT INTO user_roles (user_id, role_id, assigned_at)
-		VALUES ($1, $2, $3)
-		ON CONFLICT (user_id, role_id) DO NOTHING
-	`
-	_, err := tx.Exec(ctx, query, userID, roleID, time.Now())
 	return err
 }
 

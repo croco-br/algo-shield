@@ -2,6 +2,7 @@ package processor
 
 import (
 	"context"
+	"sync"
 	"time"
 )
 
@@ -16,6 +17,7 @@ type Metrics struct {
 
 // MetricsCollector collects and tracks metrics
 type MetricsCollector struct {
+	mu      sync.RWMutex
 	metrics Metrics
 }
 
@@ -28,6 +30,9 @@ func NewMetricsCollector() *MetricsCollector {
 
 // RecordProcessing records a processing operation
 func (mc *MetricsCollector) RecordProcessing(duration time.Duration, success bool) {
+	mc.mu.Lock()
+	defer mc.mu.Unlock()
+
 	mc.metrics.TotalProcessed++
 	if !success {
 		mc.metrics.TotalFailed++
@@ -43,6 +48,8 @@ func (mc *MetricsCollector) RecordProcessing(duration time.Duration, success boo
 
 // GetMetrics returns current metrics
 func (mc *MetricsCollector) GetMetrics() Metrics {
+	mc.mu.RLock()
+	defer mc.mu.RUnlock()
 	return mc.metrics
 }
 

@@ -3,6 +3,7 @@ package processor
 import (
 	"context"
 	"log"
+	"sync"
 	"time"
 
 	"github.com/algo-shield/algo-shield/src/pkg/models"
@@ -60,19 +61,43 @@ func (p *Processor) Start(ctx context.Context) error {
 	// Reload rules periodically for hot-reload
 	go p.reloadRulesPeriodically(ctx)
 
+	// Use WaitGroup to track worker goroutines
+	var wg sync.WaitGroup
+
 	// Start worker goroutines
 	for i := 0; i < p.concurrency; i++ {
-		go p.worker(ctx, i)
+		wg.Add(1)
+		go func(id int) {
+			defer wg.Done()
+			p.worker(ctx, id)
+		}(i)
 	}
 
+	// Wait for context cancellation (shutdown signal)
 	<-ctx.Done()
+	log.Println("Shutdown signal received, waiting for workers to finish...")
+
+	// Graceful shutdown: wait for workers to finish with timeout
+	done := make(chan struct{})
+	go func() {
+		wg.Wait()
+		close(done)
+	}()
+
+	// Wait for workers to finish or timeout after 30 seconds
+	gracePeriod := 30 * time.Second
+	select {
+	case <-done:
+		log.Println("All workers stopped gracefully")
+	case <-time.After(gracePeriod):
+		log.Printf("Force shutdown after %v timeout - some workers may not have finished", gracePeriod)
+	}
 
 	// Log final metrics
 	metrics := p.metricsCollector.GetMetrics()
-	log.Printf("Processor stopping. Metrics: processed=%d, failed=%d, avg_duration=%v",
+	log.Printf("Processor stopped. Metrics: processed=%d, failed=%d, avg_duration=%v",
 		metrics.TotalProcessed, metrics.TotalFailed, metrics.AverageDuration)
 
-	log.Println("Stopping transaction processor...")
 	return nil
 }
 
@@ -180,26 +205,45 @@ func (p *Processor) processBatch(ctx context.Context) {
 		return
 	}
 
-	// Process batch with metrics
+	// Process batch with metrics - process in parallel with worker pool
 	duration, err := MeasureExecution(ctx, func() error {
 		batchCtx, cancel := context.WithTimeout(ctx, 300*time.Millisecond*time.Duration(len(events)))
 		defer cancel()
 
+		// Process items in parallel using a semaphore pattern
+		type result struct {
+			err error
+		}
+		results := make(chan result, len(events))
+
+		// Launch goroutines for each event
 		for _, event := range events {
-			if err := Retry(batchCtx, p.retryConfig, func() error {
-				return p.transactionService.ProcessTransaction(batchCtx, *event)
-			}); err != nil {
-				return err
+			go func(evt *models.TransactionEvent) {
+				var res result
+				res.err = Retry(batchCtx, p.retryConfig, func() error {
+					return p.transactionService.ProcessTransaction(batchCtx, *evt)
+				})
+				results <- res
+			}(event)
+		}
+
+		// Collect all results
+		var firstErr error
+		for i := 0; i < len(events); i++ {
+			res := <-results
+			if res.err != nil && firstErr == nil {
+				firstErr = res.err
 			}
 		}
-		return nil
+
+		return firstErr
 	})
 
 	success := err == nil
 	p.metricsCollector.RecordProcessing(duration, success)
 
 	if err != nil {
-		log.Printf("Failed to process batch of %d transactions: %v (duration: %v)", len(events), err, duration)
+		log.Printf("Failed to process some transactions in batch of %d: %v (duration: %v)", len(events), err, duration)
 	} else {
 		log.Printf("Processed batch of %d transactions successfully (duration: %v, avg: %v)",
 			len(events), duration, duration/time.Duration(len(events)))

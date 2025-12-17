@@ -6,6 +6,8 @@ import (
 	"log"
 	"time"
 
+	"github.com/algo-shield/algo-shield/src/api/internal/groups"
+	"github.com/algo-shield/algo-shield/src/api/internal/roles"
 	"github.com/algo-shield/algo-shield/src/pkg/config"
 	"github.com/algo-shield/algo-shield/src/pkg/models"
 	"github.com/google/uuid"
@@ -13,29 +15,63 @@ import (
 )
 
 type Service struct {
-	userRepo  UserRepository
-	roleRepo  RoleRepository
-	txManager TransactionManager
+	userRepo     UserRepository
+	roleRepo     roles.Repository
+	roleService  roles.Service
+	groupService groups.Service
+	txManager    TransactionManager
 }
 
-func NewService(db *pgxpool.Pool, cfg *config.Config) *Service {
+func NewService(db *pgxpool.Pool, cfg *config.Config, roleService roles.Service, groupService groups.Service) *Service {
 	return &Service{
-		userRepo:  NewPostgresUserRepository(db),
-		roleRepo:  NewPostgresRoleRepository(db),
-		txManager: NewPostgresTransactionManager(db),
+		userRepo:     NewPostgresUserRepository(db),
+		roleRepo:     roles.NewPostgresRepository(db),
+		roleService:  roleService,
+		groupService: groupService,
+		txManager:    NewPostgresTransactionManager(db),
 	}
 }
 
 func (s *Service) GetUserByEmail(ctx context.Context, email string) (*models.User, error) {
-	return s.userRepo.GetUserByEmail(ctx, email, false)
+	user, err := s.userRepo.GetUserByEmail(ctx, email, false)
+	if err != nil {
+		return nil, err
+	}
+	return s.loadUserRolesAndGroups(ctx, user)
 }
 
 func (s *Service) GetUserByEmailWithPassword(ctx context.Context, email string) (*models.User, error) {
-	return s.userRepo.GetUserByEmail(ctx, email, true)
+	user, err := s.userRepo.GetUserByEmail(ctx, email, true)
+	if err != nil {
+		return nil, err
+	}
+	return s.loadUserRolesAndGroups(ctx, user)
 }
 
 func (s *Service) GetUserByID(ctx context.Context, userID uuid.UUID) (*models.User, error) {
-	return s.userRepo.GetUserByID(ctx, userID)
+	user, err := s.userRepo.GetUserByID(ctx, userID)
+	if err != nil {
+		return nil, err
+	}
+	return s.loadUserRolesAndGroups(ctx, user)
+}
+
+func (s *Service) loadUserRolesAndGroups(ctx context.Context, user *models.User) (*models.User, error) {
+	// Load roles
+	roles, err := s.roleService.LoadUserRoles(ctx, user.ID)
+	if err != nil {
+		return nil, err
+	}
+	user.Roles = roles
+
+	// Load groups
+	groups, err := s.groupService.LoadUserGroups(ctx, user.ID)
+	if err != nil {
+		return nil, err
+	}
+	user.Groups = groups
+
+	return user, nil
 }
 
 func (s *Service) CreateUser(ctx context.Context, email, name, passwordHash string) (*models.User, error) {
@@ -89,14 +125,7 @@ func (s *Service) CreateUser(ctx context.Context, email, name, passwordHash stri
 	}
 
 	// Load roles and groups (read-only operations, outside transaction)
-	if err := s.userRepo.LoadUserRoles(ctx, user); err != nil {
-		return nil, err
-	}
-	if err := s.userRepo.LoadUserGroups(ctx, user); err != nil {
-		return nil, err
-	}
-
-	return user, nil
+	return s.loadUserRolesAndGroups(ctx, user)
 }
 
 func (s *Service) UpdateLastLogin(ctx context.Context, userID uuid.UUID, lastLoginAt *time.Time) error {

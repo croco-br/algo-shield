@@ -3,6 +3,7 @@ package auth
 import (
 	"context"
 
+	"github.com/algo-shield/algo-shield/src/api/internal"
 	"github.com/algo-shield/algo-shield/src/pkg/models"
 	"github.com/gofiber/fiber/v2"
 )
@@ -33,7 +34,8 @@ func (h *Handler) Register(c *fiber.Ctx) error {
 		})
 	}
 
-	ctx := context.Background()
+	ctx, cancel := context.WithTimeout(c.Context(), internal.DEFAULT_TIMEOUT)
+	defer cancel()
 
 	// Register user (handles password hashing and token generation)
 	user, token, err := h.service.RegisterUser(ctx, req.Email, req.Name, req.Password)
@@ -69,7 +71,8 @@ func (h *Handler) Login(c *fiber.Ctx) error {
 		})
 	}
 
-	ctx := context.Background()
+	ctx, cancel := context.WithTimeout(c.Context(), internal.DEFAULT_TIMEOUT)
+	defer cancel()
 
 	// Login user (handles password verification and token generation)
 	user, token, err := h.service.LoginUser(ctx, req.Email, req.Password)
@@ -94,7 +97,8 @@ func (h *Handler) GetCurrentUser(c *fiber.Ctx) error {
 	}
 
 	// Get fresh user data from service (with roles and groups loaded)
-	ctx := context.Background()
+	ctx, cancel := context.WithTimeout(c.Context(), internal.DEFAULT_TIMEOUT)
+	defer cancel()
 	freshUser, err := h.userService.GetUserByID(ctx, user.ID)
 	if err != nil {
 		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{

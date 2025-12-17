@@ -1,4 +1,4 @@
-package engine
+package rules
 
 import (
 	"context"
@@ -18,7 +18,7 @@ type TransactionHistoryProvider interface {
 
 // Engine evaluates transactions against rules
 type Engine struct {
-	ruleLoader      *RuleLoader
+	ruleService     *RuleService
 	historyProvider TransactionHistoryProvider
 	defaultTimeout  time.Duration
 }
@@ -31,7 +31,7 @@ func NewEngine(db *pgxpool.Pool, redis *redis.Client, historyProvider Transactio
 	}
 
 	return &Engine{
-		ruleLoader:      NewRuleLoader(db, redis),
+		ruleService:     NewRuleService(db, redis),
 		historyProvider: historyProvider,
 		defaultTimeout:  300 * time.Millisecond,
 	}
@@ -39,7 +39,7 @@ func NewEngine(db *pgxpool.Pool, redis *redis.Client, historyProvider Transactio
 
 // LoadRules loads rules from the rule loader
 func (e *Engine) LoadRules(ctx context.Context) error {
-	return e.ruleLoader.LoadRules(ctx)
+	return e.ruleService.LoadRules(ctx)
 }
 
 // Evaluate evaluates a transaction against all loaded rules
@@ -51,7 +51,7 @@ func (e *Engine) Evaluate(ctx context.Context, event models.TransactionEvent) (*
 	status := models.StatusApproved
 
 	// Evaluate each rule
-	rules := e.ruleLoader.GetRules()
+	rules := e.ruleService.GetRules()
 	for _, rule := range rules {
 		matched := e.evaluateRule(ctx, event, rule)
 		if matched {

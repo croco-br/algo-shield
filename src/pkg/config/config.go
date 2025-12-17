@@ -54,12 +54,34 @@ func Load() (*Config, error) {
 	// Load .env file if exists (ignore error in production)
 	_ = godotenv.Load()
 
+	environment := getEnv("ENVIRONMENT", "development")
+
+	// Get JWT secret - required in production
+	jwtSecret := os.Getenv("JWT_SECRET")
+	if jwtSecret == "" {
+		if environment == "production" {
+			return nil, fmt.Errorf("JWT_SECRET environment variable is required in production")
+		}
+		jwtSecret = "change-me-in-production" // Only allow default in non-production
+	}
+	if len(jwtSecret) < 32 {
+		if environment == "production" {
+			return nil, fmt.Errorf("JWT_SECRET must be at least 32 characters in production")
+		}
+	}
+
+	// Get database password - warn in production if using default
+	dbPassword := getEnv("POSTGRES_PASSWORD", "algoshield_secret")
+	if environment == "production" && dbPassword == "algoshield_secret" {
+		return nil, fmt.Errorf("POSTGRES_PASSWORD environment variable must be set to a secure value in production")
+	}
+
 	config := &Config{
 		Database: DatabaseConfig{
 			Host:     getEnv("POSTGRES_HOST", "localhost"),
 			Port:     getEnvInt("POSTGRES_PORT", 5432),
 			User:     getEnv("POSTGRES_USER", "algoshield"),
-			Password: getEnv("POSTGRES_PASSWORD", "algoshield_secret"),
+			Password: dbPassword,
 			Database: getEnv("POSTGRES_DB", "algoshield"),
 		},
 		Redis: RedisConfig{
@@ -75,11 +97,11 @@ func Load() (*Config, error) {
 			BatchSize:   getEnvInt("WORKER_BATCH_SIZE", 50),
 		},
 		General: GeneralConfig{
-			Environment: getEnv("ENVIRONMENT", "development"),
+			Environment: environment,
 			LogLevel:    getEnv("LOG_LEVEL", "info"),
 		},
 		Auth: AuthConfig{
-			JWTSecret:          getEnv("JWT_SECRET", "change-me-in-production"),
+			JWTSecret:          jwtSecret,
 			JWTExpirationHours: getEnvInt("JWT_EXPIRATION_HOURS", 24),
 		},
 	}

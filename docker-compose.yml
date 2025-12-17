@@ -10,7 +10,7 @@ services:
       - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
-      - ./src/scripts/migrations:/migrations
+      - ./scripts/migrations:/migrations
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U algoshield"]
       interval: 5s
@@ -47,8 +47,8 @@ services:
       POSTGRES_PASSWORD: algoshield_secret
       POSTGRES_DB: algoshield
     volumes:
-      - ./src/scripts/migrations:/migrations
-      - ./src/scripts/init-db.sh:/init-db.sh
+      - ./scripts/migrations:/migrations
+      - ./scripts/migrations/init-db.sh:/init-db.sh
     entrypoint: ["/bin/sh", "/init-db.sh"]
     networks:
       - algoshield-network

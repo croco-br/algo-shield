@@ -2,8 +2,10 @@ package routes
 
 import (
 	"github.com/algo-shield/algo-shield/src/api/internal/auth"
+	"github.com/algo-shield/algo-shield/src/api/internal/groups"
 	"github.com/algo-shield/algo-shield/src/api/internal/health"
 	"github.com/algo-shield/algo-shield/src/api/internal/permissions"
+	"github.com/algo-shield/algo-shield/src/api/internal/roles"
 	"github.com/algo-shield/algo-shield/src/api/internal/rules"
 	"github.com/algo-shield/algo-shield/src/api/internal/shared/middleware"
 	"github.com/algo-shield/algo-shield/src/api/internal/transactions"
@@ -20,12 +22,17 @@ func Setup(app *fiber.App, db *pgxpool.Pool, redis *redis.Client, cfg *config.Co
 	app.Use(middleware.CORS())
 
 	// Initialize slices
-	userService := user.NewService(db, cfg)
+	roleService := roles.NewService(db)
+	groupService := groups.NewService(db)
+	userService := user.NewService(db, cfg, roleService, groupService)
 	authService := auth.NewService(db, cfg, userService)
 	authHandler := auth.NewHandler(authService, userService)
 
-	permissionsService := permissions.NewService(db)
+	permissionsService := permissions.NewService(db, roleService, groupService)
 	permissionsHandler := permissions.NewHandler(permissionsService)
+
+	roleHandler := roles.NewHandler(roleService)
+	groupHandler := groups.NewHandler(groupService)
 
 	healthHandler := health.NewHandler(db, redis)
 	transactionHandler := transactions.NewHandler(db, redis)
@@ -70,8 +77,16 @@ func Setup(app *fiber.App, db *pgxpool.Pool, redis *redis.Client, cfg *config.Co
 	permissionsGroup.Get("/users", permissionsHandler.ListUsers)
 	permissionsGroup.Get("/users/:id", permissionsHandler.GetUser)
 	permissionsGroup.Put("/users/:id/active", permissionsHandler.UpdateUserActive)
-	permissionsGroup.Post("/users/:userId/roles", permissionsHandler.AssignRole)
-	permissionsGroup.Delete("/users/:userId/roles/:roleId", permissionsHandler.RemoveRole)
-	permissionsGroup.Get("/roles", permissionsHandler.ListRoles)
-	permissionsGroup.Get("/groups", permissionsHandler.ListGroups)
+	permissionsGroup.Post("/users/:userId/roles", roleHandler.AssignRole)
+	permissionsGroup.Delete("/users/:userId/roles/:roleId", roleHandler.RemoveRole)
+
+	// Roles management (admin only)
+	rolesGroup := v1.Group("/roles", middleware.RequireRole("admin"))
+	rolesGroup.Get("/", roleHandler.ListRoles)
+	rolesGroup.Get("/:id", roleHandler.GetRole)
+
+	// Groups management (admin only)
+	groupsGroup := v1.Group("/groups", middleware.RequireRole("admin"))
+	groupsGroup.Get("/", groupHandler.ListGroups)
+	groupsGroup.Get("/:id", groupHandler.GetGroup)
 }
