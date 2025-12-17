@@ -48,10 +48,10 @@
 		try {
 			loading = true;
 			error = '';
-			const [usersRes, rolesRes] = await Promise.all([
-				api.get<{ users: User[] }>('/api/v1/permissions/users'),
-				api.get<{ roles: Role[] }>('/api/v1/permissions/roles')
-			]);
+		const [usersRes, rolesRes] = await Promise.all([
+			api.get<{ users: User[] }>('/api/v1/permissions/users'),
+			api.get<{ roles: Role[] }>('/api/v1/roles')
+		]);
 			users = usersRes.users;
 			roles = rolesRes.roles;
 		} catch (e: any) {

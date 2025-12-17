@@ -10,10 +10,12 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
+// Service manages users with their roles and groups aggregated.
+// This service has a clear responsibility: user management with permission context.
 type Service struct {
 	userRepo     UserRepository
-	roleService  roles.Service
-	groupService groups.Service
+	roleService  roles.Service  // Only used for LoadUserRoles
+	groupService groups.Service // Only used for LoadUserGroups
 }
 
 func NewService(db *pgxpool.Pool, roleService roles.Service, groupService groups.Service) *Service {
@@ -54,22 +56,8 @@ func (s *Service) UpdateUserActive(ctx context.Context, userID uuid.UUID, active
 	return s.userRepo.UpdateUserActive(ctx, userID, active)
 }
 
-func (s *Service) AssignRole(ctx context.Context, userID, roleID uuid.UUID) error {
-	return s.roleService.AssignRole(ctx, userID, roleID)
-}
-
-func (s *Service) RemoveRole(ctx context.Context, userID, roleID uuid.UUID) error {
-	return s.roleService.RemoveRole(ctx, userID, roleID)
-}
-
-func (s *Service) ListRoles(ctx context.Context) ([]models.Role, error) {
-	return s.roleService.ListRoles(ctx)
-}
-
-func (s *Service) ListGroups(ctx context.Context) ([]models.Group, error) {
-	return s.groupService.ListGroups(ctx)
-}
-
+// loadUserRolesAndGroups aggregates roles and groups for a user.
+// This is the core responsibility of this service: enriching user data with permission context.
 func (s *Service) loadUserRolesAndGroups(ctx context.Context, user *models.User) (*models.User, error) {
 	// Load roles
 	roles, err := s.roleService.LoadUserRoles(ctx, user.ID)
