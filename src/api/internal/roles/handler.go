@@ -4,6 +4,7 @@ import (
 	"context"
 
 	"github.com/algo-shield/algo-shield/src/api/internal"
+	"github.com/algo-shield/algo-shield/src/api/internal/shared/validation"
 	"github.com/gofiber/fiber/v2"
 	"github.com/google/uuid"
 )
@@ -70,6 +71,13 @@ func (h *Handler) AssignRole(c *fiber.Ctx) error {
 	if err := c.BodyParser(&req); err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
 			"error": "Invalid request body",
+		})
+	}
+
+	// Validate request
+	if err := validation.ValidateStruct(req); err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error": err.Error(),
 		})
 	}
 

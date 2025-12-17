@@ -4,6 +4,7 @@ import (
 	"context"
 
 	"github.com/algo-shield/algo-shield/src/api/internal"
+	"github.com/algo-shield/algo-shield/src/api/internal/shared/validation"
 	"github.com/algo-shield/algo-shield/src/pkg/models"
 	"github.com/gofiber/fiber/v2"
 	"github.com/google/uuid"
@@ -27,6 +28,13 @@ func (h *Handler) ProcessTransaction(c *fiber.Ctx) error {
 	if err := c.BodyParser(&event); err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
 			"error": "Invalid request body",
+		})
+	}
+
+	// Validate transaction event
+	if err := validation.ValidateStruct(event); err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error": err.Error(),
 		})
 	}
 
@@ -72,6 +80,18 @@ func (h *Handler) ListTransactions(c *fiber.Ctx) error {
 
 	limit := c.QueryInt("limit", 50)
 	offset := c.QueryInt("offset", 0)
+
+	// Validate pagination parameters
+	if err := validation.ValidateLimit(limit); err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error": err.Error(),
+		})
+	}
+	if err := validation.ValidateOffset(offset); err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error": err.Error(),
+		})
+	}
 
 	transactions, err := h.service.ListTransactions(ctx, limit, offset)
 	if err != nil {

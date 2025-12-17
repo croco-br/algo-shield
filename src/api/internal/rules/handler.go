@@ -3,10 +3,10 @@ package rules
 import (
 	"context"
 	"errors"
-	"fmt"
 	"time"
 
 	"github.com/algo-shield/algo-shield/src/api/internal"
+	"github.com/algo-shield/algo-shield/src/api/internal/shared/validation"
 	"github.com/algo-shield/algo-shield/src/pkg/models"
 	"github.com/algo-shield/algo-shield/src/pkg/rules"
 	"github.com/gofiber/fiber/v2"
@@ -34,8 +34,8 @@ func (h *Handler) CreateRule(c *fiber.Ctx) error {
 		})
 	}
 
-	// Validate rule
-	if err := validateRule(&rule); err != nil {
+	// Validate rule using validator
+	if err := validation.ValidateStruct(&rule); err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
 			"error": err.Error(),
 		})
@@ -121,8 +121,8 @@ func (h *Handler) UpdateRule(c *fiber.Ctx) error {
 	rule.ID = id
 	rule.UpdatedAt = time.Now()
 
-	// Validate rule
-	if err := validateRule(&rule); err != nil {
+	// Validate rule using validator
+	if err := validation.ValidateStruct(&rule); err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
 			"error": err.Error(),
 		})
@@ -167,76 +167,4 @@ func (h *Handler) DeleteRule(c *fiber.Ctx) error {
 	}
 
 	return c.SendStatus(fiber.StatusNoContent)
-}
-
-// validateRule validates a rule struct and returns an error if invalid
-func validateRule(rule *models.Rule) error {
-	// Validate name
-	if rule.Name == "" {
-		return fmt.Errorf("name is required")
-	}
-	if len(rule.Name) > 255 {
-		return fmt.Errorf("name must be at most 255 characters")
-	}
-
-	// Validate type
-	validTypes := []models.RuleType{
-		models.RuleTypeAmount,
-		models.RuleTypeVelocity,
-		models.RuleTypeBlocklist,
-		models.RuleTypePattern,
-		models.RuleTypeGeography,
-		models.RuleTypeCustom,
-	}
-	typeValid := false
-	for _, validType := range validTypes {
-		if rule.Type == validType {
-			typeValid = true
-			break
-		}
-	}
-	if !typeValid {
-		return fmt.Errorf("invalid rule type: %s. Valid types are: amount, velocity, blocklist, pattern, geography, custom", rule.Type)
-	}
-
-	// Validate action
-	validActions := []models.RuleAction{
-		models.ActionAllow,
-		models.ActionBlock,
-		models.ActionReview,
-		models.ActionScore,
-	}
-	actionValid := false
-	for _, validAction := range validActions {
-		if rule.Action == validAction {
-			actionValid = true
-			break
-		}
-	}
-	if !actionValid {
-		return fmt.Errorf("invalid rule action: %s. Valid actions are: allow, block, review, score", rule.Action)
-	}
-
-	// Validate priority
-	if rule.Priority < 0 {
-		return fmt.Errorf("priority must be non-negative")
-	}
-	if rule.Priority > 1000 {
-		return fmt.Errorf("priority must be at most 1000")
-	}
-
-	// Validate score
-	if rule.Score < 0 {
-		return fmt.Errorf("score must be non-negative")
-	}
-	if rule.Score > 100 {
-		return fmt.Errorf("score must be at most 100")
-	}
-
-	// Validate conditions (must not be nil, but can be empty)
-	if rule.Conditions == nil {
-		return fmt.Errorf("conditions cannot be nil")
-	}
-
-	return nil
 }

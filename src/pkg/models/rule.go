@@ -28,14 +28,14 @@ const (
 
 type Rule struct {
 	ID          uuid.UUID      `json:"id"`
-	Name        string         `json:"name"`
-	Description string         `json:"description"`
-	Type        RuleType       `json:"type"`
-	Action      RuleAction     `json:"action"`
-	Priority    int            `json:"priority"`
+	Name        string         `json:"name" validate:"required,min=1,max=255"`
+	Description string         `json:"description" validate:"max=1000"`
+	Type        RuleType       `json:"type" validate:"required,oneof=amount velocity blocklist pattern geography custom"`
+	Action      RuleAction     `json:"action" validate:"required,oneof=allow block review score"`
+	Priority    int            `json:"priority" validate:"gte=0,lte=1000"`
 	Enabled     bool           `json:"enabled"`
-	Conditions  map[string]any `json:"conditions"`
-	Score       float64        `json:"score"`
+	Conditions  map[string]any `json:"conditions" validate:"required"`
+	Score       float64        `json:"score" validate:"gte=0,lte=100"`
 	CreatedAt   time.Time      `json:"created_at"`
 	UpdatedAt   time.Time      `json:"updated_at"`
 }

@@ -4,6 +4,7 @@ import (
 	"context"
 
 	"github.com/algo-shield/algo-shield/src/api/internal"
+	"github.com/algo-shield/algo-shield/src/api/internal/shared/validation"
 	"github.com/algo-shield/algo-shield/src/pkg/models"
 	"github.com/gofiber/fiber/v2"
 )
@@ -28,9 +29,10 @@ func (h *Handler) Register(c *fiber.Ctx) error {
 		})
 	}
 
-	if req.Email == "" || req.Password == "" || req.Name == "" {
+	// Validate request
+	if err := validation.ValidateStruct(req); err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"error": "Email, password, and name are required",
+			"error": err.Error(),
 		})
 	}
 
@@ -65,9 +67,10 @@ func (h *Handler) Login(c *fiber.Ctx) error {
 		})
 	}
 
-	if req.Email == "" || req.Password == "" {
+	// Validate request
+	if err := validation.ValidateStruct(req); err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"error": "Email and password are required",
+			"error": err.Error(),
 		})
 	}
 

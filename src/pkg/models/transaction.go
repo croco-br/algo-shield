@@ -42,12 +42,12 @@ type Transaction struct {
 }
 
 type TransactionEvent struct {
-	ExternalID  string         `json:"external_id"`
-	Amount      float64        `json:"amount"`
-	Currency    string         `json:"currency"`
-	FromAccount string         `json:"from_account"`
-	ToAccount   string         `json:"to_account"`
-	Type        string         `json:"type"`
+	ExternalID  string         `json:"external_id" validate:"required,min=1,max=255"`
+	Amount      float64        `json:"amount" validate:"required,gt=0"`
+	Currency    string         `json:"currency" validate:"required,currency"`
+	FromAccount string         `json:"from_account" validate:"required,account"`
+	ToAccount   string         `json:"to_account" validate:"required,account"`
+	Type        string         `json:"type" validate:"required,transaction_type"`
 	Metadata    map[string]any `json:"metadata"`
 	Timestamp   time.Time      `json:"timestamp"`
 }

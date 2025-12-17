@@ -5,9 +5,9 @@ import (
 )
 
 type AssignRoleRequest struct {
-	RoleID uuid.UUID `json:"role_id"`
+	RoleID uuid.UUID `json:"role_id" validate:"required,uuid"`
 }
 
 type UpdateUserActiveRequest struct {
-	Active bool `json:"active"`
+	Active bool `json:"active" validate:"required"`
 }

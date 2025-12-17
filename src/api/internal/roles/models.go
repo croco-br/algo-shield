@@ -5,5 +5,5 @@ import (
 )
 
 type AssignRoleRequest struct {
-	RoleID uuid.UUID `json:"role_id"`
+	RoleID uuid.UUID `json:"role_id" validate:"required,uuid"`
 }
