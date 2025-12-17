@@ -6,6 +6,7 @@
 *.dylib
 bin/
 dist/
+main
 
 # Test binary
 *.test
@@ -62,3 +63,12 @@ src/ui/build/
 .claude
 .cursor
 docs/
+
+#envs
+.env
+.env.local
+.env.development
+.env.production
+.env.test
+.env.test.local
+.env.test.local.backup

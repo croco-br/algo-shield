@@ -65,8 +65,18 @@ func main() {
 
 	// Start server
 	addr := fmt.Sprintf("%s:%d", cfg.API.Host, cfg.API.Port)
-	log.Printf("Starting API server on %s", addr)
-	if err := app.Listen(addr); err != nil {
-		log.Fatalf("Failed to start server: %v", err)
+	if cfg.API.TLSEnable {
+		log.Printf("Starting API server with TLS on %s", addr)
+		if err := app.ListenTLS(addr, cfg.API.TLSCert, cfg.API.TLSKey); err != nil {
+			log.Fatalf("Failed to start server with TLS: %v", err)
+		}
+	} else {
+		if cfg.General.Environment == "production" {
+			log.Fatalf("TLS is required in production environment. Set TLS_ENABLE=true, TLS_CERT_PATH, and TLS_KEY_PATH")
+		}
+		log.Printf("Starting API server on %s (HTTP only - TLS not enabled)", addr)
+		if err := app.Listen(addr); err != nil {
+			log.Fatalf("Failed to start server: %v", err)
+		}
 	}
 }

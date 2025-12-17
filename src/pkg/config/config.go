@@ -33,8 +33,11 @@ type RedisConfig struct {
 }
 
 type APIConfig struct {
-	Host string
-	Port int
+	Host      string
+	Port      int
+	TLSEnable bool
+	TLSCert   string // Path to TLS certificate file
+	TLSKey    string // Path to TLS private key file
 }
 
 type WorkerConfig struct {
@@ -94,8 +97,11 @@ func Load() (*Config, error) {
 			Port: getEnvInt("REDIS_PORT", 6379),
 		},
 		API: APIConfig{
-			Host: getEnv("API_HOST", "0.0.0.0"),
-			Port: getEnvInt("API_PORT", 8080),
+			Host:      getEnv("API_HOST", "0.0.0.0"),
+			Port:      getEnvInt("API_PORT", 8080),
+			TLSEnable: getEnv("TLS_ENABLE", "") == "true",
+			TLSCert:   getEnv("TLS_CERT_PATH", ""),
+			TLSKey:    getEnv("TLS_KEY_PATH", ""),
 		},
 		Worker: WorkerConfig{
 			Concurrency: getEnvInt("WORKER_CONCURRENCY", 10),
@@ -109,6 +115,25 @@ func Load() (*Config, error) {
 			JWTSecret:          jwtSecret,
 			JWTExpirationHours: getEnvInt("JWT_EXPIRATION_HOURS", 24),
 		},
+	}
+
+	// Validate TLS configuration
+	if isProduction {
+		// In production, TLS is REQUIRED
+		if !config.API.TLSEnable {
+			return nil, fmt.Errorf("TLS_ENABLE=true is required in production environment for security")
+		}
+		if config.API.TLSCert == "" {
+			return nil, fmt.Errorf("TLS_CERT_PATH is required when TLS_ENABLE=true (required in production)")
+		}
+		if config.API.TLSKey == "" {
+			return nil, fmt.Errorf("TLS_KEY_PATH is required when TLS_ENABLE=true (required in production)")
+		}
+	} else if config.API.TLSEnable {
+		// In development/test, if TLS is enabled, both cert and key must be provided
+		if config.API.TLSCert == "" || config.API.TLSKey == "" {
+			return nil, fmt.Errorf("both TLS_CERT_PATH and TLS_KEY_PATH must be provided when TLS_ENABLE=true")
+		}
 	}
 
 	return config, nil
