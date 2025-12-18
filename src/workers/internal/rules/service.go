@@ -12,8 +12,8 @@ import (
 // Uses atomic.Value for lock-free reads and safe concurrent updates
 // Uses RuleReader interface (ISP) - worker only needs LoadRules, not full CRUD
 type RuleService struct {
-	repo  rules.RuleReader // Only needs read access, not full Repository
-	rules atomic.Value     // stores []models.Rule
+	repo        rules.RuleReader // Only needs read access, not full Repository
+	loadedRules atomic.Value     // stores []models.Rule
 }
 
 // NewRuleService creates a new rule service for the worker with dependency injection
@@ -23,7 +23,7 @@ func NewRuleService(repo rules.RuleReader) *RuleService {
 		repo: repo,
 	}
 	// Initialize with empty slice
-	rs.rules.Store(make([]models.Rule, 0))
+	rs.loadedRules.Store(make([]models.Rule, 0))
 	return rs
 }
 
@@ -37,7 +37,7 @@ func (rl *RuleService) LoadRules(ctx context.Context) error {
 	// Store a copy to ensure immutability
 	rulesCopy := make([]models.Rule, len(rules))
 	copy(rulesCopy, rules)
-	rl.rules.Store(rulesCopy)
+	rl.loadedRules.Store(rulesCopy)
 	return nil
 }
 
@@ -45,9 +45,9 @@ func (rl *RuleService) LoadRules(ctx context.Context) error {
 // Thread-safe: uses atomic.Value.Load() for lock-free reads
 // Returns a copy to prevent external modification
 func (rl *RuleService) GetRules() []models.Rule {
-	rules := rl.rules.Load().([]models.Rule)
+	loadedRules := rl.loadedRules.Load().([]models.Rule)
 	// Return a copy to prevent external modification
-	result := make([]models.Rule, len(rules))
-	copy(result, rules)
+	result := make([]models.Rule, len(loadedRules))
+	copy(result, loadedRules)
 	return result
 }
