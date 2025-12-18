@@ -13,8 +13,7 @@ RUN npm install
 COPY src/ui/ ./
 
 # Expose UI port
-EXPOSE 5173
+EXPOSE 3000
 
 # Run in development mode for hot-reload
-CMD ["npm", "run", "dev", "--", "--host", "0.0.0.0"]
-
+CMD ["npm", "run", "dev", "--", "--hostname", "0.0.0.0", "--port", "3000"]

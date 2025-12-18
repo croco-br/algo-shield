@@ -115,8 +115,12 @@ services:
     container_name: algoshield-ui
     depends_on:
       - api
+    environment:
+      # API_URL is used by Next.js server-side rewrites to proxy requests
+      # Use Docker service name 'api' to connect within the Docker network
+      API_URL: http://api:8080
     ports:
-      - "5173:5173"
+      - "3000:3000"
     restart: unless-stopped
     networks:
       - algoshield-network

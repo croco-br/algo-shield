@@ -1,4 +1,4 @@
-.PHONY: help install up down logs test bench clean
+.PHONY: help install up down logs test bench clean ui api api-bg api-stop worker infra-up infra-down
 
 # Colors
 GREEN  := $(shell tput -Txterm setaf 2)
@@ -22,8 +22,7 @@ up: ## Start all services in Docker (API + Worker + UI + infra)
 	@docker-compose up -d --build
 	@echo "${GREEN}✓ Services started!${RESET}"
 	@echo "${BLUE}API:${RESET} http://localhost:8080"
-	@echo "${BLUE}UI:${RESET}  http://localhost:5173"
-	@make logs
+	@echo "${BLUE}UI:${RESET}  http://localhost:3000"
 
 down: ## Stop all services
 	@echo "${YELLOW}Stopping all services...${RESET}"

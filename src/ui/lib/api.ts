@@ -10,9 +10,9 @@ async function request<T>(
 ): Promise<T> {
 	const token = typeof window !== 'undefined' ? localStorage.getItem('auth_token') : null;
 	
-	const headers: HeadersInit = {
+	const headers: Record<string, string> = {
 		'Content-Type': 'application/json',
-		...options.headers,
+		...(options.headers as Record<string, string> || {}),
 	};
 
 	if (token) {
@@ -40,8 +40,14 @@ async function request<T>(
 		return response.json();
 	} catch (error) {
 		clearTimeout(timeoutId);
-		if (error instanceof Error && error.name === 'AbortError') {
-			throw new Error('Request timeout');
+		if (error instanceof Error) {
+			if (error.name === 'AbortError') {
+				throw new Error('Request timeout');
+			}
+			// Handle network errors (Failed to fetch, CORS, etc.)
+			if (error.message.includes('Failed to fetch') || error.message.includes('NetworkError')) {
+				throw new Error(`Unable to connect to API at ${uiConfig.api.baseUrl}. Please ensure the API server is running.`);
+			}
 		}
 		throw error;
 	}
