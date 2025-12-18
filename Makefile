@@ -1,4 +1,4 @@
-.PHONY: help install up down logs test bench clean ui api api-bg api-stop worker infra-up infra-down
+.PHONY: help install up down logs test bench clean clean-volumes reset-db fix ui api api-bg api-stop worker infra-up infra-down
 
 # Colors
 GREEN  := $(shell tput -Txterm setaf 2)
@@ -23,6 +23,7 @@ up: ## Start all services in Docker (API + Worker + UI + infra)
 	@echo "${GREEN}✓ Services started!${RESET}"
 	@echo "${BLUE}API:${RESET} http://localhost:8080"
 	@echo "${BLUE}UI:${RESET}  http://localhost:3000"
+	@make logs
 
 down: ## Stop all services
 	@echo "${YELLOW}Stopping all services...${RESET}"
@@ -45,7 +46,7 @@ bench: ## Run rules engine benchmark
 clean: ## Remove build artifacts and Docker volumes
 	@echo "${YELLOW}Cleaning artifacts...${RESET}"
 	@rm -rf bin/ coverage.out coverage.html
-	@rm -rf src/ui/node_modules src/ui/.svelte-kit
+	@rm -rf src/ui/node_modules src/ui/.next
 	@docker-compose down -v
 	@go clean -testcache -cache
 	@echo "${GREEN}✓ Cleanup completed!${RESET}"

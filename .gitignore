@@ -50,10 +50,9 @@ coverage.html
 
 #node modules
 node_modules/
-.svelte-kit/
 src/ui/node_modules/
-src/ui/.svelte-kit/
-src/ui/build/
+src/ui/.next/
+src/ui/.next
 .todo
 
 

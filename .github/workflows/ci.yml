@@ -92,7 +92,7 @@ jobs:
           path: |
             bin/api
             bin/worker
-            src/ui/build
+            src/ui/.next
           retention-days: 1
 
   # Step 3: Security
