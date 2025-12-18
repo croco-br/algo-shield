@@ -37,12 +37,25 @@ func main() {
 		}
 	}()
 
-	// Create processor
+	// Convert config.RetryConfig to processor.RetryConfig
+	retryCfg := processor.RetryConfig{
+		MaxAttempts:  cfg.Worker.Retry.MaxAttempts,
+		InitialDelay: cfg.Worker.Retry.InitialDelay,
+		MaxDelay:     cfg.Worker.Retry.MaxDelay,
+		Multiplier:   cfg.Worker.Retry.Multiplier,
+	}
+
+	// Create processor with all configurations
 	proc := processor.NewProcessor(
 		db.Pool,
 		redis.Client,
 		cfg.Worker.Concurrency,
 		cfg.Worker.BatchSize,
+		cfg.Worker.Timeouts.TransactionProcessing,
+		cfg.Worker.Timeouts.RuleEvaluation,
+		cfg.Worker.Queue.PopTimeout,
+		cfg.Worker.RulesReload.Interval,
+		retryCfg,
 	)
 
 	// Setup context with cancellation

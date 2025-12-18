@@ -19,19 +19,23 @@ var (
 
 // QueueService handles transaction queue operations
 type QueueService struct {
-	redis *redis.Client
+	redis      *redis.Client
+	popTimeout time.Duration
 }
 
 // NewQueueService creates a new queue service
-func NewQueueService(redis *redis.Client) *QueueService {
-	return &QueueService{redis: redis}
+func NewQueueService(redis *redis.Client, popTimeout time.Duration) *QueueService {
+	return &QueueService{
+		redis:      redis,
+		popTimeout: popTimeout,
+	}
 }
 
 // PopTransaction pops a transaction from the Redis queue
 // Returns ErrTimeout if no transaction is available (expected)
 // Returns other errors for actual failures
 func (q *QueueService) PopTransaction(ctx context.Context) (*models.TransactionEvent, error) {
-	result, err := q.redis.BRPop(ctx, 1*time.Second, "transaction:queue").Result()
+	result, err := q.redis.BRPop(ctx, q.popTimeout, "transaction:queue").Result()
 
 	// Check if it's a timeout (expected) vs actual error
 	if err != nil {

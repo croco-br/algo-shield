@@ -121,3 +121,11 @@ func MeasureExecution(ctx context.Context, fn func() error) (time.Duration, erro
 	duration := time.Since(start)
 	return duration, err
 }
+
+// MeasureBatchExecution measures execution time of a batch processing function
+func MeasureBatchExecution(ctx context.Context, fn func() []BatchResult) (time.Duration, []BatchResult) {
+	start := time.Now()
+	results := fn()
+	duration := time.Since(start)
+	return duration, results
+}

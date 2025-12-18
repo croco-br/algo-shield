@@ -1,4 +1,4 @@
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8080';
+import { uiConfig } from './config';
 
 export interface ApiError {
 	error: string;
@@ -19,17 +19,32 @@ async function request<T>(
 		headers['Authorization'] = `Bearer ${token}`;
 	}
 
-	const response = await fetch(`${API_BASE_URL}${endpoint}`, {
-		...options,
-		headers,
-	});
+	// Create AbortController for timeout
+	const controller = new AbortController();
+	const timeoutId = setTimeout(() => controller.abort(), uiConfig.api.timeout);
 
-	if (!response.ok) {
-		const error: ApiError = await response.json().catch(() => ({ error: 'Unknown error' }));
-		throw new Error(error.error || `HTTP ${response.status}`);
+	try {
+		const response = await fetch(`${uiConfig.api.baseUrl}${endpoint}`, {
+			...options,
+			headers,
+			signal: controller.signal,
+		});
+
+		clearTimeout(timeoutId);
+
+		if (!response.ok) {
+			const error: ApiError = await response.json().catch(() => ({ error: 'Unknown error' }));
+			throw new Error(error.error || `HTTP ${response.status}`);
+		}
+
+		return response.json();
+	} catch (error) {
+		clearTimeout(timeoutId);
+		if (error instanceof Error && error.name === 'AbortError') {
+			throw new Error('Request timeout');
+		}
+		throw error;
 	}
-
-	return response.json();
 }
 
 export const api = {

@@ -5,6 +5,7 @@ import (
 	"os"
 	"strconv"
 	"strings"
+	"time"
 	"unicode"
 
 	"github.com/joho/godotenv"
@@ -43,6 +44,30 @@ type APIConfig struct {
 type WorkerConfig struct {
 	Concurrency int
 	BatchSize   int
+	Timeouts    WorkerTimeouts
+	Retry       RetryConfig
+	Queue       QueueConfig
+	RulesReload RulesReloadConfig
+}
+
+type WorkerTimeouts struct {
+	TransactionProcessing time.Duration
+	RuleEvaluation        time.Duration
+}
+
+type RetryConfig struct {
+	MaxAttempts  int
+	InitialDelay time.Duration
+	MaxDelay     time.Duration
+	Multiplier   float64
+}
+
+type QueueConfig struct {
+	PopTimeout time.Duration
+}
+
+type RulesReloadConfig struct {
+	Interval time.Duration
 }
 
 type GeneralConfig struct {
@@ -106,6 +131,22 @@ func Load() (*Config, error) {
 		Worker: WorkerConfig{
 			Concurrency: getEnvInt("WORKER_CONCURRENCY", 10),
 			BatchSize:   getEnvInt("WORKER_BATCH_SIZE", 50),
+			Timeouts: WorkerTimeouts{
+				TransactionProcessing: getEnvDuration("WORKER_TIMEOUT_TRANSACTION_PROCESSING", 300*time.Millisecond),
+				RuleEvaluation:        getEnvDuration("WORKER_TIMEOUT_RULE_EVALUATION", 300*time.Millisecond),
+			},
+			Retry: RetryConfig{
+				MaxAttempts:  getEnvInt("WORKER_RETRY_MAX_ATTEMPTS", 3),
+				InitialDelay: getEnvDuration("WORKER_RETRY_INITIAL_DELAY", 100*time.Millisecond),
+				MaxDelay:     getEnvDuration("WORKER_RETRY_MAX_DELAY", 5*time.Second),
+				Multiplier:   getEnvFloat("WORKER_RETRY_MULTIPLIER", 2.0),
+			},
+			Queue: QueueConfig{
+				PopTimeout: getEnvDuration("WORKER_QUEUE_POP_TIMEOUT", 1*time.Second),
+			},
+			RulesReload: RulesReloadConfig{
+				Interval: getEnvDuration("WORKER_RULES_RELOAD_INTERVAL", 10*time.Second),
+			},
 		},
 		General: GeneralConfig{
 			Environment: environment,
@@ -165,6 +206,28 @@ func getEnvInt(key string, defaultValue int) int {
 	if value := os.Getenv(key); value != "" {
 		if intValue, err := strconv.Atoi(value); err == nil {
 			return intValue
+		}
+	}
+	return defaultValue
+}
+
+func getEnvFloat(key string, defaultValue float64) float64 {
+	if value := os.Getenv(key); value != "" {
+		if floatValue, err := strconv.ParseFloat(value, 64); err == nil {
+			return floatValue
+		}
+	}
+	return defaultValue
+}
+
+func getEnvDuration(key string, defaultValue time.Duration) time.Duration {
+	if value := os.Getenv(key); value != "" {
+		if duration, err := time.ParseDuration(value); err == nil {
+			return duration
+		}
+		// Try parsing as integer seconds for convenience
+		if seconds, err := strconv.Atoi(value); err == nil {
+			return time.Duration(seconds) * time.Second
 		}
 	}
 	return defaultValue

@@ -25,7 +25,7 @@ type Engine struct {
 }
 
 // NewEngine creates a new rule engine
-func NewEngine(db *pgxpool.Pool, redis *redis.Client, historyProvider TransactionHistoryProvider) *Engine {
+func NewEngine(db *pgxpool.Pool, redis *redis.Client, historyProvider TransactionHistoryProvider, ruleEvaluationTimeout time.Duration) *Engine {
 	if historyProvider == nil {
 		// Default to PostgresHistoryRepository if not provided
 		historyProvider = transactions.NewPostgresHistoryRepository(db)
@@ -38,7 +38,7 @@ func NewEngine(db *pgxpool.Pool, redis *redis.Client, historyProvider Transactio
 	return &Engine{
 		ruleService:     ruleService,
 		historyProvider: historyProvider,
-		defaultTimeout:  300 * time.Millisecond,
+		defaultTimeout:  ruleEvaluationTimeout,
 	}
 }
 

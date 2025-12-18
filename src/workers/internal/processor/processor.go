@@ -3,7 +3,6 @@ package processor
 import (
 	"context"
 	"log"
-	"sync"
 	"time"
 
 	"github.com/algo-shield/algo-shield/src/pkg/models"
@@ -12,24 +11,28 @@ import (
 	"github.com/algo-shield/algo-shield/src/workers/internal/transactions"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/redis/go-redis/v9"
+	"golang.org/x/sync/errgroup"
+	"golang.org/x/sync/semaphore"
 )
 
 type Processor struct {
-	transactionService *transactions.Service
-	queueService       *queue.QueueService
-	ruleEngine         *engine.Engine
-	metricsCollector   *MetricsCollector
-	retryConfig        RetryConfig
-	concurrency        int
-	batchSize          int
+	transactionService  *transactions.Service
+	queueService        *queue.QueueService
+	ruleEngine          *engine.Engine
+	metricsCollector    *MetricsCollector
+	retryConfig         RetryConfig
+	concurrency         int
+	batchSize           int
+	transactionTimeout  time.Duration
+	rulesReloadInterval time.Duration
 }
 
-func NewProcessor(db *pgxpool.Pool, redis *redis.Client, concurrency, batchSize int) *Processor {
+func NewProcessor(db *pgxpool.Pool, redis *redis.Client, concurrency, batchSize int, transactionTimeout, ruleEvaluationTimeout, queuePopTimeout, rulesReloadInterval time.Duration, retryConfig RetryConfig) *Processor {
 	// Create history provider for engine
 	historyProvider := transactions.NewPostgresHistoryRepository(db)
 
-	// Create single instance of rule engine with history provider
-	ruleEngine := engine.NewEngine(db, redis, historyProvider)
+	// Create single instance of rule engine with history provider and timeout
+	ruleEngine := engine.NewEngine(db, redis, historyProvider, ruleEvaluationTimeout)
 
 	// Create transaction repository and service with dependency injection
 	transactionService := transactions.NewService(transactions.NewPostgresRepository(db), ruleEngine)
@@ -40,13 +43,15 @@ func NewProcessor(db *pgxpool.Pool, redis *redis.Client, concurrency, batchSize 
 	}
 
 	return &Processor{
-		transactionService: transactionService,
-		queueService:       queue.NewQueueService(redis),
-		ruleEngine:         ruleEngine,
-		metricsCollector:   NewMetricsCollector(),
-		retryConfig:        DefaultRetryConfig(),
-		concurrency:        concurrency,
-		batchSize:          batchSize,
+		transactionService:  transactionService,
+		queueService:        queue.NewQueueService(redis, queuePopTimeout),
+		ruleEngine:          ruleEngine,
+		metricsCollector:    NewMetricsCollector(),
+		retryConfig:         retryConfig,
+		concurrency:         concurrency,
+		batchSize:           batchSize,
+		transactionTimeout:  transactionTimeout,
+		rulesReloadInterval: rulesReloadInterval,
 	}
 }
 
@@ -58,40 +63,34 @@ func (p *Processor) Start(ctx context.Context) error {
 		return err
 	}
 
+	// Create errgroup for managing all goroutines with proper error handling
+	g, gCtx := errgroup.WithContext(ctx)
+
 	// Reload rules periodically for hot-reload
-	go p.reloadRulesPeriodically(ctx)
+	g.Go(func() error {
+		p.reloadRulesPeriodically(gCtx)
+		return nil // Periodic reload doesn't return errors that should stop the processor
+	})
 
-	// Use WaitGroup to track worker goroutines
-	var wg sync.WaitGroup
-
-	// Start worker goroutines
+	// Start worker goroutines using errgroup
 	for i := 0; i < p.concurrency; i++ {
-		wg.Add(1)
-		go func(id int) {
-			defer wg.Done()
-			p.worker(ctx, id)
-		}(i)
+		workerID := i // Capture loop variable
+		g.Go(func() error {
+			p.worker(gCtx, workerID)
+			return nil // Workers run until context cancellation
+		})
 	}
 
-	// Wait for context cancellation (shutdown signal)
-	<-ctx.Done()
-	log.Println("Shutdown signal received, waiting for workers to finish...")
+	// Wait for context cancellation or any error
+	log.Println("Processor started, waiting for shutdown signal...")
 
-	// Graceful shutdown: wait for workers to finish with timeout
-	done := make(chan struct{})
-	go func() {
-		wg.Wait()
-		close(done)
-	}()
-
-	// Wait for workers to finish or timeout after 30 seconds
-	gracePeriod := 30 * time.Second
-	select {
-	case <-done:
-		log.Println("All workers stopped gracefully")
-	case <-time.After(gracePeriod):
-		log.Printf("Force shutdown after %v timeout - some workers may not have finished", gracePeriod)
+	// Wait for all goroutines to finish (they'll stop when context is cancelled)
+	if err := g.Wait(); err != nil {
+		log.Printf("Processor stopped with error: %v", err)
+		return err
 	}
+
+	log.Println("Shutdown signal received, all workers stopped gracefully")
 
 	// Log final metrics
 	metrics := p.metricsCollector.GetMetrics()
@@ -107,7 +106,7 @@ func (p *Processor) GetMetrics() Metrics {
 }
 
 func (p *Processor) reloadRulesPeriodically(ctx context.Context) {
-	ticker := time.NewTicker(10 * time.Second)
+	ticker := time.NewTicker(p.rulesReloadInterval)
 	defer ticker.Stop()
 
 	for {
@@ -165,7 +164,7 @@ func (p *Processor) processNextTransaction(ctx context.Context) {
 	duration, err := MeasureExecution(ctx, func() error {
 		return Retry(ctx, p.retryConfig, func() error {
 			// Add timeout to context
-			processCtx, cancel := context.WithTimeout(ctx, 300*time.Millisecond)
+			processCtx, cancel := context.WithTimeout(ctx, p.transactionTimeout)
 			defer cancel()
 
 			return p.transactionService.ProcessTransaction(processCtx, *event)
@@ -182,7 +181,8 @@ func (p *Processor) processNextTransaction(ctx context.Context) {
 	}
 }
 
-// processBatch processes multiple transactions in a batch
+// processBatch processes multiple transactions in a batch using parallel processing
+// Uses worker pool pattern with controlled concurrency to avoid overwhelming the system
 func (p *Processor) processBatch(ctx context.Context) {
 	events := make([]*models.TransactionEvent, 0, p.batchSize)
 
@@ -205,47 +205,115 @@ func (p *Processor) processBatch(ctx context.Context) {
 		return
 	}
 
-	// Process batch with metrics - process in parallel with worker pool
-	duration, err := MeasureExecution(ctx, func() error {
-		batchCtx, cancel := context.WithTimeout(ctx, 300*time.Millisecond*time.Duration(len(events)))
-		defer cancel()
-
-		// Process items in parallel using a semaphore pattern
-		type result struct {
-			err error
-		}
-		results := make(chan result, len(events))
-
-		// Launch goroutines for each event
-		for _, event := range events {
-			go func(evt *models.TransactionEvent) {
-				var res result
-				res.err = Retry(batchCtx, p.retryConfig, func() error {
-					return p.transactionService.ProcessTransaction(batchCtx, *evt)
-				})
-				results <- res
-			}(event)
-		}
-
-		// Collect all results
-		var firstErr error
-		for i := 0; i < len(events); i++ {
-			res := <-results
-			if res.err != nil && firstErr == nil {
-				firstErr = res.err
-			}
-		}
-
-		return firstErr
+	// Process batch in parallel with controlled concurrency
+	duration, batchResults := MeasureBatchExecution(ctx, func() []BatchResult {
+		return p.processBatchParallel(ctx, events)
 	})
 
-	success := err == nil
-	p.metricsCollector.RecordProcessing(duration, success)
+	// Record metrics for each transaction individually
+	successCount := 0
+	failureCount := 0
+	for _, result := range batchResults {
+		p.metricsCollector.RecordProcessing(result.Duration, result.Success)
+		if result.Success {
+			successCount++
+		} else {
+			failureCount++
+			log.Printf("Failed to process transaction %s in batch: %v (duration: %v)",
+				result.ExternalID, result.Error, result.Duration)
+		}
+	}
 
-	if err != nil {
-		log.Printf("Failed to process some transactions in batch of %d: %v (duration: %v)", len(events), err, duration)
-	} else {
+	// Log batch summary
+	if failureCount == 0 {
 		log.Printf("Processed batch of %d transactions successfully (duration: %v, avg: %v)",
 			len(events), duration, duration/time.Duration(len(events)))
+	} else {
+		log.Printf("Processed batch of %d transactions: %d succeeded, %d failed (duration: %v)",
+			len(events), successCount, failureCount, duration)
 	}
+}
+
+// BatchResult represents the result of processing a single transaction in a batch
+type BatchResult struct {
+	ExternalID string
+	Success    bool
+	Error      error
+	Duration   time.Duration
+}
+
+// processBatchParallel processes events in parallel with controlled concurrency
+// Uses golang.org/x/sync/semaphore for robust concurrency control and errgroup for error handling
+func (p *Processor) processBatchParallel(ctx context.Context, events []*models.TransactionEvent) []BatchResult {
+	// Use concurrency limit to prevent overwhelming the system
+	// Use the processor's concurrency setting, but cap at batch size
+	concurrencyLimit := int64(p.concurrency)
+	if concurrencyLimit > int64(len(events)) {
+		concurrencyLimit = int64(len(events))
+	}
+	if concurrencyLimit < 1 {
+		concurrencyLimit = 1
+	}
+
+	// Create weighted semaphore for controlled concurrency
+	sem := semaphore.NewWeighted(concurrencyLimit)
+
+	// Create errgroup for managing goroutines with proper error handling
+	g, gCtx := errgroup.WithContext(ctx)
+
+	// Results channel with buffer for all events
+	results := make(chan BatchResult, len(events))
+
+	// Process each event in parallel with controlled concurrency
+	for _, event := range events {
+		evt := event // Capture loop variable
+
+		g.Go(func() error {
+			// Acquire semaphore (blocks if limit reached, respects context cancellation)
+			if err := sem.Acquire(gCtx, 1); err != nil {
+				// Context cancelled or semaphore acquisition failed
+				results <- BatchResult{
+					ExternalID: evt.ExternalID,
+					Success:    false,
+					Error:      err,
+					Duration:   0,
+				}
+				return err
+			}
+			defer sem.Release(1) // Release semaphore when done
+
+			// Process with individual timeout and retry
+			processCtx, cancel := context.WithTimeout(gCtx, p.transactionTimeout)
+			defer cancel()
+
+			duration, err := MeasureExecution(processCtx, func() error {
+				return Retry(processCtx, p.retryConfig, func() error {
+					return p.transactionService.ProcessTransaction(processCtx, *evt)
+				})
+			})
+
+			results <- BatchResult{
+				ExternalID: evt.ExternalID,
+				Success:    err == nil,
+				Error:      err,
+				Duration:   duration,
+			}
+
+			return nil // Don't propagate individual transaction errors to errgroup
+		})
+	}
+
+	// Wait for all goroutines to complete (or context cancellation)
+	// Note: We ignore the error from Wait() because we want to collect all results
+	// even if some transactions failed
+	_ = g.Wait()
+	close(results)
+
+	// Collect all results
+	batchResults := make([]BatchResult, 0, len(events))
+	for result := range results {
+		batchResults = append(batchResults, result)
+	}
+
+	return batchResults
 }
