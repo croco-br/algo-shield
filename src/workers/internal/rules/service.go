@@ -6,8 +6,6 @@ import (
 
 	"github.com/algo-shield/algo-shield/src/pkg/models"
 	"github.com/algo-shield/algo-shield/src/pkg/rules"
-	"github.com/jackc/pgx/v5/pgxpool"
-	"github.com/redis/go-redis/v9"
 )
 
 // RuleService handles rule loading and caching for the worker
@@ -18,10 +16,11 @@ type RuleService struct {
 	rules atomic.Value     // stores []models.Rule
 }
 
-// NewRuleService creates a new rule service for the worker
-func NewRuleService(db *pgxpool.Pool, redis *redis.Client) *RuleService {
+// NewRuleService creates a new rule service for the worker with dependency injection
+// Follows Dependency Inversion Principle - receives interface, not concrete type
+func NewRuleService(repo rules.RuleReader) *RuleService {
 	rs := &RuleService{
-		repo: rules.NewPostgresRepository(db, redis), // PostgresRepository implements RuleReader
+		repo: repo,
 	}
 	// Initialize with empty slice
 	rs.rules.Store(make([]models.Rule, 0))

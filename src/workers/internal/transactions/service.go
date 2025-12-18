@@ -7,8 +7,6 @@ import (
 
 	"github.com/algo-shield/algo-shield/src/pkg/models"
 	"github.com/google/uuid"
-	"github.com/jackc/pgx/v5/pgxpool"
-	"github.com/redis/go-redis/v9"
 )
 
 // RuleEvaluator defines the interface for rule evaluation
@@ -22,10 +20,11 @@ type Service struct {
 	ruleEvaluator RuleEvaluator
 }
 
-// NewService creates a new transaction service
-func NewService(db *pgxpool.Pool, redis *redis.Client, ruleEvaluator RuleEvaluator) *Service {
+// NewService creates a new transaction service with dependency injection
+// Follows Dependency Inversion Principle - receives interface, not concrete type
+func NewService(repo Repository, ruleEvaluator RuleEvaluator) *Service {
 	return &Service{
-		repo:          NewPostgresRepository(db),
+		repo:          repo,
 		ruleEvaluator: ruleEvaluator,
 	}
 }

@@ -6,7 +6,6 @@ import (
 
 	"github.com/algo-shield/algo-shield/src/pkg/models"
 	"github.com/google/uuid"
-	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/redis/go-redis/v9"
 )
 
@@ -18,15 +17,23 @@ type Service interface {
 	ListTransactions(ctx context.Context, limit, offset int) ([]models.Transaction, error)
 }
 
-type service struct {
-	repo  Repository
-	redis *redis.Client
+// QueuePusher defines interface for pushing to queue
+// Follows Dependency Inversion Principle
+type QueuePusher interface {
+	LPush(ctx context.Context, key string, values ...interface{}) *redis.IntCmd
 }
 
-func NewService(db *pgxpool.Pool, redis *redis.Client) Service {
+type service struct {
+	repo      Repository
+	queuePush QueuePusher
+}
+
+// NewService creates a new transaction service with dependency injection
+// Follows Dependency Inversion Principle - receives interfaces, not concrete types
+func NewService(repo Repository, queuePush QueuePusher) Service {
 	return &service{
-		repo:  NewPostgresRepository(db),
-		redis: redis,
+		repo:      repo,
+		queuePush: queuePush,
 	}
 }
 
@@ -37,7 +44,7 @@ func (s *service) ProcessTransaction(ctx context.Context, event models.Transacti
 	}
 
 	// Push to Redis queue
-	return s.redis.LPush(ctx, "transaction:queue", eventJSON).Err()
+	return s.queuePush.LPush(ctx, "transaction:queue", eventJSON).Err()
 }
 
 func (s *service) GetTransaction(ctx context.Context, id uuid.UUID) (*models.Transaction, error) {

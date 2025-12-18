@@ -11,7 +11,6 @@ import (
 	"github.com/algo-shield/algo-shield/src/pkg/models"
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/google/uuid"
-	"github.com/jackc/pgx/v5/pgxpool"
 	"golang.org/x/crypto/bcrypt"
 )
 
@@ -30,7 +29,9 @@ type Service struct {
 	jwtExpiry   time.Duration
 }
 
-func NewService(db *pgxpool.Pool, cfg *config.Config, userService UserService) *Service {
+// NewService creates a new auth service with dependency injection
+// Follows Dependency Inversion Principle - receives interface, not concrete type
+func NewService(cfg *config.Config, userService UserService) *Service {
 	return &Service{
 		userService: userService,
 		jwtSecret:   cfg.Auth.JWTSecret,

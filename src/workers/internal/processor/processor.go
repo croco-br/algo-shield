@@ -31,8 +31,8 @@ func NewProcessor(db *pgxpool.Pool, redis *redis.Client, concurrency, batchSize 
 	// Create single instance of rule engine with history provider
 	ruleEngine := engine.NewEngine(db, redis, historyProvider)
 
-	// Create transaction service with injected engine
-	transactionService := transactions.NewService(db, redis, ruleEngine)
+	// Create transaction repository and service with dependency injection
+	transactionService := transactions.NewService(transactions.NewPostgresRepository(db), ruleEngine)
 
 	// Default batch size to 50 if not provided
 	if batchSize <= 0 {

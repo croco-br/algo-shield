@@ -8,10 +8,8 @@ import (
 
 	"github.com/algo-shield/algo-shield/src/api/internal/groups"
 	"github.com/algo-shield/algo-shield/src/api/internal/roles"
-	"github.com/algo-shield/algo-shield/src/pkg/config"
 	"github.com/algo-shield/algo-shield/src/pkg/models"
 	"github.com/google/uuid"
-	"github.com/jackc/pgx/v5/pgxpool"
 )
 
 type Service struct {
@@ -22,13 +20,21 @@ type Service struct {
 	txManager    TransactionManager
 }
 
-func NewService(db *pgxpool.Pool, cfg *config.Config, roleService roles.Service, groupService groups.Service) *Service {
+// NewService creates a new user service with dependency injection
+// Follows Dependency Inversion Principle - receives interfaces, not concrete types
+func NewService(
+	userRepo UserRepository,
+	roleRepo roles.Repository,
+	txManager TransactionManager,
+	roleService roles.Service,
+	groupService groups.Service,
+) *Service {
 	return &Service{
-		userRepo:     NewPostgresUserRepository(db),
-		roleRepo:     roles.NewPostgresRepository(db),
+		userRepo:     userRepo,
+		roleRepo:     roleRepo,
 		roleService:  roleService,
 		groupService: groupService,
-		txManager:    NewPostgresTransactionManager(db),
+		txManager:    txManager,
 	}
 }
 

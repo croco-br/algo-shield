@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/algo-shield/algo-shield/src/pkg/models"
+	"github.com/algo-shield/algo-shield/src/pkg/rules"
 	"github.com/algo-shield/algo-shield/src/workers/internal/transactions"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/redis/go-redis/v9"
@@ -30,8 +31,12 @@ func NewEngine(db *pgxpool.Pool, redis *redis.Client, historyProvider Transactio
 		historyProvider = transactions.NewPostgresHistoryRepository(db)
 	}
 
+	// Create rule repository and service with dependency injection
+	ruleRepo := rules.NewPostgresRepository(db, redis)
+	ruleService := NewRuleService(ruleRepo)
+
 	return &Engine{
-		ruleService:     NewRuleService(db, redis),
+		ruleService:     ruleService,
 		historyProvider: historyProvider,
 		defaultTimeout:  300 * time.Millisecond,
 	}

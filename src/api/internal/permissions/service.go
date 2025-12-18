@@ -7,7 +7,6 @@ import (
 	"github.com/algo-shield/algo-shield/src/api/internal/roles"
 	"github.com/algo-shield/algo-shield/src/pkg/models"
 	"github.com/google/uuid"
-	"github.com/jackc/pgx/v5/pgxpool"
 )
 
 // Service manages users with their roles and groups aggregated.
@@ -18,9 +17,11 @@ type Service struct {
 	groupService groups.Service // Only used for LoadUserGroups
 }
 
-func NewService(db *pgxpool.Pool, roleService roles.Service, groupService groups.Service) *Service {
+// NewService creates a new permissions service with dependency injection
+// Follows Dependency Inversion Principle - receives interfaces, not concrete types
+func NewService(userRepo UserRepository, roleService roles.Service, groupService groups.Service) *Service {
 	return &Service{
-		userRepo:     NewPostgresUserRepository(db),
+		userRepo:     userRepo,
 		roleService:  roleService,
 		groupService: groupService,
 	}

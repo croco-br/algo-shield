@@ -5,7 +5,6 @@ import (
 
 	"github.com/algo-shield/algo-shield/src/pkg/models"
 	"github.com/google/uuid"
-	"github.com/jackc/pgx/v5/pgxpool"
 )
 
 // Service defines the interface for group business logic
@@ -21,9 +20,11 @@ type service struct {
 	repo Repository
 }
 
-func NewService(db *pgxpool.Pool) Service {
+// NewService creates a new group service with dependency injection
+// Follows Dependency Inversion Principle - receives interface, not concrete type
+func NewService(repo Repository) Service {
 	return &service{
-		repo: NewPostgresRepository(db),
+		repo: repo,
 	}
 }
 

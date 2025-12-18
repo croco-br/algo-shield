@@ -22,26 +22,30 @@ func Setup(app *fiber.App, db *pgxpool.Pool, redis *redis.Client, cfg *config.Co
 	app.Use(middleware.Logger())
 	app.Use(middleware.CORS())
 
-	// Initialize slices
-	roleService := roles.NewService(db)
-	groupService := groups.NewService(db)
-	userService := user.NewService(db, cfg, roleService, groupService)
-	authService := auth.NewService(db, cfg, userService)
+	// Create repositories (infrastructure layer - can create concrete types)
+	roleRepo := roles.NewPostgresRepository(db)
+	groupRepo := groups.NewPostgresRepository(db)
+	userRepo := user.NewPostgresUserRepository(db)
+	userTxManager := user.NewPostgresTransactionManager(db)
+	permissionsUserRepo := permissions.NewPostgresUserRepository(db)
+	transactionRepo := transactions.NewPostgresRepository(db)
+	ruleRepo := rulespkg.NewPostgresRepository(db, redis)
+
+	// Create services with dependency injection (business layer - receives interfaces)
+	roleService := roles.NewService(roleRepo)
+	groupService := groups.NewService(groupRepo)
+	userService := user.NewService(userRepo, roleRepo, userTxManager, roleService, groupService)
+	authService := auth.NewService(cfg, userService)
+	permissionsService := permissions.NewService(permissionsUserRepo, roleService, groupService)
+	transactionService := transactions.NewService(transactionRepo, redis)
+
+	// Create handlers with dependency injection (presentation layer - receives interfaces)
 	authHandler := auth.NewHandler(authService, userService)
-
-	permissionsService := permissions.NewService(db, roleService, groupService)
 	permissionsHandler := permissions.NewHandler(permissionsService)
-
 	roleHandler := roles.NewHandler(roleService)
 	groupHandler := groups.NewHandler(groupService)
-
-	// Create services and repositories for dependency injection
-	transactionService := transactions.NewService(db, redis)
 	transactionHandler := transactions.NewHandler(transactionService)
-
-	ruleRepo := rulespkg.NewPostgresRepository(db, redis)
 	ruleHandler := rules.NewHandler(ruleRepo)
-
 	healthHandler := health.NewHandler(db, redis)
 
 	// Health routes (public)
