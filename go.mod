@@ -1,6 +1,6 @@
 module github.com/algo-shield/algo-shield
 
-go 1.25
+go 1.25.4
 
 require (
 	github.com/go-playground/validator/v10 v10.29.0
