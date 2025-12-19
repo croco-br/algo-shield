@@ -7,9 +7,9 @@ services:
     container_name: algoshield-postgres
     restart: unless-stopped
     environment:
-      POSTGRES_USER: ${POSTGRES_USER:-algoshield}
+      POSTGRES_USER: ${POSTGRES_USER}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
-      POSTGRES_DB: ${POSTGRES_DB:-algoshield}
+      POSTGRES_DB: ${POSTGRES_DB}
       PGDATA: /var/lib/postgresql/data/pgdata
     volumes:
       - postgres_data:/var/lib/postgresql/data
@@ -19,7 +19,7 @@ services:
     networks:
       - algoshield-network
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-algoshield} -d ${POSTGRES_DB:-algoshield}"]
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -94,9 +94,9 @@ services:
       # Database
       POSTGRES_HOST: postgres
       POSTGRES_PORT: 5432
-      POSTGRES_USER: ${POSTGRES_USER:-algoshield}
+      POSTGRES_USER: ${POSTGRES_USER}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
-      POSTGRES_DB: ${POSTGRES_DB:-algoshield}
+      POSTGRES_DB: ${POSTGRES_DB}
       # Redis
       REDIS_HOST: redis
       REDIS_PORT: 6379
@@ -146,9 +146,9 @@ services:
       # Database
       POSTGRES_HOST: postgres
       POSTGRES_PORT: 5432
-      POSTGRES_USER: ${POSTGRES_USER:-algoshield}
+      POSTGRES_USER: ${POSTGRES_USER}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
-      POSTGRES_DB: ${POSTGRES_DB:-algoshield}
+      POSTGRES_DB: ${POSTGRES_DB}
       # Redis
       REDIS_HOST: redis
       REDIS_PORT: 6379
@@ -197,32 +197,30 @@ services:
           memory: 256M
 
   # =============================================================================
-  # UI Service (Next.js)
+  # UI Service (Vue.js)
   # =============================================================================
   ui:
     build:
       context: .
       dockerfile: Dockerfile.ui
       args:
-        API_URL: ${API_URL:-http://api:8080}
-        NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-}
+        API_URL: ${API_URL}
+        VITE_API_URL: ${VITE_API_URL}
     container_name: algoshield-ui
     restart: unless-stopped
     environment:
       NODE_ENV: production
-      PORT: 3000
-      HOSTNAME: 0.0.0.0
-      API_URL: ${API_URL:-http://api:8080}
-      NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-}
-      NEXT_PUBLIC_API_TIMEOUT: ${NEXT_PUBLIC_API_TIMEOUT:-30000}
-      NEXT_PUBLIC_API_RETRY_MAX_ATTEMPTS: ${NEXT_PUBLIC_API_RETRY_MAX_ATTEMPTS:-3}
-      NEXT_PUBLIC_API_RETRY_INITIAL_DELAY: ${NEXT_PUBLIC_API_RETRY_INITIAL_DELAY:-1000}
-      NEXT_PUBLIC_API_RETRY_MAX_DELAY: ${NEXT_PUBLIC_API_RETRY_MAX_DELAY:-10000}
-      NEXT_PUBLIC_API_RETRY_MULTIPLIER: ${NEXT_PUBLIC_API_RETRY_MULTIPLIER:-2.0}
-      NEXT_PUBLIC_UI_TOAST_DURATION: ${NEXT_PUBLIC_UI_TOAST_DURATION:-5000}
-      NEXT_PUBLIC_UI_POLLING_INTERVAL: ${NEXT_PUBLIC_UI_POLLING_INTERVAL:-10000}
+      API_URL: ${API_URL}
+      VITE_API_URL: ${VITE_API_URL}
+      VITE_API_TIMEOUT: ${VITE_API_TIMEOUT}
+      VITE_API_RETRY_MAX_ATTEMPTS: ${VITE_API_RETRY_MAX_ATTEMPTS}
+      VITE_API_RETRY_INITIAL_DELAY: ${VITE_API_RETRY_INITIAL_DELAY}
+      VITE_API_RETRY_MAX_DELAY: ${VITE_API_RETRY_MAX_DELAY}
+      VITE_API_RETRY_MULTIPLIER: ${VITE_API_RETRY_MULTIPLIER}
+      VITE_UI_TOAST_DURATION: ${VITE_UI_TOAST_DURATION}
+      VITE_UI_POLLING_INTERVAL: ${VITE_UI_POLLING_INTERVAL}
     ports:
-      - "${UI_PORT:-3000}:3000"
+      - "${UI_PORT}"
     networks:
       - algoshield-network
     depends_on:
@@ -239,7 +237,6 @@ services:
     read_only: true
     tmpfs:
       - /tmp
-      - /app/.next/cache
 
 # =============================================================================
 # Networks

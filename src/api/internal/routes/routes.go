@@ -1,6 +1,8 @@
 package routes
 
 import (
+	"strings"
+
 	"github.com/algo-shield/algo-shield/src/api/internal/auth"
 	"github.com/algo-shield/algo-shield/src/api/internal/groups"
 	"github.com/algo-shield/algo-shield/src/api/internal/health"
@@ -99,4 +101,17 @@ func Setup(app *fiber.App, db *pgxpool.Pool, redis *redis.Client, cfg *config.Co
 	groupsGroup := v1.Group("/groups", middleware.RequireRole("admin"))
 	groupsGroup.Get("/", groupHandler.ListGroups)
 	groupsGroup.Get("/:id", groupHandler.GetGroup)
+
+	// 404 handler - always return JSON for API routes
+	app.Use(func(c *fiber.Ctx) error {
+		// Only handle 404 for API routes
+		if strings.HasPrefix(c.Path(), "/api") {
+			return c.Status(fiber.StatusNotFound).JSON(fiber.Map{
+				"error": "API endpoint not found",
+				"path":  c.Path(),
+			})
+		}
+		// For non-API routes, return default 404 (useful for SPA routing)
+		return c.Status(fiber.StatusNotFound).SendString("Not Found")
+	})
 }

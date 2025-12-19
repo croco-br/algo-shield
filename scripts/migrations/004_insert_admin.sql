@@ -1,6 +1,6 @@
 -- Insert default admin user
 -- Email: admin@admin.com
--- Password: admin
+-- Password: admin@123
 -- This user will have the admin role assigned
 
 DO $$
@@ -36,7 +36,7 @@ BEGIN
             admin_user_id,
             admin_email,
             'Administrator',
-            '$2a$10$HzMzEBsY7h9i4q4JNEkOcuYjppiLONMl4PljA9vJamATnBTgkNDyC', -- bcrypt hash of "admin"
+            '$2a$10$IIbu/Hx8lQJanbd0Rr3OeunWWVDF.m6PdRErfcFpZbaJkSsNoJX0.', -- bcrypt hash of "admin@123"
             'local',
             true,
             NOW(),
@@ -48,7 +48,7 @@ BEGIN
         VALUES (admin_user_id, admin_role_id, NOW())
         ON CONFLICT (user_id, role_id) DO NOTHING;
         
-        RAISE NOTICE 'Admin user created successfully with email: % and password: admin', admin_email;
+        RAISE NOTICE 'Admin user created successfully with email: % and password: admin@123', admin_email;
     ELSE
         RAISE NOTICE 'Admin user already exists, skipping creation';
     END IF;
