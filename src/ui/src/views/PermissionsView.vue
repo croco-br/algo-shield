@@ -1,133 +1,109 @@
 <template>
   <div class="max-w-7xl mx-auto px-8">
     <div class="mb-8">
-      <h1 class="text-3xl font-semibold mb-2">Permissions Management</h1>
-      <p class="text-gray-500">Manage users, roles, and permissions</p>
+      <h1 class="text-3xl font-bold text-slate-900 mb-2">Permissions Management</h1>
+      <p class="text-slate-600 font-medium">Manage users, roles, and permissions</p>
     </div>
 
-    <div v-if="error" class="bg-red-50 border border-red-200 rounded-md p-4 mb-6 text-red-600 flex justify-between items-center">
-      <span>{{ error }}</span>
-      <button @click="error = ''" class="text-2xl leading-none">×</button>
-    </div>
+    <ErrorMessage
+      v-if="error"
+      :message="error"
+      class="mb-6"
+      @dismiss="error = ''"
+    />
 
-    <div v-if="loading" class="text-center py-12 text-gray-500">Loading...</div>
+    <LoadingSpinner v-if="loading" text="Loading..." :centered="false" />
 
-    <div v-else class="bg-white rounded-lg border border-gray-200 overflow-hidden shadow-sm">
-      <table class="w-full border-collapse">
-        <thead class="bg-gray-50">
-          <tr>
-            <th class="px-4 py-4 text-left font-semibold text-gray-900 border-b-2 border-gray-200">User</th>
-            <th class="px-4 py-4 text-left font-semibold text-gray-900 border-b-2 border-gray-200">Email</th>
-            <th class="px-4 py-4 text-left font-semibold text-gray-900 border-b-2 border-gray-200">Roles</th>
-            <th class="px-4 py-4 text-left font-semibold text-gray-900 border-b-2 border-gray-200">Status</th>
-            <th class="px-4 py-4 text-left font-semibold text-gray-900 border-b-2 border-gray-200">Actions</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr v-for="user in users" :key="user.id" class="hover:bg-gray-50">
-            <td class="px-4 py-4 border-b border-gray-200">
-              <div class="flex items-center gap-3">
-                <img
-                  v-if="user.picture_url"
-                  :src="user.picture_url"
-                  :alt="user.name"
-                  class="w-8 h-8 rounded-full object-cover"
-                />
-                <div
-                  v-else
-                  class="w-8 h-8 rounded-full bg-gradient-to-br from-indigo-500 to-purple-600 text-white flex items-center justify-center font-semibold text-sm"
-                >
-                  {{ user.name.charAt(0).toUpperCase() }}
-                </div>
-                <span>{{ user.name }}</span>
-              </div>
-            </td>
-            <td class="px-4 py-4 border-b border-gray-200 text-gray-900">{{ user.email }}</td>
-            <td class="px-4 py-4 border-b border-gray-200">
-              <div class="flex flex-wrap gap-2 items-center">
-                <span
-                  v-for="role in (user.roles || [])"
-                  :key="role.id"
-                  class="inline-flex items-center gap-2 px-3 py-1.5 bg-indigo-600 text-white rounded text-sm font-medium"
-                >
-                  {{ role.name }}
-                  <button
-                    @click="removeRole(user.id, role.id)"
-                    class="bg-white bg-opacity-30 rounded-full w-4.5 h-4.5 flex items-center justify-center text-xs hover:bg-opacity-50 transition-colors"
-                    title="Remove role"
-                  >
-                    ×
-                  </button>
-                </span>
-                <button
-                  @click="openRoleModal(user)"
-                  class="px-3 py-1.5 border border-dashed border-gray-300 bg-white rounded text-sm text-gray-500 hover:border-indigo-500 hover:text-indigo-600 transition-colors"
-                >
-                  + Add Role
-                </button>
-              </div>
-            </td>
-            <td class="px-4 py-4 border-b border-gray-200">
-              <span
-                :class="[
-                  'px-3 py-1.5 rounded text-sm font-medium',
-                  user.active ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
-                ]"
-              >
-                {{ user.active ? 'Active' : 'Inactive' }}
-              </span>
-            </td>
-            <td class="px-4 py-4 border-b border-gray-200">
-              <button
-                @click="toggleUserActive(user)"
-                :class="[
-                  'px-4 py-2 border rounded text-sm transition-colors',
-                  user.active
-                    ? 'text-red-600 border-red-600 hover:bg-red-50'
-                    : 'text-gray-700 border-gray-300 hover:bg-gray-50'
-                ]"
-              >
-                {{ user.active ? 'Deactivate' : 'Activate' }}
-              </button>
-            </td>
-          </tr>
-        </tbody>
-      </table>
-    </div>
-
-    <div
-      v-if="showRoleModal && selectedUser"
-      class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50"
-      @click="closeRoleModal"
+    <BaseTable
+      v-else
+      :columns="tableColumns"
+      :data="users"
+      empty-text="No users found"
     >
-      <div
-        class="bg-white rounded-lg max-w-md w-full mx-4 max-h-[80vh] overflow-auto shadow-xl"
-        @click.stop
-      >
-        <div class="flex justify-between items-center p-6 border-b border-gray-200">
-          <h2 class="text-2xl font-semibold">Assign Role to {{ selectedUser.name }}</h2>
-          <button
-            @click="closeRoleModal"
-            class="text-3xl leading-none text-gray-500 hover:text-gray-700 w-8 h-8 flex items-center justify-center"
+      <template #cell-user="{ row }">
+        <div class="flex items-center gap-3">
+          <img
+            v-if="row.picture_url"
+            :src="row.picture_url"
+            :alt="row.name"
+            class="w-8 h-8 rounded-full object-cover"
+          />
+          <div
+            v-else
+            class="w-8 h-8 rounded-full bg-gradient-to-br from-blue-600 to-blue-700 text-white flex items-center justify-center font-semibold text-sm"
           >
-            ×
-          </button>
-        </div>
-        <div class="p-6">
-          <div class="flex flex-col gap-3">
-            <button
-              v-for="role in availableRoles"
-              :key="role.id"
-              @click="assignRole(role.id)"
-              class="p-4 border border-gray-200 rounded-md bg-white text-left hover:border-indigo-500 hover:bg-gray-50 transition-all"
-            >
-              <div class="font-semibold text-gray-900 mb-1">{{ role.name }}</div>
-              <div class="text-sm text-gray-500">{{ role.description }}</div>
-            </button>
+            {{ row.name.charAt(0).toUpperCase() }}
           </div>
+          <span class="font-medium text-slate-900">{{ row.name }}</span>
         </div>
+      </template>
+
+      <template #cell-email="{ value }">
+        <span class="text-slate-700">{{ value }}</span>
+      </template>
+
+      <template #cell-roles="{ row }">
+        <div class="flex flex-wrap gap-2 items-center">
+          <BaseBadge
+            v-for="role in (row.roles || [])"
+            :key="role.id"
+            variant="info"
+            class="cursor-pointer"
+          >
+            {{ role.name }}
+            <button
+              @click.stop="removeRole(row.id, role.id)"
+              class="ml-2 bg-white bg-opacity-30 rounded-full w-4 h-4 flex items-center justify-center text-xs hover:bg-opacity-50 transition-colors"
+              title="Remove role"
+            >
+              ×
+            </button>
+          </BaseBadge>
+          <BaseButton
+            size="sm"
+            variant="ghost"
+            @click="openRoleModal(row)"
+            class="border-2 border-dashed border-slate-300 hover:border-slate-400"
+          >
+            + Add Role
+          </BaseButton>
+        </div>
+      </template>
+
+      <template #cell-status="{ row }">
+        <BaseBadge :variant="row.active ? 'success' : 'danger'">
+          {{ row.active ? 'Active' : 'Inactive' }}
+        </BaseBadge>
+      </template>
+
+      <template #cell-actions="{ row }">
+        <BaseButton
+          size="sm"
+          :variant="row.active ? 'danger' : 'secondary'"
+          @click="toggleUserActive(row)"
+        >
+          {{ row.active ? 'Deactivate' : 'Activate' }}
+        </BaseButton>
+      </template>
+    </BaseTable>
+
+    <BaseModal
+      v-model="showRoleModal"
+      :title="`Assign Role to ${selectedUser?.name || ''}`"
+      size="sm"
+    >
+      <div class="flex flex-col gap-3">
+        <button
+          v-for="role in availableRoles"
+          :key="role.id"
+          @click="assignRole(role.id)"
+          class="p-4 border-2 border-slate-200 rounded-lg bg-white text-left hover:border-blue-500 hover:bg-blue-50 transition-all duration-200"
+        >
+          <div class="font-semibold text-slate-900 mb-1">{{ role.name }}</div>
+          <div class="text-sm text-slate-600">{{ role.description }}</div>
+        </button>
       </div>
-    </div>
+    </BaseModal>
   </div>
 </template>
 
@@ -136,6 +112,12 @@ import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import { api } from '@/lib/api'
+import BaseButton from '@/components/BaseButton.vue'
+import BaseBadge from '@/components/BaseBadge.vue'
+import BaseModal from '@/components/BaseModal.vue'
+import BaseTable from '@/components/BaseTable.vue'
+import LoadingSpinner from '@/components/LoadingSpinner.vue'
+import ErrorMessage from '@/components/ErrorMessage.vue'
 
 interface Role {
 	id: string;
@@ -154,6 +136,14 @@ interface User {
 
 const router = useRouter()
 const authStore = useAuthStore()
+
+const tableColumns = [
+	{ key: 'user', label: 'User' },
+	{ key: 'email', label: 'Email' },
+	{ key: 'roles', label: 'Roles' },
+	{ key: 'status', label: 'Status' },
+	{ key: 'actions', label: 'Actions' },
+]
 
 const users = ref<User[]>([])
 const roles = ref<Role[]>([])

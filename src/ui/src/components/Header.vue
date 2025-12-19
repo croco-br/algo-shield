@@ -1,103 +1,89 @@
 <template>
-  <header v-if="user && !isLoginPage" class="bg-white border-b border-gray-200 shadow-sm">
-    <div class="max-w-7xl mx-auto px-8">
-      <nav class="py-6 flex items-center justify-between gap-8">
+  <header
+    v-if="user && !isLoginPage"
+    class="fixed top-0 left-0 right-0 h-[60px] bg-dark-slate border-b border-neutral-800 z-50"
+    style="background: linear-gradient(180deg, #1f1f1f 0%, #1e1e1e 100%)"
+  >
+    <div class="flex items-center justify-between h-full px-8">
+      <!-- Left: Logo + Search -->
+      <div class="flex items-center gap-6">
+        <!-- Logo -->
         <div class="flex items-center gap-3">
-          <img src="/gopher.png" alt="AlgoShield" class="w-10 h-10 object-contain" />
-          <div>
-            <h1 class="text-2xl font-semibold text-gray-900">AlgoShield</h1>
-            <p class="text-sm text-gray-500">Fraud Detection & Anti-Money Laundering</p>
-          </div>
+          <img src="/gopher.png" alt="AlgoShield" class="w-8 h-8 object-contain" />
+          <span class="text-white font-bold text-lg">AlgoShield</span>
         </div>
 
-        <div class="flex gap-2 flex-1 justify-center">
-          <router-link
-            to="/"
-            :class="[
-              'px-6 py-3 rounded-md text-sm font-medium transition-all',
-              $route.path === '/' 
-                ? 'text-indigo-600 bg-indigo-50' 
-                : 'text-gray-500 hover:text-gray-900 hover:bg-gray-50'
-            ]"
-          >
-            Rules
-          </router-link>
-          <router-link
-            to="/synthetic-test"
-            :class="[
-              'px-6 py-3 rounded-md text-sm font-medium transition-all',
-              $route.path === '/synthetic-test' 
-                ? 'text-indigo-600 bg-indigo-50' 
-                : 'text-gray-500 hover:text-gray-900 hover:bg-gray-50'
-            ]"
-          >
-            Synthetic Test
-          </router-link>
-          <router-link
-            v-if="isAdmin"
-            to="/permissions"
-            :class="[
-              'px-6 py-3 rounded-md text-sm font-medium transition-all',
-              $route.path === '/permissions' 
-                ? 'text-indigo-600 bg-indigo-50' 
-                : 'text-gray-500 hover:text-gray-900 hover:bg-gray-50'
-            ]"
-          >
-            Permissions
-          </router-link>
+        <!-- Global Search -->
+        <div class="relative">
+          <input
+            type="search"
+            placeholder="Search transactions, customers, alerts"
+            class="w-[400px] h-[36px] pl-10 pr-4 bg-neutral-800 border border-neutral-700 rounded text-sm text-white placeholder-neutral-500 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent transition-all"
+          />
+          <i class="fas fa-search absolute left-3 top-1/2 -translate-y-1/2 text-neutral-500 text-sm"></i>
         </div>
+      </div>
 
+      <!-- Right: Notifications + User -->
+      <div class="flex items-center gap-4">
+        <!-- Notifications -->
+        <button
+          class="relative w-10 h-10 flex items-center justify-center rounded-full hover:bg-neutral-800 transition-colors"
+        >
+          <i class="far fa-bell text-white text-lg"></i>
+          <span class="absolute top-1 right-1 w-2 h-2 bg-red-500 rounded-full"></span>
+        </button>
+
+        <!-- User Menu -->
         <div class="relative" ref="menuRef">
           <button
             @click="showUserMenu = !showUserMenu"
-            class="flex items-center gap-3 px-2 py-2 border border-gray-200 rounded-lg bg-white hover:bg-gray-50 transition-all"
+            class="flex items-center gap-2 px-2 py-1 rounded-lg hover:bg-neutral-800 transition-colors"
           >
-            <div class="w-10 h-10 rounded-full bg-gradient-to-br from-indigo-500 to-purple-600 text-white flex items-center justify-center font-semibold text-lg overflow-hidden">
+            <div class="w-8 h-8 rounded-full bg-gradient-to-br from-teal-500 to-teal-600 text-white flex items-center justify-center font-semibold text-sm overflow-hidden">
               <img v-if="user.picture_url" :src="user.picture_url" :alt="user.name" class="w-full h-full object-cover" />
               <span v-else>{{ user.name.charAt(0).toUpperCase() }}</span>
             </div>
-            <div class="text-left">
-              <div class="text-sm font-medium text-gray-900">{{ user.name }}</div>
-              <div class="text-xs text-gray-500">{{ user.email }}</div>
-            </div>
-            <svg
-              class="w-4 h-4 text-gray-500"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <polyline points="6 9 12 15 18 9"></polyline>
-            </svg>
+            <i class="fas fa-chevron-down text-neutral-400 text-xs"></i>
           </button>
 
-          <div v-if="showUserMenu" class="absolute top-full right-0 mt-2 bg-white border border-gray-200 rounded-lg shadow-lg min-w-[240px] z-50">
-            <div class="p-4 border-b border-gray-200">
-              <div class="font-semibold text-gray-900 mb-1">{{ user.name }}</div>
-              <div class="text-sm text-gray-500 mb-2">{{ user.email }}</div>
-              <div class="flex flex-wrap gap-2 mt-2">
-                <span
-                  v-for="role in (user.roles || [])"
-                  :key="role.id"
-                  class="inline-block px-3 py-1 bg-indigo-600 text-white rounded text-xs font-medium"
-                >
-                  {{ role.name }}
-                </span>
-              </div>
+          <!-- Dropdown -->
+          <div
+            v-if="showUserMenu"
+            class="absolute top-full right-0 mt-2 bg-white border border-neutral-200 rounded-lg shadow-xl min-w-[220px] z-50"
+          >
+            <div class="p-4 border-b border-neutral-200">
+              <div class="font-semibold text-neutral-900 text-sm">{{ user.name }}</div>
+              <div class="text-xs text-neutral-500 mt-1">{{ user.email }}</div>
             </div>
-            <button
-              @click="handleLogout"
-              class="w-full flex items-center gap-3 px-4 py-3 text-sm text-red-600 hover:bg-gray-50 transition-colors border-t border-gray-200"
-            >
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor">
-                <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path>
-                <polyline points="16 17 21 12 16 7"></polyline>
-                <line x1="21" y1="12" x2="9" y2="12"></line>
-              </svg>
-              Logout
-            </button>
+            <div class="py-2">
+              <router-link
+                to="/profile"
+                class="flex items-center gap-3 px-4 py-2 text-sm text-neutral-700 hover:bg-neutral-50 transition-colors"
+              >
+                <i class="fas fa-user w-4"></i>
+                <span>Profile</span>
+              </router-link>
+              <router-link
+                to="/settings"
+                class="flex items-center gap-3 px-4 py-2 text-sm text-neutral-700 hover:bg-neutral-50 transition-colors"
+              >
+                <i class="fas fa-cog w-4"></i>
+                <span>Settings</span>
+              </router-link>
+            </div>
+            <div class="border-t border-neutral-200">
+              <button
+                @click="handleLogout"
+                class="w-full flex items-center gap-3 px-4 py-3 text-sm font-medium text-red-600 hover:bg-red-50 transition-colors"
+              >
+                <i class="fas fa-sign-out-alt w-4"></i>
+                <span>Logout</span>
+              </button>
+            </div>
           </div>
         </div>
-      </nav>
+      </div>
     </div>
   </header>
 </template>

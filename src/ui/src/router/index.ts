@@ -11,8 +11,38 @@ const router = createRouter({
       meta: { public: true },
     },
     {
+      path: '/dashboard',
+      name: 'dashboard',
+      component: () => import('@/views/DashboardView.vue'),
+    },
+    {
       path: '/',
       name: 'home',
+      redirect: '/dashboard',
+    },
+    {
+      path: '/transactions',
+      name: 'transactions',
+      component: () => import('@/views/DashboardView.vue'),
+    },
+    {
+      path: '/risk-analysis',
+      name: 'risk-analysis',
+      component: () => import('@/views/DashboardView.vue'),
+    },
+    {
+      path: '/reports',
+      name: 'reports',
+      component: () => import('@/views/DashboardView.vue'),
+    },
+    {
+      path: '/compliance',
+      name: 'compliance',
+      component: () => import('@/views/DashboardView.vue'),
+    },
+    {
+      path: '/rules',
+      name: 'rules',
       component: () => import('@/views/RulesView.vue'),
     },
     {

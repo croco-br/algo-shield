@@ -1,153 +1,136 @@
 <template>
-  <div class="min-h-screen flex items-center justify-center bg-purple-600 p-4 sm:p-8">
-    <div class="bg-white rounded-xl shadow-xl w-full max-w-md p-8 sm:p-10">
-      <div class="mb-8">
-        <div class="flex items-center gap-3 mb-2">
-          <img src="/gopher.png" alt="AlgoShield" class="w-12 h-12 object-contain" />
-          <h1 class="text-3xl font-semibold text-gray-900">AlgoShield</h1>
+  <div class="min-h-screen flex items-center justify-center bg-neutral-100 p-4">
+    <div class="bg-white rounded shadow-card w-full max-w-[400px] px-10 py-12">
+      <!-- Logo Section -->
+      <div class="mb-10 text-center">
+        <div class="flex items-center justify-center gap-3 mb-3">
+          <img src="/gopher.png" alt="AlgoShield" class="w-10 h-10 object-contain" />
+          <h1 class="text-2xl font-bold text-neutral-900">AlgoShield</h1>
         </div>
-        <p class="text-sm text-gray-500">Fraud Detection & Anti-Money Laundering</p>
+        <p class="text-sm text-neutral-600">
+          Enterprise AML Platform
+        </p>
       </div>
 
-      <div class="flex gap-2 mb-6 border-b border-gray-200">
+      <!-- Tabs -->
+      <div class="flex gap-0 mb-8 border-b border-neutral-200">
         <button
           @click="activeTab = 'login'; error = ''"
           :class="[
-            'flex-1 py-3 text-sm font-medium transition-all',
+            'flex-1 py-3 text-sm font-semibold transition-all duration-200 border-b-2',
             activeTab === 'login'
-              ? 'text-indigo-600 font-semibold'
-              : 'text-gray-500'
+              ? 'text-teal-600 border-teal-600'
+              : 'text-neutral-500 border-transparent hover:text-neutral-900'
           ]"
         >
-          <span
-            :class="[
-              'inline-block pb-3',
-              activeTab === 'login' ? 'border-b-2 border-indigo-600' : ''
-            ]"
-          >
-            Login
-          </span>
+          Login
         </button>
         <button
           @click="activeTab = 'register'; error = ''"
           :class="[
-            'flex-1 py-3 text-sm font-medium transition-all',
+            'flex-1 py-3 text-sm font-semibold transition-all duration-200 border-b-2',
             activeTab === 'register'
-              ? 'text-indigo-600 font-semibold'
-              : 'text-gray-500'
+              ? 'text-teal-600 border-teal-600'
+              : 'text-neutral-500 border-transparent hover:text-neutral-900'
           ]"
         >
-          <span
-            :class="[
-              'inline-block pb-3',
-              activeTab === 'register' ? 'border-b-2 border-indigo-600' : ''
-            ]"
-          >
-            Register
-          </span>
+          Register
         </button>
       </div>
 
-      <div v-if="error" class="bg-red-50 border border-red-200 rounded-md p-3 mb-6 text-sm text-red-600">
-        {{ error }}
-      </div>
+      <ErrorMessage
+        v-if="error"
+        :message="error"
+        variant="error"
+        class="mb-6"
+        @dismiss="error = ''"
+      />
 
-      <form v-if="activeTab === 'login'" @submit.prevent="handleLogin" class="space-y-6">
+      <form v-if="activeTab === 'login'" @submit.prevent="handleLogin" class="space-y-8">
         <div>
-          <label for="email" class="block text-sm font-medium text-gray-700 mb-2">
-            Email
-          </label>
+          <label class="block text-sm font-semibold text-neutral-700 mb-3">Email</label>
           <input
-            id="email"
             type="email"
             v-model="email"
             placeholder="user@example.com"
-            required
             :disabled="loading"
-            class="w-full px-4 py-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent disabled:opacity-60 disabled:cursor-not-allowed"
+            required
+            class="w-full px-4 py-3 border border-neutral-200 rounded text-sm text-neutral-900 placeholder-neutral-400 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent transition-all disabled:opacity-50 disabled:bg-neutral-50"
           />
         </div>
 
         <div>
-          <label for="password" class="block text-sm font-medium text-gray-700 mb-2">
-            Password
-          </label>
+          <label class="block text-sm font-semibold text-neutral-700 mb-3">Password</label>
           <input
-            id="password"
             type="password"
             v-model="password"
             placeholder="••••••••"
-            required
-            minlength="8"
             :disabled="loading"
-            class="w-full px-4 py-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent disabled:opacity-60 disabled:cursor-not-allowed"
+            :minlength="8"
+            required
+            class="w-full px-4 py-3 border border-neutral-200 rounded text-sm text-neutral-900 placeholder-neutral-400 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent transition-all disabled:opacity-50 disabled:bg-neutral-50"
           />
         </div>
 
-        <button
-          type="submit"
-          :disabled="loading"
-          class="w-full py-3 px-4 bg-indigo-600 text-white rounded-md font-medium hover:bg-indigo-700 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
-        >
-          {{ loading ? 'Signing in...' : 'Sign In' }}
-        </button>
+        <div class="pt-4">
+          <button
+            type="submit"
+            :disabled="loading"
+            class="w-full px-6 py-3 bg-teal-600 text-white text-sm font-semibold rounded hover:bg-teal-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 ripple"
+          >
+            {{ loading ? 'Signing in...' : 'Sign In' }}
+          </button>
+        </div>
       </form>
 
-      <form v-else @submit.prevent="handleRegister" class="space-y-6">
+      <form v-else @submit.prevent="handleRegister" class="space-y-8">
         <div>
-          <label for="reg-name" class="block text-sm font-medium text-gray-700 mb-2">
-            Name
-          </label>
+          <label class="block text-sm font-semibold text-neutral-700 mb-3">Name</label>
           <input
-            id="reg-name"
             type="text"
             v-model="name"
             placeholder="Your Name"
-            required
             :disabled="loading"
-            class="w-full px-4 py-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent disabled:opacity-60 disabled:cursor-not-allowed"
+            required
+            class="w-full px-4 py-3 border border-neutral-200 rounded text-sm text-neutral-900 placeholder-neutral-400 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent transition-all disabled:opacity-50 disabled:bg-neutral-50"
           />
         </div>
 
         <div>
-          <label for="reg-email" class="block text-sm font-medium text-gray-700 mb-2">
-            Email
-          </label>
+          <label class="block text-sm font-semibold text-neutral-700 mb-3">Email</label>
           <input
-            id="reg-email"
             type="email"
             v-model="email"
             placeholder="user@example.com"
-            required
             :disabled="loading"
-            class="w-full px-4 py-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent disabled:opacity-60 disabled:cursor-not-allowed"
+            required
+            class="w-full px-4 py-3 border border-neutral-200 rounded text-sm text-neutral-900 placeholder-neutral-400 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent transition-all disabled:opacity-50 disabled:bg-neutral-50"
           />
         </div>
 
         <div>
-          <label for="reg-password" class="block text-sm font-medium text-gray-700 mb-2">
-            Password
-          </label>
+          <label class="block text-sm font-semibold text-neutral-700 mb-3">Password</label>
           <input
-            id="reg-password"
             type="password"
             v-model="password"
             placeholder="••••••••"
-            required
-            minlength="8"
             :disabled="loading"
-            class="w-full px-4 py-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent disabled:opacity-60 disabled:cursor-not-allowed"
+            :minlength="8"
+            required
+            class="w-full px-4 py-3 border border-neutral-200 rounded text-sm text-neutral-900 placeholder-neutral-400 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent transition-all disabled:opacity-50 disabled:bg-neutral-50"
           />
-          <small class="text-xs text-gray-500 mt-1 block">Minimum 8 characters</small>
+          <p class="text-xs text-neutral-500 mt-2">Minimum 8 characters</p>
         </div>
 
-        <button
-          type="submit"
-          :disabled="loading"
-          class="w-full py-3 px-4 bg-indigo-600 text-white rounded-md font-medium hover:bg-indigo-700 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
-        >
-          {{ loading ? 'Creating account...' : 'Create Account' }}
-        </button>
+        <div class="pt-4">
+          <button
+            type="submit"
+            :disabled="loading"
+            class="w-full px-6 py-3 bg-teal-600 text-white text-sm font-semibold rounded hover:bg-teal-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 ripple"
+          >
+            {{ loading ? 'Creating account...' : 'Create Account' }}
+          </button>
+        </div>
       </form>
     </div>
   </div>
@@ -158,6 +141,7 @@ import { ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import { api } from '@/lib/api'
+import ErrorMessage from '@/components/ErrorMessage.vue'
 
 const router = useRouter()
 const authStore = useAuthStore()
