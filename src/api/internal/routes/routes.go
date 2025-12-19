@@ -22,6 +22,7 @@ import (
 func Setup(app *fiber.App, db *pgxpool.Pool, redis *redis.Client, cfg *config.Config) {
 	// Middleware
 	app.Use(middleware.Logger())
+	app.Use(middleware.SecurityHeaders()) // Security headers for Brave compatibility
 	app.Use(middleware.CORS())
 
 	// Create repositories (infrastructure layer - can create concrete types)

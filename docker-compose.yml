@@ -204,7 +204,7 @@ services:
       context: .
       dockerfile: Dockerfile.ui
       args:
-        VITE_API_URL: ${VITE_API_URL}
+        VITE_API_URL: ${VITE_API_URL:-http://localhost:8080}
     container_name: algoshield-ui
     restart: unless-stopped
     environment:

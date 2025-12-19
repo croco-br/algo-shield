@@ -8,6 +8,12 @@ async function request<T>(
 	endpoint: string,
 	options: RequestInit = {}
 ): Promise<T> {
+	if (!uiConfig.api.baseUrl) {
+		throw new Error('API base URL is not configured. Please rebuild the UI container with VITE_API_URL set.');
+	}
+	if (uiConfig.api.baseUrl.includes('://api:') || uiConfig.api.baseUrl.includes('://postgres:') || uiConfig.api.baseUrl.includes('://redis:')) {
+		throw new Error(`API baseUrl uses container hostname (${uiConfig.api.baseUrl}). Browser cannot resolve container hostnames. Use http://localhost:8080 instead.`);
+	}
 	const token = localStorage.getItem('auth_token');
 	
 	const headers: Record<string, string> = {
@@ -24,10 +30,13 @@ async function request<T>(
 	const timeoutId = setTimeout(() => controller.abort(), uiConfig.api.timeout);
 
 	try {
+		// Explicitly set mode to 'cors' to ensure CORS is handled correctly
 		const response = await fetch(`${uiConfig.api.baseUrl}${endpoint}`, {
 			...options,
 			headers,
 			signal: controller.signal,
+			mode: 'cors',
+			credentials: 'omit', // Explicitly set to avoid credential issues
 		});
 
 		clearTimeout(timeoutId);

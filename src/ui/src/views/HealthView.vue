@@ -22,8 +22,7 @@ interface HealthData {
 
 const healthData = ref<HealthData>({
   status: 'ok',
-  timestamp: new Date().toISOString(),
-  service: 'algoshield-ui',
+  timestamp: new Date().toISOString()
 })
 
 onMounted(() => {
