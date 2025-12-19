@@ -3,7 +3,7 @@
     class="kpi-card bg-white rounded shadow-card hover:shadow-card-hover transition-all duration-200 hover:-translate-y-0.5"
     :class="{ 'animate-pulse': loading }"
   >
-    <div class="p-6">
+    <div class="p-8">
       <div class="flex items-center justify-between mb-4">
         <div class="text-sm font-medium text-neutral-600">{{ label }}</div>
         <div

@@ -1,7 +1,7 @@
 <template>
   <div class="dashboard-container">
     <!-- KPI Cards Row -->
-    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8 mb-10">
       <KPICard
         label="Total Transactions"
         :value="kpiData.totalTransactions"
@@ -42,7 +42,7 @@
     </div>
 
     <!-- Heatmap Row -->
-    <div class="mb-8">
+    <div class="mb-10">
       <Heatmap
         :height="400"
         :rows="10"

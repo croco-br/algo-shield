@@ -1,6 +1,6 @@
 <template>
-  <div class="min-h-screen flex items-center justify-center bg-neutral-100 p-4">
-    <div class="bg-white rounded shadow-card w-full max-w-[400px] px-10 py-12">
+  <div class="min-h-screen flex items-center justify-center bg-neutral-100 p-8">
+    <div class="bg-white rounded shadow-card w-full max-w-[420px] px-12 py-14">
       <!-- Logo Section -->
       <div class="mb-10 text-center">
         <div class="flex items-center justify-center gap-3 mb-3">
@@ -46,7 +46,7 @@
         @dismiss="error = ''"
       />
 
-      <form v-if="activeTab === 'login'" @submit.prevent="handleLogin" class="space-y-8">
+      <form v-if="activeTab === 'login'" @submit.prevent="handleLogin" class="space-y-10">
         <div>
           <label class="block text-sm font-semibold text-neutral-700 mb-3">Email</label>
           <input
@@ -83,7 +83,7 @@
         </div>
       </form>
 
-      <form v-else @submit.prevent="handleRegister" class="space-y-8">
+      <form v-else @submit.prevent="handleRegister" class="space-y-10">
         <div>
           <label class="block text-sm font-semibold text-neutral-700 mb-3">Name</label>
           <input

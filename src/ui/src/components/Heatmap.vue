@@ -1,5 +1,5 @@
 <template>
-  <div class="heatmap-container bg-white rounded shadow-card p-6">
+  <div class="heatmap-container bg-white rounded shadow-card p-8">
     <div class="flex items-center justify-between mb-4">
       <h3 class="text-lg font-semibold text-neutral-900">Risk Density Heatmap</h3>
       <div class="flex items-center gap-4">

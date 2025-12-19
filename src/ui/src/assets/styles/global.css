@@ -170,6 +170,63 @@ a {
   transform: translateY(-2px);
 }
 
+/* Form Spacing - Global consistency */
+.form-field {
+  margin-bottom: 32px; /* 2rem / 32px between fields */
+}
+
+.form-field-compact {
+  margin-bottom: 24px; /* 1.5rem / 24px for compact forms */
+}
+
+.form-label {
+  display: block;
+  font-size: 0.875rem; /* 14px */
+  font-weight: 600;
+  color: var(--color-neutral-700);
+  margin-bottom: 12px; /* 0.75rem / 12px */
+}
+
+.form-input {
+  width: 100%;
+  padding: 12px 16px;
+  border: 1px solid var(--color-neutral-200);
+  border-radius: 4px;
+  font-size: 0.875rem;
+  color: var(--color-neutral-900);
+  transition: all 200ms ease-in-out;
+}
+
+.form-input:focus {
+  outline: none;
+  border-color: var(--color-teal);
+  box-shadow: 0 0 0 3px rgba(0, 191, 165, 0.1);
+}
+
+.form-input:disabled {
+  opacity: 0.5;
+  background-color: var(--color-neutral-50);
+  cursor: not-allowed;
+}
+
+/* Container Padding */
+.content-container {
+  padding: 48px; /* 3rem / 48px */
+}
+
+.content-container-compact {
+  padding: 32px; /* 2rem / 32px */
+}
+
+/* Card Spacing */
+.card-padding {
+  padding: 32px; /* 2rem / 32px */
+}
+
+.card-padding-lg {
+  padding: 48px; /* 3rem / 48px */
+}
+
 /* Grid System (12 columns, 24px gutter) */
 .container {
   width: 100%;

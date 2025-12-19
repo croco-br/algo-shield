@@ -66,6 +66,10 @@
 import { ref, onMounted, onUnmounted } from 'vue'
 import { useRoute } from 'vue-router'
 
+const emit = defineEmits<{
+  collapseChange: [isCollapsed: boolean]
+}>()
+
 interface NavItem {
   label: string
   path: string
@@ -90,6 +94,7 @@ const isOpen = ref(false)
 
 const toggleCollapse = () => {
   isCollapsed.value = !isCollapsed.value
+  emit('collapseChange', isCollapsed.value)
 }
 
 const closeMobile = () => {
@@ -110,6 +115,7 @@ const checkMobile = () => {
 onMounted(() => {
   checkMobile()
   window.addEventListener('resize', checkMobile)
+  emit('collapseChange', isCollapsed.value)
 })
 
 onUnmounted(() => {
@@ -119,7 +125,8 @@ onUnmounted(() => {
 defineExpose({
   toggleMobile: () => {
     isOpen.value = !isOpen.value
-  }
+  },
+  isCollapsed
 })
 </script>
 

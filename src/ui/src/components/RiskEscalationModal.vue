@@ -19,7 +19,7 @@
       </div>
 
       <!-- Content -->
-      <form @submit.prevent="handleSubmit" class="modal-body px-6 py-6 space-y-5">
+      <form @submit.prevent="handleSubmit" class="modal-body px-8 py-8 space-y-8">
         <!-- Transaction ID -->
         <div>
           <label class="block text-sm font-semibold text-neutral-700 mb-2">

@@ -1,6 +1,6 @@
 <template>
-  <div class="max-w-7xl mx-auto px-8">
-    <div class="flex justify-between items-center mb-8">
+  <div class="max-w-7xl mx-auto px-12">
+    <div class="flex justify-between items-center mb-10">
       <div>
         <h2 class="text-3xl font-bold text-slate-900 mb-2">Rules Management</h2>
         <p class="text-slate-600 font-medium">Configure custom rules for fraud detection and AML</p>
@@ -80,7 +80,7 @@
       :title="isEditing ? 'Edit Rule' : 'Create New Rule'"
       size="lg"
     >
-      <div class="space-y-6">
+      <div class="space-y-8">
         <BaseInput
           id="name"
           v-model="editingRule.name"

@@ -4,17 +4,16 @@
     <Header v-if="showHeader" ref="headerRef" />
 
     <!-- Sidebar -->
-    <Sidebar v-if="showSidebar" ref="sidebarRef" />
+    <Sidebar v-if="showSidebar" ref="sidebarRef" @collapse-change="handleSidebarCollapse" />
 
     <!-- Main Content -->
     <main
       :class="[
         'min-h-screen transition-all duration-300',
-        showHeader && showSidebar ? 'ml-60 mt-[60px]' : '',
-        showHeader && !showSidebar ? 'mt-[60px]' : ''
+        mainMarginClass
       ]"
     >
-      <div :class="showHeader ? 'max-w-[1920px] mx-auto px-8 py-8' : ''">
+      <div :class="showHeader ? 'max-w-[1920px] mx-auto px-12 py-12' : ''">
         <ProtectedRoute>
           <router-view />
         </ProtectedRoute>
@@ -36,6 +35,22 @@ const sidebarRef = ref()
 
 const showHeader = computed(() => !route.path.startsWith('/login'))
 const showSidebar = computed(() => !route.path.startsWith('/login'))
+
+const isSidebarCollapsed = ref(false)
+
+const handleSidebarCollapse = (collapsed: boolean) => {
+  isSidebarCollapsed.value = collapsed
+}
+
+const mainMarginClass = computed(() => {
+  if (showHeader.value && showSidebar.value) {
+    return isSidebarCollapsed.value ? 'ml-20 mt-[60px]' : 'ml-60 mt-[60px]'
+  }
+  if (showHeader.value && !showSidebar.value) {
+    return 'mt-[60px]'
+  }
+  return ''
+})
 </script>
 
 <style>

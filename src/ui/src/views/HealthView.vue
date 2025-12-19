@@ -1,6 +1,6 @@
 <template>
-  <div class="max-w-7xl mx-auto px-8">
-    <div class="mb-8">
+  <div class="max-w-7xl mx-auto px-12">
+    <div class="mb-10">
       <h2 class="text-3xl font-bold text-slate-900 mb-2">System Health</h2>
       <p class="text-slate-600 font-medium">Monitor system status and availability</p>
     </div>
@@ -18,8 +18,8 @@
         </div>
       </div>
 
-      <div class="space-y-4">
-        <div class="flex items-center justify-between py-3 px-4 bg-slate-50 rounded-lg">
+      <div class="space-y-5">
+        <div class="flex items-center justify-between py-4 px-5 bg-slate-50 rounded-lg">
           <div class="flex items-center gap-3">
             <div class="w-2 h-2 rounded-full bg-emerald-500"></div>
             <span class="font-semibold text-slate-700">Status</span>
@@ -27,7 +27,7 @@
           <span class="text-sm font-medium text-emerald-600 uppercase">{{ healthData.status }}</span>
         </div>
 
-        <div class="flex items-center justify-between py-3 px-4 bg-slate-50 rounded-lg">
+        <div class="flex items-center justify-between py-4 px-5 bg-slate-50 rounded-lg">
           <div class="flex items-center gap-3">
             <div class="w-2 h-2 rounded-full bg-blue-500"></div>
             <span class="font-semibold text-slate-700">Service</span>
@@ -35,7 +35,7 @@
           <span class="text-sm font-medium text-slate-900">{{ healthData.service }}</span>
         </div>
 
-        <div class="flex items-center justify-between py-3 px-4 bg-slate-50 rounded-lg">
+        <div class="flex items-center justify-between py-4 px-5 bg-slate-50 rounded-lg">
           <div class="flex items-center gap-3">
             <div class="w-2 h-2 rounded-full bg-slate-400"></div>
             <span class="font-semibold text-slate-700">Timestamp</span>

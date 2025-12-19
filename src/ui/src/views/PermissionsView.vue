@@ -1,6 +1,6 @@
 <template>
-  <div class="max-w-7xl mx-auto px-8">
-    <div class="mb-8">
+  <div class="max-w-7xl mx-auto px-12">
+    <div class="mb-10">
       <h1 class="text-3xl font-bold text-slate-900 mb-2">Permissions Management</h1>
       <p class="text-slate-600 font-medium">Manage users, roles, and permissions</p>
     </div>
@@ -92,14 +92,14 @@
       :title="`Assign Role to ${selectedUser?.name || ''}`"
       size="sm"
     >
-      <div class="flex flex-col gap-3">
+      <div class="flex flex-col gap-4">
         <button
           v-for="role in availableRoles"
           :key="role.id"
           @click="assignRole(role.id)"
-          class="p-4 border-2 border-slate-200 rounded-lg bg-white text-left hover:border-blue-500 hover:bg-blue-50 transition-all duration-200"
+          class="p-5 border-2 border-slate-200 rounded-lg bg-white text-left hover:border-blue-500 hover:bg-blue-50 transition-all duration-200"
         >
-          <div class="font-semibold text-slate-900 mb-1">{{ role.name }}</div>
+          <div class="font-semibold text-slate-900 mb-2">{{ role.name }}</div>
           <div class="text-sm text-slate-600">{{ role.description }}</div>
         </button>
       </div>
