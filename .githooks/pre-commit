@@ -37,6 +37,16 @@ if [ -n "$FORMATTED_FILES" ]; then
 fi
 echo -e "${GREEN}✓ Go code formatted${NC}"
 
+# Run linters
+echo -e "${YELLOW}→ Running linters...${NC}"
+if make lint; then
+    echo -e "${GREEN}✓ Lint checks passed${NC}"
+else
+    echo -e "${RED}✗ Lint checks failed${NC}"
+    echo -e "${YELLOW}Commit aborted. Fix the lint errors and try again.${NC}"
+    exit 1
+fi
+
 # Run Go tests
 echo -e "${YELLOW}→ Running Go unit tests...${NC}"
 if GOEXPERIMENT=greenteagc,rangefunc go test -v -short ./...; then

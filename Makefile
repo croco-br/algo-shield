@@ -1,4 +1,4 @@
-.PHONY: help install up down logs test bench clean clean-volumes reset-db fix ui api api-bg api-stop worker infra-up infra-down
+.PHONY: help install up down logs test bench clean clean-volumes reset-db fix ui api api-bg api-stop worker infra-up infra-down lint
 
 # Colors
 GREEN  := $(shell tput -Txterm setaf 2)
@@ -32,6 +32,15 @@ down: ## Stop all services
 
 logs: ## View service logs
 	@docker-compose logs -f
+
+lint: ## Run linters (golangci-lint)
+	@echo "${YELLOW}Running linters...${RESET}"
+	@if ! command -v golangci-lint >/dev/null 2>&1; then \
+		echo "${YELLOW}golangci-lint not found. Installing...${RESET}"; \
+		curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b $$(go env GOPATH)/bin latest; \
+	fi
+	@golangci-lint run ./src/...
+	@echo "${GREEN}✓ Lint completed!${RESET}"
 
 test: ## Run all tests in parallel with race detector
 	@echo "${YELLOW}Running all tests with race detector...${RESET}"

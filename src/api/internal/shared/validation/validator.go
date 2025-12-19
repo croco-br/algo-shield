@@ -93,24 +93,28 @@ func formatError(e validator.FieldError) string {
 // registerCustomValidations registers custom validation functions
 func registerCustomValidations() {
 	// Account validation: alphanumeric, 1-100 characters
-	validate.RegisterValidation("account", func(fl validator.FieldLevel) bool {
+	if err := validate.RegisterValidation("account", func(fl validator.FieldLevel) bool {
 		account := fl.Field().String()
 		if len(account) < 1 || len(account) > 100 {
 			return false
 		}
 		matched, _ := regexp.MatchString(`^[a-zA-Z0-9_-]+$`, account)
 		return matched
-	})
+	}); err != nil {
+		panic(fmt.Sprintf("failed to register account validation: %v", err))
+	}
 
 	// Currency validation: ISO 4217 (3 uppercase letters)
-	validate.RegisterValidation("currency", func(fl validator.FieldLevel) bool {
+	if err := validate.RegisterValidation("currency", func(fl validator.FieldLevel) bool {
 		currency := fl.Field().String()
 		matched, _ := regexp.MatchString(`^[A-Z]{3}$`, currency)
 		return matched
-	})
+	}); err != nil {
+		panic(fmt.Sprintf("failed to register currency validation: %v", err))
+	}
 
 	// Transaction type validation
-	validate.RegisterValidation("transaction_type", func(fl validator.FieldLevel) bool {
+	if err := validate.RegisterValidation("transaction_type", func(fl validator.FieldLevel) bool {
 		transactionType := fl.Field().String()
 		validTypes := []string{"transfer", "payment", "withdrawal", "deposit", "refund", "chargeback"}
 		for _, validType := range validTypes {
@@ -119,11 +123,13 @@ func registerCustomValidations() {
 			}
 		}
 		return false
-	})
+	}); err != nil {
+		panic(fmt.Sprintf("failed to register transaction_type validation: %v", err))
+	}
 
 	// Password validation: at least 8 chars, can be relaxed for development
 	// In production, enforce: uppercase, lowercase, number, special char
-	validate.RegisterValidation("password", func(fl validator.FieldLevel) bool {
+	if err := validate.RegisterValidation("password", func(fl validator.FieldLevel) bool {
 		password := fl.Field().String()
 		// Minimum 8 characters required
 		if len(password) < 8 {
@@ -140,12 +146,14 @@ func registerCustomValidations() {
 		// hasSpecial, _ := regexp.MatchString(`[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]`, password)
 		// return hasUpper && hasLower && hasNumber && hasSpecial
 		return true
-	})
+	}); err != nil {
+		panic(fmt.Sprintf("failed to register password validation: %v", err))
+	}
 
 	// Email validation with regex: RFC 5322 compliant (simplified but robust)
 	// Validates format: local-part@domain.tld
 	// Supports: user@domain.com, user.name@domain.co.uk, user+tag@example.com
-	validate.RegisterValidation("email_regex", func(fl validator.FieldLevel) bool {
+	if err := validate.RegisterValidation("email_regex", func(fl validator.FieldLevel) bool {
 		email := fl.Field().String()
 		// Check length constraints (RFC 5321)
 		if len(email) < 3 || len(email) > 254 {
@@ -196,7 +204,9 @@ func registerCustomValidations() {
 
 		// Use regex for final validation
 		return emailRegex.MatchString(email)
-	})
+	}); err != nil {
+		panic(fmt.Sprintf("failed to register email_regex validation: %v", err))
+	}
 }
 
 // ValidateLimit validates pagination limit parameter

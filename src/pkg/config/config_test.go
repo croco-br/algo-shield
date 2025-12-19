@@ -82,7 +82,7 @@ func TestLoad_ProductionRequiresTLS(t *testing.T) {
 	_ = os.Setenv("POSTGRES_PASSWORD", "MyStr0ng!DB$Pass#2024")
 
 	// Try to load config without TLS - should fail
-	cfg, err := Load()
+	_, err := Load()
 	if err == nil {
 		t.Error("Expected error when loading production config without TLS, but got none")
 		// Clean up if test failed
@@ -97,7 +97,7 @@ func TestLoad_ProductionRequiresTLS(t *testing.T) {
 	_ = os.Setenv("TLS_CERT_PATH", "/path/to/cert.pem")
 	_ = os.Setenv("TLS_KEY_PATH", "/path/to/key.pem")
 
-	cfg, err = Load()
+	cfg, err := Load()
 	if err != nil {
 		t.Fatalf("Failed to load production config with TLS: %v", err)
 	}
