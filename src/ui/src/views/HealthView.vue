@@ -22,7 +22,8 @@ interface HealthData {
 
 const healthData = ref<HealthData>({
   status: 'ok',
-  timestamp: new Date().toISOString()
+  timestamp: new Date().toISOString(),  
+  service: import.meta.env.VITE_SERVICE_NAME,
 })
 
 onMounted(() => {

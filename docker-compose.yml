@@ -209,6 +209,8 @@ services:
     restart: unless-stopped
     environment:
       NODE_ENV: production
+      # Service identification
+      VITE_SERVICE_NAME: ${VITE_SERVICE_NAME}
       # API URL for direct CORS communication (must be accessible from browser)
       VITE_API_URL: ${VITE_API_URL}
       VITE_API_TIMEOUT: ${VITE_API_TIMEOUT}

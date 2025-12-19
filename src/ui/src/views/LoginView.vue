@@ -1,6 +1,6 @@
 <template>
-  <div class="min-h-screen flex items-center justify-center bg-purple-600 p-8">
-    <div class="bg-white rounded-xl shadow-xl w-full max-w-md p-10">
+  <div class="min-h-screen flex items-center justify-center bg-purple-600 p-4 sm:p-8">
+    <div class="bg-white rounded-xl shadow-xl w-full max-w-md p-8 sm:p-10">
       <div class="mb-8">
         <div class="flex items-center gap-3 mb-2">
           <img src="/gopher.png" alt="AlgoShield" class="w-12 h-12 object-contain" />
@@ -9,28 +9,42 @@
         <p class="text-sm text-gray-500">Fraud Detection & Anti-Money Laundering</p>
       </div>
 
-      <div class="flex gap-2 mb-6 border-b-2 border-gray-200">
+      <div class="flex gap-2 mb-6 border-b border-gray-200">
         <button
           @click="activeTab = 'login'; error = ''"
           :class="[
-            'flex-1 py-3 text-sm font-medium transition-all border-b-2 -mb-[2px]',
+            'flex-1 py-3 text-sm font-medium transition-all',
             activeTab === 'login'
-              ? 'text-indigo-600 border-indigo-600 font-semibold'
-              : 'text-gray-500 border-transparent'
+              ? 'text-indigo-600 font-semibold'
+              : 'text-gray-500'
           ]"
         >
-          Login
+          <span
+            :class="[
+              'inline-block pb-3',
+              activeTab === 'login' ? 'border-b-2 border-indigo-600' : ''
+            ]"
+          >
+            Login
+          </span>
         </button>
         <button
           @click="activeTab = 'register'; error = ''"
           :class="[
-            'flex-1 py-3 text-sm font-medium transition-all border-b-2 -mb-[2px]',
+            'flex-1 py-3 text-sm font-medium transition-all',
             activeTab === 'register'
-              ? 'text-indigo-600 border-indigo-600 font-semibold'
-              : 'text-gray-500 border-transparent'
+              ? 'text-indigo-600 font-semibold'
+              : 'text-gray-500'
           ]"
         >
-          Register
+          <span
+            :class="[
+              'inline-block pb-3',
+              activeTab === 'register' ? 'border-b-2 border-indigo-600' : ''
+            ]"
+          >
+            Register
+          </span>
         </button>
       </div>
 
