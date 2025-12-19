@@ -1,12 +1,9 @@
 const http = require('http');
-const https = require('https');
-const { URL } = require('url');
 const fs = require('fs');
 const path = require('path');
 
-const PORT = process.env.PORT;
+const PORT = process.env.PORT || 3000;
 const DIST_DIR = path.join(__dirname, 'dist');
-const API_URL = process.env.API_URL;
 
 // MIME types
 const mimeTypes = {
@@ -44,55 +41,6 @@ function serveFile(filePath, res) {
   });
 }
 
-function proxyRequest(req, res) {
-  try {
-    const apiUrl = new URL(API_URL);
-    const targetPath = req.url;
-    
-    // Copy headers properly (req.headers is a special object in Node.js)
-    const headers = { ...req.headers };
-    // Set the correct host for the target API
-    headers.host = apiUrl.host;
-    
-    const options = {
-      hostname: apiUrl.hostname,
-      port: apiUrl.port || (apiUrl.protocol === 'https:' ? 443 : 80),
-      path: targetPath,
-      method: req.method,
-      headers: headers,
-    };
-
-    const client = apiUrl.protocol === 'https:' ? https : http;
-
-    const proxyReq = client.request(options, (proxyRes) => {
-      // Copy status code
-      res.writeHead(proxyRes.statusCode, proxyRes.headers);
-
-      // Pipe the response
-      proxyRes.pipe(res, { end: true });
-    });
-
-    proxyReq.on('error', (err) => {
-      console.error('Proxy error:', err);
-      res.writeHead(502, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({
-        error: 'Bad Gateway',
-        message: 'Unable to connect to API server',
-      }));
-    });
-
-    // Pipe the request body
-    req.pipe(proxyReq, { end: true });
-  } catch (err) {
-    console.error('Proxy setup error:', err);
-    res.writeHead(500, { 'Content-Type': 'application/json' });
-    res.end(JSON.stringify({
-      error: 'Internal Server Error',
-      message: 'Failed to setup proxy',
-    }));
-  }
-}
-
 const server = http.createServer((req, res) => {
   // Health check endpoint
   if (req.url === '/health') {
@@ -102,12 +50,6 @@ const server = http.createServer((req, res) => {
       timestamp: new Date().toISOString(),
       service: 'algoshield-ui',
     }));
-    return;
-  }
-
-  // Proxy API requests to backend
-  if (req.url.startsWith('/api')) {
-    proxyRequest(req, res);
     return;
   }
 
@@ -133,6 +75,6 @@ const server = http.createServer((req, res) => {
 });
 
 server.listen(PORT, '0.0.0.0', () => {
-  console.log(`Server running on http://0.0.0.0:${PORT}`);
-  console.log(`API proxy configured to: ${API_URL}`);
+  console.log(`UI server running on http://0.0.0.0:${PORT}`);
+  console.log(`Serving static files from: ${DIST_DIR}`);
 });

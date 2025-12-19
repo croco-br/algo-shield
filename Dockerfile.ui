@@ -32,12 +32,11 @@ COPY --from=deps /app/node_modules ./node_modules
 # Copy source code
 COPY src/ui/ ./
 
+# Accept build argument for API URL
+ARG BACKEND_API_URL
+ENV BACKEND_API_URL=${BACKEND_API_URL}
+
 # Set build-time environment variables
-# Vite uses VITE_ prefix for client-side env vars
-ARG VITE_API_URL
-ARG API_URL
-ENV VITE_API_URL=${VITE_API_URL}
-ENV API_URL=${API_URL}
 ENV NODE_ENV=production
 
 # Build Vue.js application
@@ -62,10 +61,10 @@ RUN addgroup -S appgroup && \
 # Switch to non-root user
 USER appuser:appgroup
 
-# Expose port
+# Expose port (fixed value, EXPOSE doesn't support variables)
 EXPOSE 3000
 
-# Set environment variable
+# Set environment variables (available at runtime)
 ENV PORT=3000
 ENV NODE_ENV=production
 

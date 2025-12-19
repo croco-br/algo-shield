@@ -51,11 +51,11 @@ function getEnvString(key: string, defaultValue: string): string {
 
 export const uiConfig: UIConfig = {
 	api: {
-		// Use relative URL to leverage Vite proxy (works in both Docker and local dev)
-		// If VITE_API_URL is set, use it (for external API or custom setup)
-		// Otherwise, use empty string to use relative URLs
-		baseUrl: getEnvString('VITE_API_URL', ''),
-		timeout: getEnvInt('VITE_API_TIMEOUT', 30000), // 30 seconds default
+		// API base URL for direct CORS communication
+		// Must be set via BACKEND_API_URL environment variable
+		// Example: http://localhost:8080 or https://api.example.com
+		baseUrl: getEnvString('BACKEND_API_URL', ''),	// empty string means use the API URL from the environment variable
+		timeout: getEnvInt('BACKEND_API_TIMEOUT', 30000), // 30 seconds default
 		retry: {
 			maxAttempts: getEnvInt('VITE_API_RETRY_MAX_ATTEMPTS', 3),
 			initialDelay: getEnvInt('VITE_API_RETRY_INITIAL_DELAY', 1000), // 1 second
@@ -65,10 +65,10 @@ export const uiConfig: UIConfig = {
 	},
 	ui: {
 		toast: {
-			duration: getEnvInt('VITE_UI_TOAST_DURATION', 5000), // 5 seconds
+			duration: getEnvInt('UI_TOAST_DURATION', 5000), // 5 seconds
 		},
 		polling: {
-			interval: getEnvInt('VITE_UI_POLLING_INTERVAL', 10000), // 10 seconds
+			interval: getEnvInt('UI_POLLING_INTERVAL', 10000), // 10 seconds
 		},
 	},
 };

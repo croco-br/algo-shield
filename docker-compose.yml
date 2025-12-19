@@ -15,7 +15,7 @@ services:
       - postgres_data:/var/lib/postgresql/data
       - ./scripts/migrations:/docker-entrypoint-initdb.d
     ports:
-      - "${POSTGRES_PORT:-5432}:5432"
+      - 5432:5432
     networks:
       - algoshield-network
     healthcheck:
@@ -69,7 +69,7 @@ services:
     volumes:
       - redis_data:/data
     ports:
-      - "${REDIS_PORT:-6379}:6379"
+      - 6379:6379
     networks:
       - algoshield-network
     healthcheck:
@@ -103,17 +103,17 @@ services:
       # API
       API_HOST: 0.0.0.0
       API_PORT: 8080
-      TLS_ENABLE: ${TLS_ENABLE:-false}
-      TLS_CERT_PATH: ${TLS_CERT_PATH:-}
-      TLS_KEY_PATH: ${TLS_KEY_PATH:-}
+      TLS_ENABLE: ${TLS_ENABLE}
+      TLS_CERT_PATH: ${TLS_CERT_PATH}
+      TLS_KEY_PATH: ${TLS_KEY_PATH}
       # General
-      ENVIRONMENT: ${ENVIRONMENT:-development}
-      LOG_LEVEL: ${LOG_LEVEL:-info}
+      ENVIRONMENT: ${ENVIRONMENT}
+      LOG_LEVEL: ${LOG_LEVEL}
       # Auth
       JWT_SECRET: ${JWT_SECRET}
-      JWT_EXPIRATION_HOURS: ${JWT_EXPIRATION_HOURS:-24}
+      JWT_EXPIRATION_HOURS: ${JWT_EXPIRATION_HOURS}
     ports:
-      - "${API_PORT:-8080}:8080"
+      - 8080:8080
     networks:
       - algoshield-network
     depends_on:
@@ -164,8 +164,8 @@ services:
       WORKER_QUEUE_POP_TIMEOUT: ${WORKER_QUEUE_POP_TIMEOUT:-1s}
       WORKER_RULES_RELOAD_INTERVAL: ${WORKER_RULES_RELOAD_INTERVAL:-10s}
       # General
-      ENVIRONMENT: ${ENVIRONMENT:-development}
-      LOG_LEVEL: ${LOG_LEVEL:-info}
+      ENVIRONMENT: ${ENVIRONMENT}
+      LOG_LEVEL: ${LOG_LEVEL}
       # Auth (for database access)
       JWT_SECRET: ${JWT_SECRET}
     networks:
@@ -204,13 +204,12 @@ services:
       context: .
       dockerfile: Dockerfile.ui
       args:
-        API_URL: ${API_URL}
         VITE_API_URL: ${VITE_API_URL}
     container_name: algoshield-ui
     restart: unless-stopped
     environment:
       NODE_ENV: production
-      API_URL: ${API_URL}
+      # API URL for direct CORS communication (must be accessible from browser)
       VITE_API_URL: ${VITE_API_URL}
       VITE_API_TIMEOUT: ${VITE_API_TIMEOUT}
       VITE_API_RETRY_MAX_ATTEMPTS: ${VITE_API_RETRY_MAX_ATTEMPTS}
@@ -220,7 +219,7 @@ services:
       VITE_UI_TOAST_DURATION: ${VITE_UI_TOAST_DURATION}
       VITE_UI_POLLING_INTERVAL: ${VITE_UI_POLLING_INTERVAL}
     ports:
-      - "${UI_PORT}"
+      - 3000:3000
     networks:
       - algoshield-network
     depends_on:
