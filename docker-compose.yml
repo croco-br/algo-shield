@@ -1,0 +1,261 @@
+services:
+  # =============================================================================
+  # PostgreSQL Database
+  # =============================================================================
+  postgres:
+    image: postgres:16-alpine
+    container_name: algoshield-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-algoshield}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB:-algoshield}
+      PGDATA: /var/lib/postgresql/data/pgdata
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./scripts/migrations:/docker-entrypoint-initdb.d
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    networks:
+      - algoshield-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-algoshield} -d ${POSTGRES_DB:-algoshield}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    security_opt:
+      - no-new-privileges:true
+    command:
+      - postgres
+      - -c
+      - max_connections=200
+      - -c
+      - shared_buffers=256MB
+      - -c
+      - effective_cache_size=1GB
+      - -c
+      - maintenance_work_mem=64MB
+      - -c
+      - checkpoint_completion_target=0.9
+      - -c
+      - wal_buffers=16MB
+      - -c
+      - default_statistics_target=100
+      - -c
+      - random_page_cost=1.1
+      - -c
+      - effective_io_concurrency=200
+      - -c
+      - work_mem=4MB
+      - -c
+      - min_wal_size=1GB
+      - -c
+      - max_wal_size=4GB
+
+  # =============================================================================
+  # Redis Cache & Queue
+  # =============================================================================
+  redis:
+    image: redis:7-alpine
+    container_name: algoshield-redis
+    restart: unless-stopped
+    command: >
+      redis-server
+      --appendonly yes
+      --appendfsync everysec
+      --maxmemory 256mb
+      --maxmemory-policy allkeys-lru
+    volumes:
+      - redis_data:/data
+    ports:
+      - "${REDIS_PORT:-6379}:6379"
+    networks:
+      - algoshield-network
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+      start_period: 5s
+    security_opt:
+      - no-new-privileges:true
+
+  # =============================================================================
+  # API Service
+  # =============================================================================
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile.api
+    container_name: algoshield-api
+    restart: unless-stopped
+    environment:
+      # Database
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: 5432
+      POSTGRES_USER: ${POSTGRES_USER:-algoshield}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB:-algoshield}
+      # Redis
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      # API
+      API_HOST: 0.0.0.0
+      API_PORT: 8080
+      TLS_ENABLE: ${TLS_ENABLE:-false}
+      TLS_CERT_PATH: ${TLS_CERT_PATH:-}
+      TLS_KEY_PATH: ${TLS_KEY_PATH:-}
+      # General
+      ENVIRONMENT: ${ENVIRONMENT:-development}
+      LOG_LEVEL: ${LOG_LEVEL:-info}
+      # Auth
+      JWT_SECRET: ${JWT_SECRET}
+      JWT_EXPIRATION_HOURS: ${JWT_EXPIRATION_HOURS:-24}
+    ports:
+      - "${API_PORT:-8080}:8080"
+    networks:
+      - algoshield-network
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8080/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 15s
+    security_opt:
+      - no-new-privileges:true
+    read_only: true
+    tmpfs:
+      - /tmp
+
+  # =============================================================================
+  # Worker Service
+  # =============================================================================
+  worker:
+    build:
+      context: .
+      dockerfile: Dockerfile.worker
+    container_name: algoshield-worker
+    restart: unless-stopped
+    environment:
+      # Database
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: 5432
+      POSTGRES_USER: ${POSTGRES_USER:-algoshield}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB:-algoshield}
+      # Redis
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      # Worker
+      WORKER_CONCURRENCY: ${WORKER_CONCURRENCY:-10}
+      WORKER_BATCH_SIZE: ${WORKER_BATCH_SIZE:-50}
+      WORKER_TIMEOUT_TRANSACTION_PROCESSING: ${WORKER_TIMEOUT_TRANSACTION_PROCESSING:-300ms}
+      WORKER_TIMEOUT_RULE_EVALUATION: ${WORKER_TIMEOUT_RULE_EVALUATION:-300ms}
+      WORKER_RETRY_MAX_ATTEMPTS: ${WORKER_RETRY_MAX_ATTEMPTS:-3}
+      WORKER_RETRY_INITIAL_DELAY: ${WORKER_RETRY_INITIAL_DELAY:-100ms}
+      WORKER_RETRY_MAX_DELAY: ${WORKER_RETRY_MAX_DELAY:-5s}
+      WORKER_RETRY_MULTIPLIER: ${WORKER_RETRY_MULTIPLIER:-2.0}
+      WORKER_QUEUE_POP_TIMEOUT: ${WORKER_QUEUE_POP_TIMEOUT:-1s}
+      WORKER_RULES_RELOAD_INTERVAL: ${WORKER_RULES_RELOAD_INTERVAL:-10s}
+      # General
+      ENVIRONMENT: ${ENVIRONMENT:-development}
+      LOG_LEVEL: ${LOG_LEVEL:-info}
+      # Auth (for database access)
+      JWT_SECRET: ${JWT_SECRET}
+    networks:
+      - algoshield-network
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "ps aux | grep -v grep | grep -q /worker || exit 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    security_opt:
+      - no-new-privileges:true
+    read_only: true
+    tmpfs:
+      - /tmp
+    deploy:
+      replicas: 1
+      resources:
+        limits:
+          cpus: '2'
+          memory: 1G
+        reservations:
+          cpus: '0.5'
+          memory: 256M
+
+  # =============================================================================
+  # UI Service (Next.js)
+  # =============================================================================
+  ui:
+    build:
+      context: .
+      dockerfile: Dockerfile.ui
+      args:
+        API_URL: ${API_URL:-http://api:8080}
+        NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-}
+    container_name: algoshield-ui
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+      PORT: 3000
+      HOSTNAME: 0.0.0.0
+      API_URL: ${API_URL:-http://api:8080}
+      NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-}
+      NEXT_PUBLIC_API_TIMEOUT: ${NEXT_PUBLIC_API_TIMEOUT:-30000}
+      NEXT_PUBLIC_API_RETRY_MAX_ATTEMPTS: ${NEXT_PUBLIC_API_RETRY_MAX_ATTEMPTS:-3}
+      NEXT_PUBLIC_API_RETRY_INITIAL_DELAY: ${NEXT_PUBLIC_API_RETRY_INITIAL_DELAY:-1000}
+      NEXT_PUBLIC_API_RETRY_MAX_DELAY: ${NEXT_PUBLIC_API_RETRY_MAX_DELAY:-10000}
+      NEXT_PUBLIC_API_RETRY_MULTIPLIER: ${NEXT_PUBLIC_API_RETRY_MULTIPLIER:-2.0}
+      NEXT_PUBLIC_UI_TOAST_DURATION: ${NEXT_PUBLIC_UI_TOAST_DURATION:-5000}
+      NEXT_PUBLIC_UI_POLLING_INTERVAL: ${NEXT_PUBLIC_UI_POLLING_INTERVAL:-10000}
+    ports:
+      - "${UI_PORT:-3000}:3000"
+    networks:
+      - algoshield-network
+    depends_on:
+      api:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:3000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 20s
+    security_opt:
+      - no-new-privileges:true
+    read_only: true
+    tmpfs:
+      - /tmp
+      - /app/.next/cache
+
+# =============================================================================
+# Networks
+# =============================================================================
+networks:
+  algoshield-network:
+    driver: bridge
+    name: algoshield-network
+
+# =============================================================================
+# Volumes
+# =============================================================================
+volumes:
+  postgres_data:
+    name: algoshield-postgres-data
+    driver: local
+  redis_data:
+    name: algoshield-redis-data
+    driver: local

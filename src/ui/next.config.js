@@ -1,5 +1,8 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  // Enable standalone output for Docker optimization
+  output: 'standalone',
+  
   async rewrites() {
     // Get API URL from environment (for server-side proxying in Docker)
     // In Docker, use the service name 'api', otherwise use localhost

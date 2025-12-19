@@ -1,0 +1,59 @@
+# =============================================================================
+# Multi-stage Dockerfile for AlgoShield Worker
+# =============================================================================
+# Stage 1: Build stage
+# =============================================================================
+FROM golang:1.25.4-alpine AS builder
+
+# Install build dependencies
+RUN apk add --no-cache git ca-certificates tzdata
+
+# Create appuser for security (non-root user)
+RUN adduser -D -g '' appuser
+
+# Set working directory
+WORKDIR /build
+
+# Copy go mod files
+COPY go.mod go.sum ./
+
+# Download dependencies (cached layer if go.mod/go.sum don't change)
+RUN go mod download
+
+# Copy source code
+COPY . .
+
+# Build the binary
+# CGO_ENABLED=0 creates a statically linked binary
+# -ldflags="-w -s" reduces binary size by removing debug info
+RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build \
+    -ldflags='-w -s -extldflags "-static"' \
+    -a -installsuffix cgo \
+    -o /build/bin/worker \
+    ./src/workers/cmd/main.go
+
+# =============================================================================
+# Stage 2: Runtime stage
+# =============================================================================
+# Use minimal alpine for basic utilities while maintaining security
+FROM alpine:3.20
+
+# Install ca-certificates for HTTPS connections
+RUN apk --no-cache add ca-certificates tzdata && \
+    addgroup -S appgroup && \
+    adduser -S appuser -G appgroup
+
+# Copy binary from builder
+COPY --from=builder --chown=appuser:appgroup /build/bin/worker /worker
+
+# Switch to non-root user
+USER appuser:appgroup
+
+# Health check - verify process is running
+# Workers don't expose HTTP, so we check if the process is alive
+# Using ps instead of pgrep (more reliable in minimal images)
+HEALTHCHECK --interval=30s --timeout=3s --start-period=10s --retries=3 \
+    CMD ps aux | grep -v grep | grep -q /worker || exit 1
+
+# Run the binary
+ENTRYPOINT ["/worker"]
