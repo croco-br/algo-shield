@@ -56,10 +56,9 @@ const mainStyles = computed(() => {
     const sidebarWidth = isSidebarCollapsed.value ? 'var(--sidebar-width-collapsed)' : 'var(--sidebar-width)'
     // Add extra spacing (24px = 1.5rem) to prevent overlap with collapse button
     styles.marginLeft = `calc(${sidebarWidth} + 1.5rem)`
+    // Add matching spacing on the right side for visual balance
+    styles.marginRight = '1.5rem'
   }
-  
-  // Add matching spacing on the right side for visual balance
-  styles.marginRight = '1.5rem'
 
   // Ensure main content stays below fixed header/sidebar
   styles.position = 'relative'
