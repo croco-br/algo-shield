@@ -1,6 +1,7 @@
 package validation
 
 import (
+	"errors"
 	"fmt"
 	"reflect"
 	"regexp"
@@ -226,4 +227,27 @@ func ValidateOffset(offset int) error {
 		return fmt.Errorf("offset must be non-negative")
 	}
 	return nil
+}
+
+// ValidationError represents a validation error that should return HTTP 400
+// This error type is used to distinguish validation errors from other errors
+// (like database errors) which should return HTTP 500
+type ValidationError struct {
+	Message string
+}
+
+func (e *ValidationError) Error() string {
+	return e.Message
+}
+
+// NewValidationError creates a new validation error
+func NewValidationError(message string) error {
+	return &ValidationError{Message: message}
+}
+
+// IsValidationError checks if an error is a validation error
+// This function can be used in handlers to determine the appropriate HTTP status code
+func IsValidationError(err error) bool {
+	var validationErr *ValidationError
+	return errors.As(err, &validationErr)
 }

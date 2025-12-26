@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"regexp"
 
+	"github.com/algo-shield/algo-shield/src/api/internal/shared/validation"
 	"github.com/algo-shield/algo-shield/src/pkg/models"
 )
 
@@ -65,21 +66,21 @@ func (s *service) GetBranding(ctx context.Context) (*models.BrandingConfig, erro
 func (s *service) UpdateBranding(ctx context.Context, req *UpdateBrandingRequest) (*models.BrandingConfig, error) {
 	// Validate color formats
 	if err := validateHexColor(req.PrimaryColor, "primary_color"); err != nil {
-		return nil, err
+		return nil, validation.NewValidationError(err.Error())
 	}
 	if err := validateHexColor(req.SecondaryColor, "secondary_color"); err != nil {
-		return nil, err
+		return nil, validation.NewValidationError(err.Error())
 	}
 	if err := validateHexColor(req.HeaderColor, "header_color"); err != nil {
-		return nil, err
+		return nil, validation.NewValidationError(err.Error())
 	}
 
 	// Validate app name length
 	if len(req.AppName) > 100 {
-		return nil, fmt.Errorf("app_name must be 100 characters or less")
+		return nil, validation.NewValidationError("app_name must be 100 characters or less")
 	}
 	if len(req.AppName) == 0 {
-		return nil, fmt.Errorf("app_name cannot be empty")
+		return nil, validation.NewValidationError("app_name cannot be empty")
 	}
 
 	// Create branding config from request
