@@ -4,10 +4,10 @@
 TBD - created by archiving change add-white-label-customization. Update Purpose after archive.
 ## Requirements
 ### Requirement: Branding Configuration Storage
-The system SHALL store branding configuration in the database including application name, icon URL, primary color, secondary color, and favicon URL.
+The system SHALL store branding configuration in the database including application name, icon URL, primary color, secondary color, header color, and favicon URL.
 
 #### Scenario: Store complete branding configuration
-- **WHEN** branding configuration is saved with all fields (app_name, icon_url, primary_color, secondary_color, favicon_url)
+- **WHEN** branding configuration is saved with all fields (app_name, icon_url, primary_color, secondary_color, header_color, favicon_url)
 - **THEN** the configuration is persisted in the database
 - **AND** the configuration can be retrieved for application use
 
@@ -22,12 +22,12 @@ The system SHALL provide an API endpoint to retrieve the current branding config
 #### Scenario: Retrieve branding configuration successfully
 - **WHEN** a GET request is made to `/api/v1/branding`
 - **THEN** the current branding configuration is returned in JSON format
-- **AND** includes all branding fields (app_name, icon_url, primary_color, secondary_color, favicon_url)
+- **AND** includes all branding fields (app_name, icon_url, primary_color, secondary_color, header_color, favicon_url)
 
 #### Scenario: Retrieve branding when none configured
 - **WHEN** no branding configuration exists in the database
 - **THEN** default branding values are returned
-- **AND** default values include app_name="AlgoShield", primary_color="#3B82F6", secondary_color="#10B981"
+- **AND** default values include app_name="AlgoShield", primary_color="#3B82F6", secondary_color="#10B981", header_color="#1e1e1e"
 
 ### Requirement: Branding Configuration Updates
 The system SHALL provide an authenticated API endpoint for administrators to update branding configuration.
@@ -53,16 +53,17 @@ The frontend SHALL dynamically apply branding configuration without requiring a 
 #### Scenario: Apply branding on application load
 - **WHEN** the frontend application loads
 - **THEN** it fetches the branding configuration from the API
-- **AND** applies the configuration to the document title, favicon, and CSS variables
+- **AND** applies the configuration to the document title, favicon, CSS variables, and header background
 - **AND** the changes are visible immediately
 
 #### Scenario: Apply branding after update
 - **WHEN** an admin updates the branding configuration
 - **THEN** the frontend detects the change
 - **AND** applies the new branding without requiring a page refresh
+- **AND** the header background color updates immediately
 
 ### Requirement: Color Customization
-The system SHALL support customization of primary and secondary colors using CSS custom properties.
+The system SHALL support customization of primary, secondary, and header colors using CSS custom properties.
 
 #### Scenario: Apply custom primary color
 - **WHEN** primary color is set to "#FF5733"
@@ -73,6 +74,12 @@ The system SHALL support customization of primary and secondary colors using CSS
 - **WHEN** secondary color is set to "#C70039"
 - **THEN** all UI elements using the secondary color reflect the custom color
 - **AND** the color is applied via CSS custom property `--color-secondary`
+
+#### Scenario: Apply custom header color
+- **WHEN** header color is set to "#2C3E50"
+- **THEN** the header background reflects the custom color
+- **AND** the color is applied via CSS custom property `--color-header-background`
+- **AND** the header updates dynamically without page refresh
 
 ### Requirement: Logo and Icon Customization
 The system SHALL support customization of application logo and favicon via URL configuration.
@@ -98,11 +105,12 @@ The system SHALL provide an admin interface for managing branding configuration 
 #### Scenario: Access branding management page
 - **WHEN** an admin user navigates to the branding management page
 - **THEN** the current branding configuration is displayed in an editable form
-- **AND** a live preview shows how the branding will appear
+- **AND** a live preview shows how the branding will appear including header color
 
 #### Scenario: Preview branding changes
-- **WHEN** an admin modifies any branding field in the form
+- **WHEN** an admin modifies any branding field in the form including header color
 - **THEN** the live preview updates immediately to show the changes
+- **AND** the header preview reflects the new header color
 - **AND** the changes are not saved until the admin clicks Save
 
 #### Scenario: Save branding changes
@@ -110,6 +118,7 @@ The system SHALL provide an admin interface for managing branding configuration 
 - **THEN** the changes are sent to the API
 - **AND** a success message is displayed upon successful save
 - **AND** the preview becomes the active branding
+- **AND** the header color is applied immediately
 
 ### Requirement: Validation Rules
 The system SHALL validate branding configuration fields according to specified rules.
@@ -119,7 +128,7 @@ The system SHALL validate branding configuration fields according to specified r
 - **THEN** the validation fails with error message "Application name must be 100 characters or less"
 
 #### Scenario: Validate hex color format
-- **WHEN** color value does not match hex format (e.g., "#RRGGBB" or "#RGB")
+- **WHEN** color value (primary_color, secondary_color, or header_color) does not match hex format (e.g., "#RRGGBB" or "#RGB")
 - **THEN** the validation fails with error message "Color must be in hex format (#RRGGBB or #RGB)"
 
 #### Scenario: Validate URL format
@@ -135,6 +144,7 @@ The system SHALL provide sensible default branding values for new deployments.
   - app_name: "AlgoShield"
   - primary_color: "#3B82F6" (blue)
   - secondary_color: "#10B981" (green)
+  - header_color: "#1e1e1e" (dark gray)
   - icon_url: "/assets/logo.svg"
   - favicon_url: "/favicon.ico"
 
