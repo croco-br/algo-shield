@@ -10,7 +10,7 @@
             size="small"
             class="text-neutral-600"
           >
-            <v-icon icon="mdi-filter" size="small" class="mr-2" />
+            <v-icon icon="fa-filter" size="small" class="mr-2" />
             Filter
           </v-btn>
           <v-btn
@@ -18,7 +18,7 @@
             size="small"
             class="text-neutral-600"
           >
-            <v-icon icon="mdi-download" size="small" class="mr-2" />
+            <v-icon icon="fa-download" size="small" class="mr-2" />
             Export
           </v-btn>
         </div>
@@ -104,7 +104,7 @@
             size="small"
             :color="currentPage === 1 ? 'grey' : 'grey-darken-1'"
           >
-            <v-icon icon="mdi-chevron-left" />
+            <v-icon icon="fa-chevron-left" />
           </v-btn>
 
           <div class="flex items-center gap-1">
@@ -131,7 +131,7 @@
             size="small"
             :color="currentPage === totalPages ? 'grey' : 'grey-darken-1'"
           >
-            <v-icon icon="mdi-chevron-right" />
+            <v-icon icon="fa-chevron-right" />
           </v-btn>
         </div>
       </div>

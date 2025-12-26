@@ -16,6 +16,7 @@ type UserRepository interface {
 	GetUserByEmail(ctx context.Context, email string, includePassword bool) (*models.User, error)
 	GetUserByID(ctx context.Context, userID uuid.UUID) (*models.User, error)
 	CreateUser(ctx context.Context, user *models.User) error
+	CreateUserWithTx(ctx context.Context, tx pgx.Tx, user *models.User) error
 	UpdateLastLogin(ctx context.Context, userID uuid.UUID, lastLoginAt *time.Time) error
 }
 
@@ -102,6 +103,19 @@ func (r *PostgresUserRepository) CreateUser(ctx context.Context, user *models.Us
 	`
 
 	_, err := r.db.Exec(ctx, query,
+		user.ID, user.Email, user.Name, user.PasswordHash,
+		user.AuthType, user.Active, user.CreatedAt, user.UpdatedAt,
+	)
+	return err
+}
+
+func (r *PostgresUserRepository) CreateUserWithTx(ctx context.Context, tx pgx.Tx, user *models.User) error {
+	query := `
+		INSERT INTO users (id, email, name, password_hash, auth_type, active, created_at, updated_at)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+	`
+
+	_, err := tx.Exec(ctx, query,
 		user.ID, user.Email, user.Name, user.PasswordHash,
 		user.AuthType, user.Active, user.CreatedAt, user.UpdatedAt,
 	)

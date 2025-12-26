@@ -1,16 +1,20 @@
 <template>
-  <v-container fluid class="pa-8">
-    <div class="mb-10">
-      <h1 class="text-h4 font-weight-bold mb-2">Branding Configuration</h1>
-      <p class="text-body-1 text-grey-darken-1">Customize your application branding</p>
+  <v-container fluid class="pa-4" style="max-width: 100%; overflow-x: hidden;">
+    <div class="mb-3">
+      <div class="d-flex align-center gap-2 mb-1">
+        <v-icon icon="fa-palette" size="default" color="primary" />
+        <h1 class="text-h5 font-weight-bold">Branding Configuration</h1>
+      </div>
+      <p class="text-body-2 text-grey-darken-1">Customize your application branding</p>
     </div>
 
     <v-alert
       v-if="error"
       type="error"
       :text="error"
-      class="mb-6"
+      class="mb-3"
       closable
+      density="compact"
       @click:close="error = ''"
     />
 
@@ -18,16 +22,17 @@
       v-if="success"
       type="success"
       :text="success"
-      class="mb-6"
+      class="mb-3"
       closable
+      density="compact"
       @click:close="success = ''"
     />
 
-    <v-row>
+    <v-row class="g-0" style="margin: 0;">
       <!-- Configuration Form -->
-      <v-col cols="12" lg="6">
-        <v-card class="pa-8">
-          <v-card-title class="text-h6 mb-6">Configuration</v-card-title>
+      <v-col cols="12" lg="6" class="pr-lg-2" style="padding-left: 0;">
+        <v-card class="pa-3">
+          <v-card-title class="text-subtitle-1 mb-3" style="font-weight: 600;">Configuration</v-card-title>
 
           <v-form @submit.prevent="handleSubmit">
             <!-- App Name -->
@@ -39,7 +44,10 @@
               maxlength="100"
               hint="Max 100 characters"
               persistent-hint
-              class="mb-4"
+              prepend-inner-icon="fa-window-maximize"
+              class="mb-3"
+              variant="outlined"
+              density="compact"
             />
 
             <!-- Icon URL -->
@@ -49,7 +57,10 @@
               placeholder="/assets/logo.svg"
               hint="URL or path to logo image"
               persistent-hint
-              class="mb-4"
+              prepend-inner-icon="fa-image"
+              class="mb-3"
+              variant="outlined"
+              density="compact"
             />
 
             <!-- Favicon URL -->
@@ -59,17 +70,24 @@
               placeholder="/favicon.ico"
               hint="URL or path to favicon"
               persistent-hint
-              class="mb-4"
+              prepend-inner-icon="fa-star"
+              class="mb-3"
+              variant="outlined"
+              density="compact"
             />
 
             <!-- Primary Color -->
-            <div class="mb-4">
-              <label class="text-body-2 text-grey-darken-1 mb-2 d-block">Primary Color</label>
-              <div class="d-flex align-center gap-3">
+            <div class="mb-3">
+              <label class="text-body-2 text-grey-darken-1 mb-1 d-flex align-center gap-2">
+                <v-icon icon="fa-palette" size="x-small" />
+                Primary Color
+              </label>
+              <div class="d-flex align-center gap-2">
                 <input
                   v-model="form.primary_color"
                   type="color"
-                  class="h-12 w-20 border border-grey rounded-lg cursor-pointer"
+                  class="color-picker-input"
+                  style="width: 50px; height: 40px; border: 1px solid rgba(0,0,0,0.12); border-radius: 4px; cursor: pointer; flex-shrink: 0;"
                 />
                 <v-text-field
                   v-model="form.primary_color"
@@ -78,20 +96,25 @@
                   required
                   density="compact"
                   variant="outlined"
-                  class="font-mono"
+                  prepend-inner-icon="fa-hashtag"
+                  class="font-mono flex-grow-1"
+                  hide-details
                 />
               </div>
-              <p class="text-caption text-grey mt-1">Hex format: #RGB or #RRGGBB</p>
             </div>
 
             <!-- Secondary Color -->
-            <div class="mb-4">
-              <label class="text-body-2 text-grey-darken-1 mb-2 d-block">Secondary Color</label>
-              <div class="d-flex align-center gap-3">
+            <div class="mb-3">
+              <label class="text-body-2 text-grey-darken-1 mb-1 d-flex align-center gap-2">
+                <v-icon icon="fa-palette" size="x-small" />
+                Secondary Color
+              </label>
+              <div class="d-flex align-center gap-2">
                 <input
                   v-model="form.secondary_color"
                   type="color"
-                  class="h-12 w-20 border border-grey rounded-lg cursor-pointer"
+                  class="color-picker-input"
+                  style="width: 50px; height: 40px; border: 1px solid rgba(0,0,0,0.12); border-radius: 4px; cursor: pointer; flex-shrink: 0;"
                 />
                 <v-text-field
                   v-model="form.secondary_color"
@@ -100,20 +123,25 @@
                   required
                   density="compact"
                   variant="outlined"
-                  class="font-mono"
+                  prepend-inner-icon="fa-hashtag"
+                  class="font-mono flex-grow-1"
+                  hide-details
                 />
               </div>
-              <p class="text-caption text-grey mt-1">Hex format: #RGB or #RRGGBB</p>
             </div>
 
             <!-- Header Color -->
-            <div class="mb-6">
-              <label class="text-body-2 text-grey-darken-1 mb-2 d-block">Header Background Color</label>
-              <div class="d-flex align-center gap-3">
+            <div class="mb-4">
+              <label class="text-body-2 text-grey-darken-1 mb-1 d-flex align-center gap-2">
+                <v-icon icon="fa-heading" size="x-small" />
+                Header Background Color
+              </label>
+              <div class="d-flex align-center gap-2">
                 <input
                   v-model="form.header_color"
                   type="color"
-                  class="h-12 w-20 border border-grey rounded-lg cursor-pointer"
+                  class="color-picker-input"
+                  style="width: 50px; height: 40px; border: 1px solid rgba(0,0,0,0.12); border-radius: 4px; cursor: pointer; flex-shrink: 0;"
                 />
                 <v-text-field
                   v-model="form.header_color"
@@ -122,30 +150,33 @@
                   required
                   density="compact"
                   variant="outlined"
-                  class="font-mono"
+                  prepend-inner-icon="fa-hashtag"
+                  class="font-mono flex-grow-1"
+                  hide-details
                 />
               </div>
-              <p class="text-caption text-grey mt-1">Hex format: #RGB or #RRGGBB</p>
             </div>
 
             <!-- Action Buttons -->
-            <div class="d-flex gap-3">
+            <div class="d-flex gap-2">
               <v-btn
                 type="submit"
                 :loading="loading"
                 :disabled="loading"
                 color="primary"
                 block
-                size="large"
+                size="default"
+                prepend-icon="fa-save"
               >
                 {{ loading ? 'Saving...' : 'Save Configuration' }}
               </v-btn>
               <v-btn
                 variant="outlined"
                 @click="resetToDefaults"
-                size="large"
+                size="default"
+                prepend-icon="fa-rotate-left"
               >
-                Reset to Defaults
+                Reset
               </v-btn>
             </div>
           </v-form>
@@ -153,23 +184,24 @@
       </v-col>
 
       <!-- Live Preview -->
-      <v-col cols="12" lg="6">
-        <v-card class="pa-8">
-          <v-card-title class="text-h6 mb-6">Live Preview</v-card-title>
+      <v-col cols="12" lg="6" class="pl-lg-2" style="padding-right: 0;">
+        <v-card class="pa-3">
+          <v-card-title class="text-subtitle-1 mb-3" style="font-weight: 600;">Live Preview</v-card-title>
 
-          <div class="d-flex flex-column gap-6">
+          <div class="d-flex flex-column gap-3">
+          <div class="d-flex flex-column gap-2">
             <!-- Logo Preview -->
             <div>
-              <h3 class="text-body-2 font-weight-medium text-grey-darken-1 mb-3">Logo</h3>
-              <v-card variant="tonal" class="pa-6">
-                <div class="d-flex align-center gap-3">
+              <h3 class="text-caption font-weight-medium text-grey-darken-1 mb-1">Logo</h3>
+              <v-card variant="tonal" class="pa-2">
+                <div class="d-flex align-center gap-2">
                   <img
                     :src="form.icon_url || '/gopher.png'"
                     :alt="form.app_name"
-                    class="w-10 h-10 object-contain"
+                    style="width: 24px; height: 24px; object-fit: contain;"
                     @error="handleImageError"
                   />
-                  <span class="text-h6 font-weight-bold" :style="{ color: form.primary_color }">
+                  <span class="text-body-2 font-weight-bold" :style="{ color: form.primary_color }">
                     {{ form.app_name }}
                   </span>
                 </div>
@@ -178,36 +210,36 @@
 
             <!-- Color Swatches -->
             <div>
-              <h3 class="text-body-2 font-weight-medium text-grey-darken-1 mb-3">Colors</h3>
-              <div class="d-flex flex-column gap-3">
-                <div class="d-flex align-center gap-3">
+              <h3 class="text-caption font-weight-medium text-grey-darken-1 mb-1">Colors</h3>
+              <div class="d-flex flex-column gap-1">
+                <div class="d-flex align-center gap-2">
                   <div
-                    class="w-16 h-16 rounded-lg border"
+                    style="width: 32px; height: 32px; border-radius: 4px; border: 1px solid rgba(0,0,0,0.12); flex-shrink: 0;"
                     :style="{ backgroundColor: form.primary_color }"
                   />
                   <div>
-                    <p class="text-body-2 font-weight-medium">Primary Color</p>
-                    <p class="text-caption text-grey font-mono">{{ form.primary_color }}</p>
+                    <p class="text-caption font-weight-medium mb-0">Primary</p>
+                    <p class="text-caption text-grey font-mono mb-0" style="font-size: 10px;">{{ form.primary_color }}</p>
                   </div>
                 </div>
-                <div class="d-flex align-center gap-3">
+                <div class="d-flex align-center gap-2">
                   <div
-                    class="w-16 h-16 rounded-lg border"
+                    style="width: 32px; height: 32px; border-radius: 4px; border: 1px solid rgba(0,0,0,0.12); flex-shrink: 0;"
                     :style="{ backgroundColor: form.secondary_color }"
                   />
                   <div>
-                    <p class="text-body-2 font-weight-medium">Secondary Color</p>
-                    <p class="text-caption text-grey font-mono">{{ form.secondary_color }}</p>
+                    <p class="text-caption font-weight-medium mb-0">Secondary</p>
+                    <p class="text-caption text-grey font-mono mb-0" style="font-size: 10px;">{{ form.secondary_color }}</p>
                   </div>
                 </div>
-                <div class="d-flex align-center gap-3">
+                <div class="d-flex align-center gap-2">
                   <div
-                    class="w-16 h-16 rounded-lg border"
+                    style="width: 32px; height: 32px; border-radius: 4px; border: 1px solid rgba(0,0,0,0.12); flex-shrink: 0;"
                     :style="{ backgroundColor: form.header_color }"
                   />
                   <div>
-                    <p class="text-body-2 font-weight-medium">Header Background</p>
-                    <p class="text-caption text-grey font-mono">{{ form.header_color }}</p>
+                    <p class="text-caption font-weight-medium mb-0">Header</p>
+                    <p class="text-caption text-grey font-mono mb-0" style="font-size: 10px;">{{ form.header_color }}</p>
                   </div>
                 </div>
               </div>
@@ -215,36 +247,38 @@
 
             <!-- Header Preview -->
             <div>
-              <h3 class="text-body-2 font-weight-medium text-grey-darken-1 mb-3">Header</h3>
+              <h3 class="text-caption font-weight-medium text-grey-darken-1 mb-1">Header</h3>
               <v-card
                 :style="{ backgroundColor: form.header_color }"
-                class="pa-4"
+                class="pa-2"
               >
-                <div class="d-flex align-center gap-3">
+                <div class="d-flex align-center gap-2">
                   <img
                     :src="form.icon_url || '/gopher.png'"
                     :alt="form.app_name"
-                    class="w-8 h-8 object-contain"
+                    style="width: 20px; height: 20px; object-fit: contain;"
                     @error="handleImageError"
                   />
-                  <span class="text-white font-weight-bold text-body-2">{{ form.app_name }}</span>
+                  <span class="text-white font-weight-bold text-caption">{{ form.app_name }}</span>
                 </div>
               </v-card>
             </div>
 
             <!-- Button Preview -->
             <div>
-              <h3 class="text-body-2 font-weight-medium text-grey-darken-1 mb-3">Buttons</h3>
-              <div class="d-flex gap-3">
+              <h3 class="text-caption font-weight-medium text-grey-darken-1 mb-1">Buttons</h3>
+              <div class="d-flex gap-2">
                 <v-btn
                   :style="{ backgroundColor: form.primary_color }"
                   color="primary"
+                  size="x-small"
                 >
                   Primary
                 </v-btn>
                 <v-btn
                   :style="{ backgroundColor: form.secondary_color }"
                   color="secondary"
+                  size="x-small"
                 >
                   Secondary
                 </v-btn>
@@ -253,14 +287,15 @@
 
             <!-- Browser Title Preview -->
             <div>
-              <h3 class="text-body-2 font-weight-medium text-grey-darken-1 mb-3">Browser Tab</h3>
-              <v-card variant="tonal" class="pa-4">
-                <div class="d-flex align-center gap-2 text-body-2">
-                  <div class="w-4 h-4 bg-grey rounded" />
-                  <span class="text-grey-darken-1">{{ form.app_name }}</span>
+              <h3 class="text-caption font-weight-medium text-grey-darken-1 mb-1">Browser Tab</h3>
+              <v-card variant="tonal" class="pa-1">
+                <div class="d-flex align-center gap-1 text-caption">
+                  <div style="width: 12px; height: 12px; background-color: #grey; border-radius: 2px;" />
+                  <span class="text-grey-darken-1" style="font-size: 11px;">{{ form.app_name }}</span>
                 </div>
               </v-card>
             </div>
+          </div>
           </div>
         </v-card>
       </v-col>

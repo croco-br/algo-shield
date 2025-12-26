@@ -8,7 +8,7 @@
     <v-card class="pa-8">
       <div class="d-flex align-center gap-3 mb-6">
         <v-avatar color="primary" size="48">
-          <v-icon icon="mdi-account" color="white" />
+          <v-icon icon="fa-user" color="white" />
         </v-avatar>
         <div>
           <h3 class="text-h6 font-weight-bold">User Information</h3>
@@ -19,7 +19,7 @@
       <v-list class="bg-transparent">
         <v-list-item>
           <template #prepend>
-            <v-icon icon="mdi-account" color="grey-darken-1" />
+            <v-icon icon="fa-user" color="grey-darken-1" />
           </template>
           <v-list-item-title class="font-weight-semibold">Name</v-list-item-title>
           <template #append>
@@ -29,7 +29,7 @@
 
         <v-list-item>
           <template #prepend>
-            <v-icon icon="mdi-email" color="grey-darken-1" />
+            <v-icon icon="fa-envelope" color="grey-darken-1" />
           </template>
           <v-list-item-title class="font-weight-semibold">Email</v-list-item-title>
           <template #append>
@@ -39,7 +39,7 @@
 
         <v-list-item>
           <template #prepend>
-            <v-icon icon="mdi-key" color="grey-darken-1" />
+            <v-icon icon="fa-key" color="grey-darken-1" />
           </template>
           <v-list-item-title class="font-weight-semibold">Authentication Type</v-list-item-title>
           <template #append>
@@ -49,21 +49,23 @@
 
         <v-list-item>
           <template #prepend>
-            <v-icon icon="mdi-shield-account" color="grey-darken-1" />
+            <v-icon icon="fa-shield" color="grey-darken-1" />
           </template>
           <v-list-item-title class="font-weight-semibold">Roles</v-list-item-title>
           <template #append>
-            <div class="d-flex gap-2 flex-wrap">
-              <v-chip
-                v-for="role in user?.roles"
-                :key="role.id"
-                color="primary"
-                size="small"
-                variant="flat"
-              >
-                {{ role.name }}
-              </v-chip>
-              <span v-if="!user?.roles || user.roles.length === 0" class="text-body-2 text-grey">
+            <div class="d-flex gap-2 flex-wrap align-center">
+              <template v-if="user?.roles && user.roles.length > 0">
+                <v-chip
+                  v-for="role in user.roles"
+                  :key="role.id"
+                  color="primary"
+                  size="small"
+                  variant="flat"
+                >
+                  {{ role.name }}
+                </v-chip>
+              </template>
+              <span v-else class="text-body-2 text-grey-darken-1">
                 No roles assigned
               </span>
             </div>
@@ -72,7 +74,7 @@
 
         <v-list-item>
           <template #prepend>
-            <v-icon icon="mdi-circle" color="grey-darken-1" />
+            <v-icon :icon="user?.active ? 'fa-check-circle' : 'fa-xmark-circle'" :color="user?.active ? 'success' : 'error'" />
           </template>
           <v-list-item-title class="font-weight-semibold">Status</v-list-item-title>
           <template #append>
@@ -91,9 +93,17 @@
 </template>
 
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, onMounted } from 'vue'
 import { useAuthStore } from '@/stores/auth'
 
 const authStore = useAuthStore()
+
 const user = computed(() => authStore.user)
+
+// Refresh user data when component mounts to ensure roles are loaded
+onMounted(async () => {
+  if (authStore.user) {
+    await authStore.refresh()
+  }
+})
 </script>

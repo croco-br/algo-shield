@@ -16,7 +16,7 @@
           variant="text"
           size="small"
         >
-          <v-icon icon="mdi-close" />
+          <v-icon icon="fa-xmark" />
         </v-btn>
       </div>
 
@@ -108,7 +108,7 @@
             :disabled="!isFormValid"
             class="flex-1 px-4 py-2.5 bg-teal-600 text-white text-sm font-semibold rounded-lg hover:bg-teal-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
           >
-            <v-icon icon="mdi-send" class="mr-2" />
+            <v-icon icon="fa-paper-plane" class="mr-2" />
             Submit
           </button>
         </div>

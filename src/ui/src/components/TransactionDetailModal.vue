@@ -19,7 +19,7 @@
           variant="text"
           size="small"
         >
-          <v-icon icon="mdi-close" />
+          <v-icon icon="fa-xmark" />
         </v-btn>
       </div>
 
@@ -117,7 +117,7 @@
         <div v-if="activeTab === 'escalation'" class="space-y-6">
           <div class="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
             <div class="flex items-start gap-3">
-              <v-icon icon="mdi-alert" color="warning" size="small" class="mt-0.5" />
+              <v-icon icon="fa-triangle-exclamation" color="warning" size="small" class="mt-0.5" />
               <div>
                 <h4 class="text-sm font-semibold text-yellow-900">Escalation Required</h4>
                 <p class="text-sm text-yellow-700 mt-1">
@@ -131,7 +131,7 @@
             @click="$emit('open-escalation')"
             class="w-full px-4 py-3 bg-teal-600 text-white font-semibold rounded-lg hover:bg-teal-700 transition-colors"
           >
-            <v-icon icon="mdi-arrow-up" class="mr-2" />
+            <v-icon icon="fa-arrow-up" class="mr-2" />
             Escalate Transaction
           </button>
 
@@ -157,7 +157,7 @@
         <button
           class="px-4 py-2 bg-teal-600 text-white text-sm font-semibold rounded-lg hover:bg-teal-700 transition-colors"
         >
-          <v-icon icon="mdi-check" class="mr-2" />
+          <v-icon icon="fa-check" class="mr-2" />
           Mark as Reviewed
         </button>
       </div>
@@ -182,16 +182,12 @@ const emit = defineEmits<{
 }>()
 
 const tabs = [
-  { key: 'overview', label: 'Overview', icon: 'mdi-information' },
-  { key: 'escalation', label: 'Escalation', icon: 'mdi-flag' },
+  { key: 'overview', label: 'Overview', icon: 'fa-circle-info' },
+  { key: 'escalation', label: 'Escalation', icon: 'fa-flag' },
 ]
 
 const getTabIcon = (icon: string): string => {
-  const iconMap: Record<string, string> = {
-    'fas fa-info-circle': 'mdi-information',
-    'fas fa-flag': 'mdi-flag',
-  }
-  return iconMap[icon] || icon
+  return icon
 }
 
 const activeTab = ref('overview')

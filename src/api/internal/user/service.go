@@ -103,8 +103,8 @@ func (s *Service) CreateUser(ctx context.Context, email, name, passwordHash stri
 		}
 	}()
 
-	// Insert user using repository
-	if err := s.userRepo.CreateUser(ctx, user); err != nil {
+	// Insert user using repository within transaction
+	if err := s.userRepo.CreateUserWithTx(ctx, tx, user); err != nil {
 		return nil, err
 	}
 
@@ -118,10 +118,17 @@ func (s *Service) CreateUser(ctx context.Context, email, name, passwordHash stri
 			log.Printf("Error querying for 'viewer' role for user %s: %v", user.ID, err)
 		}
 	} else {
-		// Role found, assign it within the transaction
-		if err := s.roleRepo.AssignRoleToUser(ctx, tx, user.ID, viewerRoleID); err != nil {
-			log.Printf("Error assigning default 'viewer' role to user %s: %v", user.ID, err)
-			// Continue with user creation even if role assignment fails
+		// Validate that we got a valid UUID before assigning
+		if viewerRoleID == uuid.Nil {
+			log.Printf("Warning: 'viewer' role ID is nil, user %s created without default role", user.ID)
+		} else {
+			// Role found, assign it within the transaction
+			if err := s.roleRepo.AssignRoleToUser(ctx, tx, user.ID, viewerRoleID); err != nil {
+				log.Printf("Error assigning default 'viewer' role to user %s: %v", user.ID, err)
+				// Continue with user creation even if role assignment fails
+			} else {
+				log.Printf("Successfully assigned 'viewer' role to new user %s (email: %s)", user.ID, user.Email)
+			}
 		}
 	}
 

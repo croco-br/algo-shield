@@ -2,6 +2,7 @@ package roles
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	"github.com/algo-shield/algo-shield/src/pkg/models"
@@ -96,7 +97,14 @@ func (r *PostgresRepository) GetRoleIDByName(ctx context.Context, tx pgx.Tx, nam
 	var roleID uuid.UUID
 	query := `SELECT id FROM roles WHERE name = $1 LIMIT 1`
 	err := tx.QueryRow(ctx, query, name).Scan(&roleID)
-	return roleID, err
+	if err != nil {
+		return uuid.Nil, err
+	}
+	// Validate that we got a valid UUID
+	if roleID == uuid.Nil {
+		return uuid.Nil, fmt.Errorf("role '%s' not found", name)
+	}
+	return roleID, nil
 }
 
 func (r *PostgresRepository) AssignRoleToUser(ctx context.Context, tx pgx.Tx, userID, roleID uuid.UUID) error {

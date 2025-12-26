@@ -3,7 +3,10 @@
     <v-row>
       <v-col cols="12">
         <div class="mb-8">
-          <h2 class="text-h4 font-weight-bold mb-2">Transactions</h2>
+          <div class="d-flex align-center gap-3 mb-2">
+            <v-icon icon="fa-exchange-alt" size="large" color="primary" />
+            <h2 class="text-h4 font-weight-bold">Transactions</h2>
+          </div>
           <p class="text-body-1 text-grey-darken-1">View and manage transaction records</p>
         </div>
 

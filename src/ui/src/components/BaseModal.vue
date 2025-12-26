@@ -13,7 +13,7 @@
         </slot>
         <v-btn
           v-if="closable"
-          icon="mdi-close"
+          icon="fa-xmark"
           variant="text"
           size="small"
           @click="close"

@@ -1,8 +1,9 @@
 import { createVuetify } from 'vuetify'
 import * as components from 'vuetify/components'
 import * as directives from 'vuetify/directives'
-import { aliases, mdi } from 'vuetify/iconsets/mdi'
-import '@mdi/font/css/materialdesignicons.css'
+import { h } from 'vue'
+// Import Font Awesome CSS instead of MDI
+import '@fortawesome/fontawesome-free/css/all.css'
 import 'vuetify/styles'
 
 // Default theme colors (will be overridden by branding)
@@ -19,14 +20,34 @@ const defaultTheme = {
   },
 }
 
+// Custom Font Awesome iconset for Vuetify
+const fa = {
+  component: (props: any) => {
+    let iconClass = props.icon
+    // Convert icon name to Font Awesome class
+    if (!iconClass.startsWith('fa-') && !iconClass.startsWith('fas ') && !iconClass.startsWith('far ') && !iconClass.startsWith('fal ')) {
+      iconClass = `fa-${iconClass}`
+    }
+    if (!iconClass.startsWith('fas ') && !iconClass.startsWith('far ') && !iconClass.startsWith('fal ')) {
+      iconClass = `fas ${iconClass}`
+    }
+    return h('i', { 
+      class: iconClass,
+      style: { 
+        fontSize: props.size || '1em',
+        color: props.color 
+      } 
+    })
+  }
+}
+
 export const vuetify = createVuetify({
   components,
   directives,
   icons: {
-    defaultSet: 'mdi',
-    aliases,
+    defaultSet: 'fa',
     sets: {
-      mdi,
+      fa,
     },
   },
   theme: {

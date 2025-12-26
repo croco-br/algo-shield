@@ -22,7 +22,7 @@
           size="48"
         >
           <v-icon
-            :icon="healthData.status === 'ok' ? 'mdi-check-circle' : 'mdi-alert-circle'"
+            :icon="healthData.status === 'ok' ? 'fa-check-circle' : 'fa-circle-exclamation'"
             color="white"
           />
         </v-avatar>

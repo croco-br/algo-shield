@@ -36,7 +36,15 @@ function serveFile(filePath, res) {
     }
 
     const mimeType = getMimeType(filePath);
-    res.writeHead(200, { 'Content-Type': mimeType });
+    const headers = { 'Content-Type': mimeType };
+    
+    // Add CORS headers for font files to prevent cross-origin issues
+    if (/\.(woff|woff2|ttf|eot|otf)$/i.test(filePath)) {
+      headers['Access-Control-Allow-Origin'] = '*';
+      headers['Cache-Control'] = 'public, max-age=31536000';
+    }
+    
+    res.writeHead(200, headers);
     res.end(data);
   });
 }

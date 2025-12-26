@@ -1,7 +1,10 @@
 <template>
   <v-container fluid class="pa-8">
     <div class="mb-10">
-      <h1 class="text-h4 font-weight-bold mb-2">Permissions Management</h1>
+      <div class="d-flex align-center gap-3 mb-2">
+        <v-icon icon="fa-users-cog" size="large" color="primary" />
+        <h1 class="text-h4 font-weight-bold">Permissions Management</h1>
+      </div>
       <p class="text-body-1 text-grey-darken-1">Manage users, roles, and permissions</p>
     </div>
 
@@ -57,15 +60,16 @@
               @click.stop="removeRole(row.id, role.id)"
               class="ml-2"
             >
-              <v-icon size="small">mdi-close</v-icon>
+              <v-icon size="small">fa-xmark</v-icon>
             </v-btn>
           </BaseBadge>
           <BaseButton
             size="sm"
             variant="ghost"
             @click="openRoleModal(row)"
+            prepend-icon="fa-plus-circle"
           >
-            + Add Role
+            Add Role
           </BaseButton>
         </div>
       </template>
@@ -81,6 +85,7 @@
           size="sm"
           :variant="row.active ? 'danger' : 'secondary'"
           @click="toggleUserActive(row)"
+          :prepend-icon="row.active ? 'fa-user-slash' : 'fa-user-check'"
         >
           {{ row.active ? 'Deactivate' : 'Activate' }}
         </BaseButton>
@@ -98,6 +103,7 @@
           :key="role.id"
           @click="assignRole(role.id)"
           class="cursor-pointer"
+          prepend-icon="fa-shield"
         >
           <v-list-item-title class="font-weight-semibold mb-2">
             {{ role.name }}
@@ -176,10 +182,10 @@ async function loadData() {
 		loading.value = true
 		error.value = ''
 		const [usersResponse, rolesResponse] = await Promise.all([
-			api.get<User[]>('/api/v1/users'),
+			api.get<{ users: User[] }>('/api/v1/permissions/users'),
 			api.get<Role[]>('/api/v1/roles'),
 		])
-		users.value = usersResponse || []
+		users.value = usersResponse?.users || []
 		roles.value = rolesResponse || []
 	} catch (e: any) {
 		error.value = e.message || 'Failed to load data'
@@ -202,7 +208,7 @@ async function assignRole(roleId: string) {
 	if (!selectedUser.value) return
 	
 	try {
-		await api.post(`/api/v1/users/${selectedUser.value.id}/roles`, { role_id: roleId })
+		await api.post(`/api/v1/permissions/users/${selectedUser.value.id}/roles`, { role_id: roleId })
 		showRoleModal.value = false
 		await loadData()
 	} catch (e: any) {
@@ -212,7 +218,7 @@ async function assignRole(roleId: string) {
 
 async function removeRole(userId: string, roleId: string) {
 	try {
-		await api.delete(`/api/v1/users/${userId}/roles/${roleId}`)
+		await api.delete(`/api/v1/permissions/users/${userId}/roles/${roleId}`)
 		await loadData()
 	} catch (e: any) {
 		error.value = e.message || 'Failed to remove role'
@@ -221,7 +227,7 @@ async function removeRole(userId: string, roleId: string) {
 
 async function toggleUserActive(user: User) {
 	try {
-		await api.put(`/api/v1/users/${user.id}`, { active: !user.active })
+		await api.put(`/api/v1/permissions/users/${user.id}/active`, { active: !user.active })
 		await loadData()
 	} catch (e: any) {
 		error.value = e.message || 'Failed to toggle user status'

@@ -2,10 +2,13 @@
   <v-container fluid class="pa-8">
     <div class="d-flex justify-space-between align-center mb-10">
       <div>
-        <h2 class="text-h4 font-weight-bold mb-2">Rules Management</h2>
+        <div class="d-flex align-center gap-3 mb-2">
+          <v-icon icon="fa-tasks" size="large" color="primary" />
+          <h2 class="text-h4 font-weight-bold">Rules Management</h2>
+        </div>
         <p class="text-body-1 text-grey-darken-1">Configure custom rules for fraud detection and AML</p>
       </div>
-      <BaseButton @click="openCreateModal" prepend-icon="mdi-plus">
+      <BaseButton @click="openCreateModal" prepend-icon="fa-plus" style="text-transform: none; font-family: var(--font-family-sans);">
         Create Rule
       </BaseButton>
     </div>
@@ -62,10 +65,10 @@
 
       <template #cell-actions="{ row }">
         <div class="d-flex gap-2">
-          <BaseButton size="sm" @click="openEditModal(row)">
+          <BaseButton size="sm" @click="openEditModal(row)" prepend-icon="fa-pencil">
             Edit
           </BaseButton>
-          <BaseButton size="sm" variant="danger" @click="deleteRule(row.id)">
+          <BaseButton size="sm" variant="danger" @click="deleteRule(row.id)" prepend-icon="fa-trash">
             Delete
           </BaseButton>
         </div>
@@ -83,6 +86,8 @@
           label="Name"
           placeholder="Rule name"
           required
+          prepend-inner-icon="fa-text"
+          variant="outlined"
           class="mb-4"
         />
 
@@ -90,6 +95,8 @@
           v-model="editingRule.description"
           label="Description"
           placeholder="Description"
+          prepend-inner-icon="fa-align-left"
+          variant="outlined"
           class="mb-4"
         />
 
@@ -116,6 +123,8 @@
           min="0"
           max="100"
           required
+          prepend-inner-icon="fa-hashtag"
+          variant="outlined"
           class="mb-4"
         />
 
@@ -135,8 +144,8 @@
       </v-form>
 
       <template #footer>
-        <v-btn variant="text" @click="closeModal">Cancel</v-btn>
-        <v-btn @click="handleSubmit" color="primary" :loading="saving">Save</v-btn>
+        <v-btn variant="text" @click="closeModal" prepend-icon="fa-xmark">Cancel</v-btn>
+        <v-btn @click="handleSubmit" color="primary" :loading="saving" prepend-icon="fa-save">Save</v-btn>
       </template>
     </BaseModal>
   </v-container>

@@ -1,7 +1,7 @@
 <template>
   <v-container fluid class="fill-height pa-0">
-    <v-row align="center" justify="center" class="fill-height">
-      <v-col cols="12" sm="8" md="5" lg="4">
+    <v-row align="start" justify="center" class="fill-height">
+      <v-col cols="12" sm="8" md="5" lg="4" class="pt-12">
         <v-card class="pa-8 elevation-2">
           <!-- Logo Section -->
           <div class="text-center mb-8">

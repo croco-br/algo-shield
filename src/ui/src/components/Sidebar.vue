@@ -23,7 +23,7 @@
           style="right: -12px; top: 24px; z-index: 10;"
         >
           <v-icon>
-            {{ isCollapsed ? 'mdi-chevron-right' : 'mdi-chevron-left' }}
+            {{ isCollapsed ? 'fa-chevron-right' : 'fa-chevron-left' }}
           </v-icon>
         </v-btn>
       </div>
@@ -78,11 +78,11 @@ const route = useRoute()
 const authStore = useAuthStore()
 
 const allNavItems: NavItem[] = [
-  { label: 'Dashboard', path: '/dashboard', icon: 'mdi-chart-line' },
-  { label: 'Transactions', path: '/transactions', icon: 'mdi-swap-horizontal' },
-  { label: 'Rules', path: '/rules', icon: 'mdi-format-list-checkbox' },
-  { label: 'Permissions', path: '/permissions', icon: 'mdi-account-cog', adminOnly: true },
-  { label: 'Branding', path: '/branding', icon: 'mdi-palette', adminOnly: true },
+  { label: 'Dashboard', path: '/dashboard', icon: 'fa-chart-line' },
+  { label: 'Transactions', path: '/transactions', icon: 'fa-exchange-alt' },
+  { label: 'Rules', path: '/rules', icon: 'fa-tasks' },
+  { label: 'Permissions', path: '/permissions', icon: 'fa-users-cog', adminOnly: true },
+  { label: 'Branding', path: '/branding', icon: 'fa-palette', adminOnly: true },
 ]
 
 const navItems = computed(() => {
@@ -106,16 +106,9 @@ const isActive = (path: string) => {
   return route.path === path || (path !== '/' && route.path.startsWith(path))
 }
 
-// Map FontAwesome icons to Material Design Icons
-const getIcon = (faIcon: string): string => {
-  const iconMap: Record<string, string> = {
-    'fas fa-chart-line': 'mdi-chart-line',
-    'fas fa-exchange-alt': 'mdi-swap-horizontal',
-    'fas fa-tasks': 'mdi-format-list-checkbox',
-    'fas fa-users-cog': 'mdi-account-cog',
-    'fas fa-palette': 'mdi-palette',
-  }
-  return iconMap[faIcon] || 'mdi-circle'
+// Return Font Awesome icon name as-is
+const getIcon = (icon: string): string => {
+  return icon
 }
 
 const checkMobile = () => {

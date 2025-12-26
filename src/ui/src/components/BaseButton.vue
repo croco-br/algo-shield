@@ -8,6 +8,7 @@
     :block="fullWidth"
     :loading="loading"
     :prepend-icon="prependIcon"
+    style="text-transform: none; font-family: var(--font-family-sans);"
   >
     <slot />
   </v-btn>

@@ -34,36 +34,18 @@
           density="compact"
           hide-details
           class="search-field"
-          style="max-width: 400px;"
+          style="min-width: 300px; max-width: 400px; flex: 1 1 auto;"
           bg-color="rgba(255, 255, 255, 0.1)"
           color="white"
         >
           <template #prepend-inner>
-            <v-icon icon="mdi-magnify" color="white" size="small" />
+            <v-icon icon="fa-magnifying-glass" color="white" size="small" />
           </template>
         </v-text-field>
       </div>
 
-      <!-- Right: Notifications + User -->
+      <!-- Right: User -->
       <div class="d-flex align-center gap-2">
-        <!-- Notifications -->
-        <v-btn
-          icon
-          variant="text"
-          color="white"
-          class="position-relative"
-        >
-          <v-icon icon="mdi-bell-outline" />
-          <v-badge
-            color="error"
-            content=""
-            dot
-            location="top end"
-            offset-x="2"
-            offset-y="2"
-          />
-        </v-btn>
-
         <!-- User Menu -->
         <v-menu
           v-model="showUserMenu"
@@ -88,12 +70,15 @@
                   {{ user.name.charAt(0).toUpperCase() }}
                 </span>
               </v-avatar>
-              <v-icon icon="mdi-chevron-down" size="small" />
+              <v-icon icon="fa-chevron-down" size="small" />
             </v-btn>
           </template>
 
           <v-list>
             <v-list-item>
+              <template #prepend>
+                <v-icon icon="fa-user" size="small" class="mr-2" />
+              </template>
               <v-list-item-title class="font-weight-semibold">
                 {{ user.name }}
               </v-list-item-title>
@@ -104,14 +89,14 @@
             <v-divider />
             <v-list-item
               to="/profile"
-              prepend-icon="mdi-account"
+              prepend-icon="fa-user"
             >
               Profile
             </v-list-item>
             <v-divider />
             <v-list-item
               @click="handleLogout"
-              prepend-icon="mdi-logout"
+              prepend-icon="fa-sign-out-alt"
               class="text-error"
             >
               Logout
@@ -160,5 +145,15 @@ const handleLogoError = (event: Event) => {
 
 .search-field :deep(.v-field__input::placeholder) {
   color: rgba(255, 255, 255, 0.7);
+}
+
+.search-field :deep(.v-field) {
+  overflow: visible;
+}
+
+.search-field :deep(.v-field__input) {
+  overflow: visible;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 </style>
