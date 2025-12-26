@@ -29,7 +29,7 @@
             <th
               v-for="column in columns"
               :key="column.key"
-              class="px-6 py-3 text-left text-xs font-semibold text-neutral-600 uppercase tracking-wider"
+              class="px-8 py-4 text-left text-xs font-semibold text-neutral-600 uppercase tracking-wider"
             >
               {{ column.label }}
             </th>
@@ -45,22 +45,22 @@
             ]"
             @click="$emit('row-click', transaction)"
           >
-            <td class="px-6 py-4 whitespace-nowrap text-sm font-mono text-neutral-900">
+            <td class="px-8 py-5 whitespace-nowrap text-sm font-mono text-neutral-900">
               {{ transaction.external_id }}
             </td>
-            <td class="px-6 py-4 whitespace-nowrap text-sm text-neutral-600">
+            <td class="px-8 py-5 whitespace-nowrap text-sm text-neutral-600">
               {{ formatDate(transaction.created_at) }}
             </td>
-            <td class="px-6 py-4 whitespace-nowrap text-sm font-semibold text-neutral-900">
+            <td class="px-8 py-5 whitespace-nowrap text-sm font-semibold text-neutral-900">
               {{ formatCurrency(transaction.amount, transaction.currency) }}
             </td>
-            <td class="px-6 py-4 whitespace-nowrap text-sm text-neutral-900">
+            <td class="px-8 py-5 whitespace-nowrap text-sm text-neutral-900">
               {{ transaction.from_account }}
             </td>
-            <td class="px-6 py-4 whitespace-nowrap text-sm text-neutral-900">
+            <td class="px-8 py-5 whitespace-nowrap text-sm text-neutral-900">
               {{ transaction.to_account }}
             </td>
-            <td class="px-6 py-4 whitespace-nowrap">
+            <td class="px-8 py-5 whitespace-nowrap">
               <span
                 :class="[
                   'inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold',
@@ -70,7 +70,7 @@
                 {{ capitalize(transaction.risk_level) }}
               </span>
             </td>
-            <td class="px-6 py-4 whitespace-nowrap">
+            <td class="px-8 py-5 whitespace-nowrap">
               <span
                 :class="[
                   'inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold',

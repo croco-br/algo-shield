@@ -26,6 +26,10 @@ import { useRoute } from 'vue-router'
 import Header from './components/Header.vue'
 import Sidebar from './components/Sidebar.vue'
 import ProtectedRoute from './components/ProtectedRoute.vue'
+import { useBrandingStore } from './stores/branding'
+
+// Initialize branding store (loads and applies branding automatically)
+useBrandingStore()
 
 const route = useRoute()
 const headerRef = ref()

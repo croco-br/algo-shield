@@ -53,8 +53,9 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, onUnmounted } from 'vue'
+import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { useRoute } from 'vue-router'
+import { useAuthStore } from '@/stores/auth'
 
 const emit = defineEmits<{
   collapseChange: [isCollapsed: boolean]
@@ -64,16 +65,23 @@ interface NavItem {
   label: string
   path: string
   icon: string
+  adminOnly?: boolean
 }
 
 const route = useRoute()
+const authStore = useAuthStore()
 
-const navItems: NavItem[] = [
+const allNavItems: NavItem[] = [
   { label: 'Dashboard', path: '/dashboard', icon: 'fas fa-chart-line' },
   { label: 'Transactions', path: '/transactions', icon: 'fas fa-exchange-alt' },
   { label: 'Rules', path: '/rules', icon: 'fas fa-tasks' },
-  { label: 'Permissions', path: '/permissions', icon: 'fas fa-users-cog' },
+  { label: 'Permissions', path: '/permissions', icon: 'fas fa-users-cog', adminOnly: true },
+  { label: 'Branding', path: '/branding', icon: 'fas fa-palette', adminOnly: true },
 ]
+
+const navItems = computed(() => {
+  return allNavItems.filter(item => !item.adminOnly || authStore.isAdmin)
+})
 
 const isCollapsed = ref(false)
 const isMobile = ref(false)

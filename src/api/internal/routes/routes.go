@@ -4,6 +4,7 @@ import (
 	"strings"
 
 	"github.com/algo-shield/algo-shield/src/api/internal/auth"
+	"github.com/algo-shield/algo-shield/src/api/internal/branding"
 	"github.com/algo-shield/algo-shield/src/api/internal/groups"
 	"github.com/algo-shield/algo-shield/src/api/internal/health"
 	"github.com/algo-shield/algo-shield/src/api/internal/permissions"
@@ -33,6 +34,7 @@ func Setup(app *fiber.App, db *pgxpool.Pool, redis *redis.Client, cfg *config.Co
 	permissionsUserRepo := permissions.NewPostgresUserRepository(db)
 	transactionRepo := transactions.NewPostgresRepository(db)
 	ruleRepo := rulespkg.NewPostgresRepository(db, redis)
+	brandingRepo := branding.NewPostgresRepository(db)
 
 	// Create services with dependency injection (business layer - receives interfaces)
 	roleService := roles.NewService(roleRepo)
@@ -41,6 +43,7 @@ func Setup(app *fiber.App, db *pgxpool.Pool, redis *redis.Client, cfg *config.Co
 	authService := auth.NewService(cfg, userService)
 	permissionsService := permissions.NewService(permissionsUserRepo, roleService, groupService)
 	transactionService := transactions.NewService(transactionRepo, redis)
+	brandingService := branding.NewService(brandingRepo)
 
 	// Create handlers with dependency injection (presentation layer - receives interfaces)
 	authHandler := auth.NewHandler(authService, userService)
@@ -50,15 +53,17 @@ func Setup(app *fiber.App, db *pgxpool.Pool, redis *redis.Client, cfg *config.Co
 	transactionHandler := transactions.NewHandler(transactionService)
 	ruleHandler := rules.NewHandler(ruleRepo)
 	healthHandler := health.NewHandler(db, redis)
+	brandingHandler := branding.NewHandler(brandingService)
 
 	// Health routes (public)
 	app.Get("/health", healthHandler.Health)
 	app.Get("/ready", healthHandler.Ready)
 
-	// Auth routes (public)
-	authGroup := app.Group("/api/v1/auth")
-	authGroup.Post("/register", authHandler.Register)
-	authGroup.Post("/login", authHandler.Login)
+	// Register public API endpoints before creating protected groups
+	// These must be registered as specific routes to avoid being caught by the v1 middleware
+	app.Post("/api/v1/auth/register", authHandler.Register)
+	app.Post("/api/v1/auth/login", authHandler.Login)
+	app.Get("/api/v1/branding", brandingHandler.GetBranding)
 
 	// API v1 (protected)
 	v1 := app.Group("/api/v1")
@@ -102,6 +107,9 @@ func Setup(app *fiber.App, db *pgxpool.Pool, redis *redis.Client, cfg *config.Co
 	groupsGroup := v1.Group("/groups", middleware.RequireRole("admin"))
 	groupsGroup.Get("/", groupHandler.ListGroups)
 	groupsGroup.Get("/:id", groupHandler.GetGroup)
+
+	// Branding management (admin only)
+	v1.Put("/branding", middleware.RequireRole("admin"), brandingHandler.UpdateBranding)
 
 	// 404 handler - always return JSON for API routes
 	app.Use(func(c *fiber.Ctx) error {

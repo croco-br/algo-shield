@@ -9,17 +9,17 @@ DECLARE
     admin_role_id UUID;
     admin_email VARCHAR(255) := 'admin@admin.com';
 BEGIN
+    -- Get admin role ID by name
+    SELECT id INTO admin_role_id FROM roles WHERE name = 'admin';
+    
+    IF admin_role_id IS NULL THEN
+        RAISE EXCEPTION 'Admin role not found. Please ensure migration 002_auth_schema.sql has been executed.';
+    END IF;
+    
     -- Check if admin user already exists
     SELECT id INTO admin_user_id FROM users WHERE email = admin_email;
     
     IF admin_user_id IS NULL THEN
-        -- Get admin role ID by name
-        SELECT id INTO admin_role_id FROM roles WHERE name = 'admin';
-        
-        IF admin_role_id IS NULL THEN
-            RAISE EXCEPTION 'Admin role not found. Please ensure migration 002_auth_schema.sql has been executed.';
-        END IF;
-        
         -- Create admin user with random UUID
         admin_user_id := gen_random_uuid();
         
@@ -43,13 +43,15 @@ BEGIN
             NOW()
         );
         
-        -- Assign admin role to the user
-        INSERT INTO user_roles (user_id, role_id, assigned_at)
-        VALUES (admin_user_id, admin_role_id, NOW())
-        ON CONFLICT (user_id, role_id) DO NOTHING;
-        
         RAISE NOTICE 'Admin user created successfully with email: % and password: admin@123', admin_email;
     ELSE
-        RAISE NOTICE 'Admin user already exists, skipping creation';
+        RAISE NOTICE 'Admin user already exists, ensuring admin role is assigned';
     END IF;
+    
+    -- Assign admin role to the user (works for both new and existing users)
+    INSERT INTO user_roles (user_id, role_id, assigned_at)
+    VALUES (admin_user_id, admin_role_id, NOW())
+    ON CONFLICT (user_id, role_id) DO NOTHING;
+    
+    RAISE NOTICE 'Admin role assigned to user with email: %', admin_email;
 END $$;

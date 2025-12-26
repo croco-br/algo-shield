@@ -12,7 +12,7 @@
               v-for="column in columns"
               :key="column.key"
               :class="[
-                'px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider border-b border-gray-200',
+                'px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider border-b border-gray-200',
                 column.headerClass
               ]"
               :style="column.width ? { width: column.width } : {}"
@@ -31,7 +31,7 @@
               v-for="column in columns"
               :key="column.key"
               :class="[
-                'px-4 py-4 border-b border-gray-200',
+                'px-6 py-5 border-b border-gray-200',
                 column.cellClass
               ]"
             >

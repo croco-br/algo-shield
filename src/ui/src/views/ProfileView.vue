@@ -38,7 +38,7 @@
             <i class="fas fa-key text-slate-600"></i>
             <span class="font-semibold text-slate-700">Authentication Type</span>
           </div>
-          <span class="text-sm font-medium text-slate-900 uppercase">{{ user?.authType || 'N/A' }}</span>
+          <span class="text-sm font-medium text-slate-900 uppercase">{{ user?.auth_type || 'N/A' }}</span>
         </div>
 
         <div class="flex items-center justify-between py-4 px-5 bg-slate-50 rounded-lg">

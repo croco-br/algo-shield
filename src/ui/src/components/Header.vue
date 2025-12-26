@@ -9,8 +9,13 @@
       <div class="flex items-center gap-6">
         <!-- Logo -->
         <div class="flex items-center gap-3">
-          <img src="/gopher.png" alt="AlgoShield" class="w-8 h-8 object-contain" />
-          <span class="text-white font-bold text-lg">AlgoShield</span>
+          <img
+            :src="brandingConfig?.icon_url || '/gopher.png'"
+            :alt="brandingConfig?.app_name || 'AlgoShield'"
+            class="w-8 h-8 object-contain"
+            @error="handleLogoError"
+          />
+          <span class="text-white font-bold text-lg">{{ brandingConfig?.app_name || 'AlgoShield' }}</span>
         </div>
 
         <!-- Global Search -->
@@ -36,7 +41,8 @@
         <!-- User Menu -->
         <div class="relative" ref="menuRef">
           <button
-            @click="showUserMenu = !showUserMenu"
+            ref="buttonRef"
+            @click="handleToggleMenu"
             class="flex items-center gap-2 px-2 py-1 rounded-lg hover:bg-neutral-800 transition-colors"
           >
             <div class="w-8 h-8 rounded-full bg-gradient-to-br from-teal-500 to-teal-600 text-white flex items-center justify-center font-semibold text-sm overflow-hidden">
@@ -47,10 +53,16 @@
           </button>
 
           <!-- Dropdown -->
-          <div
-            v-if="showUserMenu"
-            class="absolute top-full right-0 mt-2 bg-white border border-neutral-200 rounded-lg shadow-xl min-w-[220px] z-[1070]"
-          >
+          <Teleport to="body">
+            <div
+              v-if="showUserMenu"
+              ref="dropdownRef"
+              class="fixed bg-white border border-neutral-200 rounded-lg shadow-xl min-w-[220px] z-[1100]"
+              :style="{
+                top: `${dropdownPosition.top}px`,
+                right: `${dropdownPosition.right}px`
+              }"
+            >
             <div class="p-4 border-b border-neutral-200">
               <div class="font-semibold text-neutral-900 text-sm">{{ user.name }}</div>
               <div class="text-xs text-neutral-500 mt-1">{{ user.email }}</div>
@@ -73,7 +85,8 @@
                 <span>Logout</span>
               </button>
             </div>
-          </div>
+            </div>
+          </Teleport>
         </div>
       </div>
     </div>
@@ -81,37 +94,74 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, onUnmounted } from 'vue'
+import { ref, computed, onMounted, onUnmounted, nextTick } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
+import { useBrandingStore } from '@/stores/branding'
 
 const router = useRouter()
 const route = useRoute()
 const authStore = useAuthStore()
+const brandingStore = useBrandingStore()
 
 const showUserMenu = ref(false)
 const menuRef = ref<HTMLElement | null>(null)
+const buttonRef = ref<HTMLElement | null>(null)
+const dropdownRef = ref<HTMLElement | null>(null)
+const dropdownPosition = ref({ top: 0, right: 0 })
 
 const user = computed(() => authStore.user)
-const isAdmin = computed(() => authStore.isAdmin)
 const isLoginPage = computed(() => route.path.startsWith('/login'))
+const brandingConfig = computed(() => brandingStore.config)
+
+const updateDropdownPosition = () => {
+  if (buttonRef.value) {
+    const rect = buttonRef.value.getBoundingClientRect()
+    dropdownPosition.value = {
+      top: rect.bottom + 8, // 8px = mt-2
+      right: window.innerWidth - rect.right
+    }
+  }
+}
+
+const handleToggleMenu = async () => {
+  showUserMenu.value = !showUserMenu.value
+  if (showUserMenu.value) {
+    await nextTick()
+    updateDropdownPosition()
+  }
+}
 
 const handleLogout = async () => {
   await authStore.logout()
   router.push('/login')
 }
 
+const handleLogoError = (event: Event) => {
+  // Fallback to default logo if custom logo fails to load
+  const img = event.target as HTMLImageElement
+  img.src = '/gopher.png'
+}
+
 function handleClickOutside(event: MouseEvent) {
-  if (menuRef.value && !menuRef.value.contains(event.target as Node)) {
+  const target = event.target as Node
+  const clickedInsideButton = buttonRef.value && buttonRef.value.contains(target)
+  const clickedInsideDropdown = dropdownRef.value && dropdownRef.value.contains(target)
+  
+  if (!clickedInsideButton && !clickedInsideDropdown) {
     showUserMenu.value = false
   }
 }
 
 onMounted(() => {
   document.addEventListener('click', handleClickOutside)
+  window.addEventListener('resize', updateDropdownPosition)
+  window.addEventListener('scroll', updateDropdownPosition, true)
 })
 
 onUnmounted(() => {
   document.removeEventListener('click', handleClickOutside)
+  window.removeEventListener('resize', updateDropdownPosition)
+  window.removeEventListener('scroll', updateDropdownPosition, true)
 })
 </script>

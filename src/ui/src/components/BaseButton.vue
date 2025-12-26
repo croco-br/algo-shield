@@ -42,11 +42,11 @@ const buttonClasses = computed(() => {
 
   // Size classes
   if (props.size === 'sm') {
-    classes.push('px-4 py-2 text-sm')
+    classes.push('px-5 py-2.5 text-sm')
   } else if (props.size === 'lg') {
-    classes.push('px-8 py-4 text-base')
+    classes.push('px-9 py-5 text-base')
   } else {
-    classes.push('px-6 py-3.5 text-sm')
+    classes.push('px-7 py-4 text-sm')
   }
 
   // Variant classes

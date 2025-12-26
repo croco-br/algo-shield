@@ -12,7 +12,7 @@ export interface User {
 	id: string;
 	email: string;
 	name: string;
-	authType: 'local' | 'sso';
+	auth_type: 'local' | 'sso';
 	picture_url?: string;
 	roles?: Role[];
 	active: boolean;
