@@ -149,7 +149,6 @@ import BaseModal from '@/components/BaseModal.vue'
 import BaseTable from '@/components/BaseTable.vue'
 import LoadingSpinner from '@/components/LoadingSpinner.vue'
 import ErrorMessage from '@/components/ErrorMessage.vue'
-import { useModal } from '@/composables/useModal'
 import { useActionBadge } from '@/composables/useActionBadge'
 
 interface Rule {
