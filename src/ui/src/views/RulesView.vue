@@ -248,10 +248,10 @@ function openCreateModal() {
   delete editingRule.id
   editingRule.name = ''
   editingRule.description = ''
-  editingRule.type = ''
-  editingRule.action = ''
+  editingRule.type = 'fraud'
+  editingRule.action = 'flag'
   editingRule.score = 0
-  editingRule.priority = ''
+  editingRule.priority = 'medium'
   editingRule.enabled = true
   showModal.value = true
 }

@@ -16,7 +16,7 @@ export default defineConfig({
     },
   },
   optimizeDeps: {
-    include: ['@mdi/font']
+    include: []
   },
   build: {
     rollupOptions: {
@@ -35,7 +35,7 @@ export default defineConfig({
   },
   server: {
     fs: {
-      // Allow serving files from node_modules for @mdi/font
+      // Allow serving files from node_modules
       allow: ['..']
     },
     // Ensure font files are served with correct MIME types
