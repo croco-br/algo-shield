@@ -26,21 +26,6 @@ const router = createRouter({
       component: () => import('@/views/DashboardView.vue'),
     },
     {
-      path: '/risk-analysis',
-      name: 'risk-analysis',
-      component: () => import('@/views/DashboardView.vue'),
-    },
-    {
-      path: '/reports',
-      name: 'reports',
-      component: () => import('@/views/DashboardView.vue'),
-    },
-    {
-      path: '/compliance',
-      name: 'compliance',
-      component: () => import('@/views/DashboardView.vue'),
-    },
-    {
       path: '/rules',
       name: 'rules',
       component: () => import('@/views/RulesView.vue'),
@@ -52,11 +37,6 @@ const router = createRouter({
       meta: { requiresAdmin: true },
     },
     {
-      path: '/synthetic-test',
-      name: 'synthetic-test',
-      component: () => import('@/views/SyntheticTestView.vue'),
-    },
-    {
       path: '/health',
       name: 'health',
       component: () => import('@/views/HealthView.vue'),
@@ -66,11 +46,6 @@ const router = createRouter({
       path: '/profile',
       name: 'profile',
       component: () => import('@/views/ProfileView.vue'),
-    },
-    {
-      path: '/settings',
-      name: 'settings',
-      component: () => import('@/views/SettingsView.vue'),
     },
   ],
 })

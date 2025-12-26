@@ -27,7 +27,7 @@
           </label>
           <input
             type="text"
-            :value="transaction?.id"
+            :value="transaction?.external_id || transaction?.id"
             disabled
             class="w-full px-4 py-2 bg-neutral-100 border border-neutral-200 rounded-lg text-sm text-neutral-600 cursor-not-allowed"
           />
@@ -117,11 +117,7 @@
 
 <script setup lang="ts">
 import { ref, computed } from 'vue'
-
-interface Transaction {
-  id: string
-  [key: string]: any
-}
+import type { Transaction } from '@/types/transaction'
 
 interface Props {
   modelValue: boolean

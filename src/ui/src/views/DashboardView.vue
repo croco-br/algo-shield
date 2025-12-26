@@ -1,60 +1,25 @@
 <template>
   <div class="dashboard-container">
-    <!-- KPI Cards Row -->
-    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8 mb-10">
-      <KPICard
-        label="Total Transactions"
-        :value="kpiData.totalTransactions"
-        icon="fas fa-exchange-alt"
-        variant="info"
-        :trend="5.2"
-        subtitle="vs last month"
-        :loading="loading"
-      />
-      <KPICard
-        label="High-Risk Alerts"
-        :value="kpiData.highRiskAlerts"
-        icon="fas fa-exclamation-triangle"
-        variant="danger"
-        :trend="-12.5"
-        subtitle="vs last month"
-        :loading="loading"
-      />
-      <KPICard
-        label="Pending Reviews"
-        :value="kpiData.pendingReviews"
-        icon="fas fa-clock"
-        variant="warning"
-        :trend="8.3"
-        subtitle="requires attention"
-        :loading="loading"
-      />
-      <KPICard
-        label="Compliance Score"
-        :value="kpiData.complianceScore + '%'"
-        icon="fas fa-shield-alt"
-        variant="success"
-        :trend="2.1"
-        subtitle="vs last month"
-        :loading="loading"
-        :formatter="(v) => v + '%'"
-      />
+    <div class="mb-8">
+      <h2 class="text-3xl font-bold text-neutral-900 mb-2">Transactions</h2>
+      <p class="text-neutral-600">View and manage transaction records</p>
     </div>
 
-    <!-- Heatmap Row -->
-    <div class="mb-10">
-      <Heatmap
-        :height="400"
-        :rows="10"
-        :cols="24"
-        @cell-click="handleHeatmapCellClick"
-      />
-    </div>
+    <LoadingSpinner v-if="loading" text="Loading transactions..." :centered="false" />
+
+    <ErrorMessage
+      v-else-if="error"
+      title="Error loading transactions"
+      :message="error"
+      retryable
+      @retry="loadTransactions"
+    />
 
     <!-- Transaction Table -->
     <TransactionTable
+      v-else
       :data="transactions"
-      :pageSize="10"
+      :pageSize="50"
       @row-click="openTransactionDetail"
     />
 
@@ -76,78 +41,34 @@
 
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
-import KPICard from '@/components/KPICard.vue'
-import Heatmap from '@/components/Heatmap.vue'
+import { api } from '@/lib/api'
+import type { Transaction } from '@/types/transaction'
 import TransactionTable from '@/components/TransactionTable.vue'
 import TransactionDetailModal from '@/components/TransactionDetailModal.vue'
 import RiskEscalationModal from '@/components/RiskEscalationModal.vue'
-
-interface Transaction {
-  id: string
-  date: string
-  amount: number
-  customer: string
-  riskLevel: 'Low' | 'Medium' | 'High'
-  status: 'Pending' | 'Approved' | 'Rejected' | 'Under Review'
-}
-
-interface KPIData {
-  totalTransactions: number
-  highRiskAlerts: number
-  pendingReviews: number
-  complianceScore: number
-}
+import LoadingSpinner from '@/components/LoadingSpinner.vue'
+import ErrorMessage from '@/components/ErrorMessage.vue'
 
 const loading = ref(true)
+const error = ref('')
 const showDetailModal = ref(false)
 const showEscalationModal = ref(false)
 const selectedTransaction = ref<Transaction | null>(null)
-
-const kpiData = ref<KPIData>({
-  totalTransactions: 12547,
-  highRiskAlerts: 248,
-  pendingReviews: 63,
-  complianceScore: 94.7,
-})
-
-// Generate sample transaction data
-const generateTransactions = (): Transaction[] => {
-  const customers = [
-    'Acme Corporation',
-    'TechStart Inc.',
-    'Global Ventures LLC',
-    'Metro Bank',
-    'Digital Solutions',
-    'Enterprise Holdings',
-    'Quantum Industries',
-    'Nexus Group',
-    'Stellar Financial',
-    'Atlas Trading Co.',
-  ]
-
-  const statuses: Transaction['status'][] = ['Pending', 'Approved', 'Rejected', 'Under Review']
-  const riskLevels: Transaction['riskLevel'][] = ['Low', 'Low', 'Low', 'Medium', 'Medium', 'High']
-
-  const transactions: Transaction[] = []
-
-  for (let i = 0; i < 50; i++) {
-    const date = new Date()
-    date.setDate(date.getDate() - Math.floor(Math.random() * 30))
-
-    transactions.push({
-      id: `TXN${String(10000 + i).padStart(6, '0')}`,
-      date: date.toISOString(),
-      amount: Math.floor(Math.random() * 100000) + 1000,
-      customer: customers[Math.floor(Math.random() * customers.length)]!,
-      riskLevel: riskLevels[Math.floor(Math.random() * riskLevels.length)]!,
-      status: statuses[Math.floor(Math.random() * statuses.length)]!,
-    })
-  }
-
-  return transactions.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
-}
-
 const transactions = ref<Transaction[]>([])
+
+const loadTransactions = async () => {
+  loading.value = true
+  error.value = ''
+  try {
+    const response = await api.get<{ transactions: Transaction[] }>('/api/v1/transactions?limit=50&offset=0')
+    transactions.value = response.transactions || []
+  } catch (e: any) {
+    error.value = e.message || 'Failed to load transactions'
+    console.error('Error loading transactions:', e)
+  } finally {
+    loading.value = false
+  }
+}
 
 const openTransactionDetail = (transaction: Transaction) => {
   selectedTransaction.value = transaction
@@ -162,34 +83,15 @@ const openEscalationModal = () => {
 }
 
 const handleEscalationSubmit = (data: any) => {
-  console.log('Escalation submitted:', data)
-  // Here you would typically make an API call
-  // For now, just show a success message
-  alert('Transaction escalated successfully!')
+  // Note: Escalation endpoint doesn't exist in backend yet
+  alert('Transaction escalation feature not yet implemented in backend')
 }
 
-const handleHeatmapCellClick = (cell: any) => {
-  console.log('Heatmap cell clicked:', cell)
-}
-
-onMounted(async () => {
-  loading.value = true
-  // Simulate API call
-  await new Promise(resolve => setTimeout(resolve, 1000))
-
-  transactions.value = generateTransactions()
-  loading.value = false
+onMounted(() => {
+  loadTransactions()
 })
 </script>
 
 <style scoped>
-.dashboard-container {
-  padding: 0;
-}
-
-/* Grid system with 24px gutter */
-.grid {
-  display: grid;
-  gap: 24px;
-}
+/* Dashboard uses Tailwind's grid system with harmonious spacing */
 </style>

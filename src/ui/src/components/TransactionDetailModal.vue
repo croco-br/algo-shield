@@ -11,7 +11,7 @@
       <div class="modal-header px-6 py-4 border-b border-neutral-200 flex items-center justify-between bg-neutral-50">
         <div>
           <h2 class="text-xl font-bold text-neutral-900">Transaction Details</h2>
-          <p class="text-sm text-neutral-600 mt-1">ID: {{ transaction?.id }}</p>
+          <p class="text-sm text-neutral-600 mt-1">External ID: {{ transaction?.external_id }}</p>
         </div>
         <button
           @click="close"
@@ -47,69 +47,67 @@
         <div v-if="activeTab === 'overview'" class="space-y-8">
           <div class="grid grid-cols-2 gap-8">
             <div>
-              <label class="text-sm font-semibold text-neutral-700">Customer</label>
-              <p class="text-base text-neutral-900 mt-1">{{ transaction?.customer }}</p>
+              <label class="text-sm font-semibold text-neutral-700">From Account</label>
+              <p class="text-base text-neutral-900 mt-1">{{ transaction?.from_account }}</p>
+            </div>
+            <div>
+              <label class="text-sm font-semibold text-neutral-700">To Account</label>
+              <p class="text-base text-neutral-900 mt-1">{{ transaction?.to_account }}</p>
             </div>
             <div>
               <label class="text-sm font-semibold text-neutral-700">Amount</label>
-              <p class="text-base font-bold text-neutral-900 mt-1">{{ formatCurrency(transaction?.amount || 0) }}</p>
+              <p class="text-base font-bold text-neutral-900 mt-1">{{ formatCurrency(transaction?.amount || 0, transaction?.currency) }}</p>
             </div>
             <div>
               <label class="text-sm font-semibold text-neutral-700">Date</label>
-              <p class="text-base text-neutral-900 mt-1">{{ formatDate(transaction?.date || '') }}</p>
+              <p class="text-base text-neutral-900 mt-1">{{ formatDate(transaction?.created_at || '') }}</p>
             </div>
             <div>
               <label class="text-sm font-semibold text-neutral-700">Risk Level</label>
               <span
                 :class="[
                   'inline-block mt-1 px-3 py-1 rounded-full text-sm font-semibold',
-                  getRiskBadgeClass(transaction?.riskLevel || 'Low')
+                  getRiskBadgeClass(transaction?.risk_level || 'low')
                 ]"
               >
-                {{ transaction?.riskLevel }}
+                {{ capitalize(transaction?.risk_level || 'low') }}
               </span>
+            </div>
+            <div>
+              <label class="text-sm font-semibold text-neutral-700">Risk Score</label>
+              <p class="text-base text-neutral-900 mt-1">{{ transaction?.risk_score || 0 }}</p>
+            </div>
+            <div>
+              <label class="text-sm font-semibold text-neutral-700">Status</label>
+              <span
+                :class="[
+                  'inline-block mt-1 px-3 py-1 rounded-full text-sm font-semibold',
+                  getStatusBadgeClass(transaction?.status || 'pending')
+                ]"
+              >
+                {{ capitalize(transaction?.status || 'pending') }}
+              </span>
+            </div>
+            <div>
+              <label class="text-sm font-semibold text-neutral-700">Type</label>
+              <p class="text-base text-neutral-900 mt-1">{{ transaction?.type }}</p>
             </div>
           </div>
 
           <div class="border-t border-neutral-200 pt-8">
-            <h4 class="text-sm font-semibold text-neutral-700 mb-4">Risk Factors</h4>
-            <div class="space-y-2">
-              <div class="flex items-center justify-between py-2 px-3 bg-neutral-50 rounded">
-                <span class="text-sm text-neutral-900">High transaction value</span>
-                <span class="text-sm font-semibold text-orange-600">+30 pts</span>
-              </div>
-              <div class="flex items-center justify-between py-2 px-3 bg-neutral-50 rounded">
-                <span class="text-sm text-neutral-900">Unusual time of transaction</span>
-                <span class="text-sm font-semibold text-orange-600">+20 pts</span>
-              </div>
-              <div class="flex items-center justify-between py-2 px-3 bg-neutral-50 rounded">
-                <span class="text-sm text-neutral-900">New customer</span>
-                <span class="text-sm font-semibold text-orange-600">+15 pts</span>
+            <h4 class="text-sm font-semibold text-neutral-700 mb-4">Matched Rules</h4>
+            <div v-if="transaction?.matched_rules && transaction.matched_rules.length > 0" class="space-y-2">
+              <div
+                v-for="(rule, index) in transaction.matched_rules"
+                :key="index"
+                class="flex items-center justify-between py-2 px-3 bg-neutral-50 rounded"
+              >
+                <span class="text-sm text-neutral-900">{{ rule }}</span>
               </div>
             </div>
-          </div>
-        </div>
-
-        <!-- Documents Tab -->
-        <div v-if="activeTab === 'documents'" class="space-y-5">
-          <div
-            v-for="(doc, index) in mockDocuments"
-            :key="index"
-            class="flex items-center justify-between p-4 border border-neutral-200 rounded-lg hover:border-teal-300 transition-colors cursor-pointer"
-          >
-            <div class="flex items-center gap-3">
-              <div class="w-10 h-10 bg-neutral-100 rounded flex items-center justify-center">
-                <i class="fas fa-file-alt text-neutral-600"></i>
-              </div>
-              <div>
-                <p class="text-sm font-semibold text-neutral-900">{{ doc.name }}</p>
-                <p class="text-xs text-neutral-500">{{ doc.size }} • {{ doc.date }}</p>
-              </div>
+            <div v-else class="text-sm text-neutral-500 py-2">
+              No rules matched
             </div>
-            <button class="px-3 py-1.5 text-sm font-medium text-teal-600 hover:bg-teal-50 rounded transition-colors">
-              <i class="fas fa-download mr-2"></i>
-              Download
-            </button>
           </div>
         </div>
 
@@ -167,15 +165,7 @@
 
 <script setup lang="ts">
 import { ref } from 'vue'
-
-interface Transaction {
-  id: string
-  date: string
-  amount: number
-  customer: string
-  riskLevel: 'Low' | 'Medium' | 'High'
-  status: string
-}
+import type { Transaction } from '@/types/transaction'
 
 interface Props {
   modelValue: boolean
@@ -191,17 +181,10 @@ const emit = defineEmits<{
 
 const tabs = [
   { key: 'overview', label: 'Overview', icon: 'fas fa-info-circle' },
-  { key: 'documents', label: 'Documents', icon: 'fas fa-file-alt' },
   { key: 'escalation', label: 'Escalation', icon: 'fas fa-flag' },
 ]
 
 const activeTab = ref('overview')
-
-const mockDocuments = [
-  { name: 'Transaction Receipt.pdf', size: '245 KB', date: 'Dec 15, 2024' },
-  { name: 'Customer ID Verification.pdf', size: '1.2 MB', date: 'Dec 15, 2024' },
-  { name: 'Bank Statement.pdf', size: '890 KB', date: 'Dec 14, 2024' },
-]
 
 const close = () => {
   emit('update:modelValue', false)
@@ -217,20 +200,34 @@ const formatDate = (date: string) => {
   })
 }
 
-const formatCurrency = (amount: number) => {
+const capitalize = (str: string) => {
+  return str.charAt(0).toUpperCase() + str.slice(1)
+}
+
+const formatCurrency = (amount: number, currency: string = 'USD') => {
   return new Intl.NumberFormat('en-US', {
     style: 'currency',
-    currency: 'USD',
+    currency: currency,
   }).format(amount)
 }
 
 const getRiskBadgeClass = (level: string) => {
   const classes = {
-    Low: 'bg-green-100 text-green-800',
-    Medium: 'bg-orange-100 text-orange-800',
-    High: 'bg-red-100 text-red-800',
+    low: 'bg-green-100 text-green-800',
+    medium: 'bg-orange-100 text-orange-800',
+    high: 'bg-red-100 text-red-800',
   }
-  return classes[level as keyof typeof classes] || classes.Low
+  return classes[level.toLowerCase() as keyof typeof classes] || classes.low
+}
+
+const getStatusBadgeClass = (status: string) => {
+  const classes = {
+    pending: 'bg-yellow-100 text-yellow-800',
+    approved: 'bg-green-100 text-green-800',
+    rejected: 'bg-red-100 text-red-800',
+    review: 'bg-blue-100 text-blue-800',
+  }
+  return classes[status.toLowerCase() as keyof typeof classes] || classes.pending
 }
 </script>
 

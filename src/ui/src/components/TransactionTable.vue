@@ -46,25 +46,28 @@
             @click="$emit('row-click', transaction)"
           >
             <td class="px-6 py-4 whitespace-nowrap text-sm font-mono text-neutral-900">
-              {{ transaction.id }}
+              {{ transaction.external_id }}
             </td>
             <td class="px-6 py-4 whitespace-nowrap text-sm text-neutral-600">
-              {{ formatDate(transaction.date) }}
+              {{ formatDate(transaction.created_at) }}
             </td>
             <td class="px-6 py-4 whitespace-nowrap text-sm font-semibold text-neutral-900">
-              {{ formatCurrency(transaction.amount) }}
+              {{ formatCurrency(transaction.amount, transaction.currency) }}
             </td>
             <td class="px-6 py-4 whitespace-nowrap text-sm text-neutral-900">
-              {{ transaction.customer }}
+              {{ transaction.from_account }}
+            </td>
+            <td class="px-6 py-4 whitespace-nowrap text-sm text-neutral-900">
+              {{ transaction.to_account }}
             </td>
             <td class="px-6 py-4 whitespace-nowrap">
               <span
                 :class="[
                   'inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold',
-                  getRiskBadgeClass(transaction.riskLevel)
+                  getRiskBadgeClass(transaction.risk_level)
                 ]"
               >
-                {{ transaction.riskLevel }}
+                {{ capitalize(transaction.risk_level) }}
               </span>
             </td>
             <td class="px-6 py-4 whitespace-nowrap">
@@ -74,7 +77,7 @@
                   getStatusBadgeClass(transaction.status)
                 ]"
               >
-                {{ transaction.status }}
+                {{ capitalize(transaction.status) }}
               </span>
             </td>
           </tr>
@@ -130,15 +133,7 @@
 
 <script setup lang="ts">
 import { ref, computed } from 'vue'
-
-interface Transaction {
-  id: string
-  date: string
-  amount: number
-  customer: string
-  riskLevel: 'Low' | 'Medium' | 'High'
-  status: 'Pending' | 'Approved' | 'Rejected' | 'Under Review'
-}
+import type { Transaction } from '@/types/transaction'
 
 interface Column {
   key: string
@@ -159,11 +154,12 @@ const emit = defineEmits<{
 }>()
 
 const columns: Column[] = [
-  { key: 'id', label: 'ID' },
-  { key: 'date', label: 'Date' },
+  { key: 'external_id', label: 'External ID' },
+  { key: 'created_at', label: 'Date' },
   { key: 'amount', label: 'Amount' },
-  { key: 'customer', label: 'Customer' },
-  { key: 'riskLevel', label: 'Risk Level' },
+  { key: 'from_account', label: 'From Account' },
+  { key: 'to_account', label: 'To Account' },
+  { key: 'risk_level', label: 'Risk Level' },
   { key: 'status', label: 'Status' },
 ]
 
@@ -219,30 +215,34 @@ const formatDate = (date: string) => {
   })
 }
 
-const formatCurrency = (amount: number) => {
+const formatCurrency = (amount: number, currency: string = 'USD') => {
   return new Intl.NumberFormat('en-US', {
     style: 'currency',
-    currency: 'USD',
+    currency: currency,
   }).format(amount)
+}
+
+const capitalize = (str: string) => {
+  return str.charAt(0).toUpperCase() + str.slice(1)
 }
 
 const getRiskBadgeClass = (level: string) => {
   const classes = {
-    Low: 'bg-green-100 text-green-800',
-    Medium: 'bg-orange-100 text-orange-800',
-    High: 'bg-red-100 text-red-800',
+    low: 'bg-green-100 text-green-800',
+    medium: 'bg-orange-100 text-orange-800',
+    high: 'bg-red-100 text-red-800',
   }
-  return classes[level as keyof typeof classes] || classes.Low
+  return classes[level.toLowerCase() as keyof typeof classes] || classes.low
 }
 
 const getStatusBadgeClass = (status: string) => {
   const classes = {
-    Pending: 'bg-yellow-100 text-yellow-800',
-    Approved: 'bg-green-100 text-green-800',
-    Rejected: 'bg-red-100 text-red-800',
-    'Under Review': 'bg-blue-100 text-blue-800',
+    pending: 'bg-yellow-100 text-yellow-800',
+    approved: 'bg-green-100 text-green-800',
+    rejected: 'bg-red-100 text-red-800',
+    review: 'bg-blue-100 text-blue-800',
   }
-  return classes[status as keyof typeof classes] || classes.Pending
+  return classes[status.toLowerCase() as keyof typeof classes] || classes.pending
 }
 </script>
 

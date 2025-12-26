@@ -38,20 +38,6 @@
       </router-link>
     </nav>
 
-    <!-- Bottom Section -->
-    <div class="absolute bottom-0 left-0 right-0 border-t border-neutral-200">
-      <router-link
-        to="/settings"
-        :class="[
-          'flex items-center gap-4 px-6 py-4 transition-all duration-200',
-          isActive('/settings') ? 'text-teal-600 bg-teal-50' : 'text-neutral-500 hover:text-neutral-900 hover:bg-neutral-50',
-          isCollapsed ? 'justify-center' : ''
-        ]"
-      >
-        <i :class="['fas fa-cog', 'text-lg']"></i>
-        <span v-if="!isCollapsed" class="font-medium text-sm">Settings</span>
-      </router-link>
-    </div>
   </aside>
 
   <!-- Mobile Overlay -->
@@ -81,10 +67,7 @@ const route = useRoute()
 const navItems: NavItem[] = [
   { label: 'Dashboard', path: '/dashboard', icon: 'fas fa-chart-line' },
   { label: 'Transactions', path: '/transactions', icon: 'fas fa-exchange-alt' },
-  { label: 'Risk Analysis', path: '/risk-analysis', icon: 'fas fa-shield-alt' },
-  { label: 'Reports', path: '/reports', icon: 'fas fa-file-alt' },
   { label: 'Rules', path: '/rules', icon: 'fas fa-tasks' },
-  { label: 'Compliance', path: '/compliance', icon: 'fas fa-balance-scale' },
   { label: 'Permissions', path: '/permissions', icon: 'fas fa-users-cog' },
 ]
 

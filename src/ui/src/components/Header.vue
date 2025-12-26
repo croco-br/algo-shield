@@ -64,13 +64,6 @@
                 <i class="fas fa-user w-4"></i>
                 <span>Profile</span>
               </router-link>
-              <router-link
-                to="/settings"
-                class="flex items-center gap-3 px-4 py-2 text-sm text-neutral-700 hover:bg-neutral-50 transition-colors"
-              >
-                <i class="fas fa-cog w-4"></i>
-                <span>Settings</span>
-              </router-link>
             </div>
             <div class="border-t border-neutral-200">
               <button
