@@ -262,6 +262,83 @@ GET /api/v1/groups/{id}
 Authorization: Bearer <token>
 ```
 
+### Branding Configuration
+
+#### Get Branding Configuration
+
+Retrieve the current branding configuration. This is a public endpoint and does not require authentication.
+
+```bash
+GET /api/v1/branding
+```
+
+Response:
+```json
+{
+  "id": 1,
+  "app_name": "AlgoShield",
+  "icon_url": "/assets/logo.svg",
+  "favicon_url": "/favicon.ico",
+  "primary_color": "#3B82F6",
+  "secondary_color": "#10B981",
+  "header_color": "#1e1e1e",
+  "created_at": "2024-12-05T10:00:00Z",
+  "updated_at": "2024-12-05T10:00:00Z"
+}
+```
+
+**Note**: If no branding configuration exists, the API returns default values.
+
+#### Update Branding Configuration
+
+**Requires `admin` role**
+
+Update the branding configuration for white label customization.
+
+```bash
+PUT /api/v1/branding
+Authorization: Bearer <token>
+Content-Type: application/json
+
+{
+  "app_name": "My Company",
+  "icon_url": "/assets/custom-logo.png",
+  "favicon_url": "/favicon-custom.ico",
+  "primary_color": "#FF5733",
+  "secondary_color": "#33FF57",
+  "header_color": "#2C3E50"
+}
+```
+
+Response:
+```json
+{
+  "id": 1,
+  "app_name": "My Company",
+  "icon_url": "/assets/custom-logo.png",
+  "favicon_url": "/favicon-custom.ico",
+  "primary_color": "#FF5733",
+  "secondary_color": "#33FF57",
+  "header_color": "#2C3E50",
+  "created_at": "2024-12-05T10:00:00Z",
+  "updated_at": "2024-12-05T10:30:00Z"
+}
+```
+
+**Validation Rules:**
+- `app_name`: Required, 1-100 characters
+- `icon_url`: Optional, must be a valid URI or file path
+- `favicon_url`: Optional, must be a valid URI or file path
+- `primary_color`: Required, must be in hex format (#RGB or #RRGGBB)
+- `secondary_color`: Required, must be in hex format (#RGB or #RRGGBB)
+- `header_color`: Required, must be in hex format (#RGB or #RRGGBB)
+
+**Error Responses:**
+- `400 Bad Request`: Invalid request body or validation errors
+- `401 Unauthorized`: Missing or invalid JWT token
+- `403 Forbidden`: User does not have admin role
+- `500 Internal Server Error`: Server error during update
+
 ### Transactions
 
 #### Process Transaction

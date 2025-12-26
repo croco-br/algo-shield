@@ -34,7 +34,7 @@ func Setup(app *fiber.App, db *pgxpool.Pool, redis *redis.Client, cfg *config.Co
 	permissionsUserRepo := permissions.NewPostgresUserRepository(db)
 	transactionRepo := transactions.NewPostgresRepository(db)
 	ruleRepo := rulespkg.NewPostgresRepository(db, redis)
-	brandingRepo := branding.NewPostgresRepository(db)
+	brandingRepo := branding.NewPostgresRepository(db, redis)
 
 	// Create services with dependency injection (business layer - receives interfaces)
 	roleService := roles.NewService(roleRepo)

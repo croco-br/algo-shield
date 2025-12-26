@@ -7,4 +7,5 @@ type UpdateBrandingRequest struct {
 	FaviconURL     *string `json:"favicon_url,omitempty" validate:"omitempty,uri|filepath"`
 	PrimaryColor   string  `json:"primary_color" validate:"required,hexcolor"`
 	SecondaryColor string  `json:"secondary_color" validate:"required,hexcolor"`
+	HeaderColor    string  `json:"header_color" validate:"required,hexcolor"`
 }

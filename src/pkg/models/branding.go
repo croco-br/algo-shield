@@ -10,6 +10,7 @@ type BrandingConfig struct {
 	FaviconURL     *string   `json:"favicon_url,omitempty"`
 	PrimaryColor   string    `json:"primary_color"`
 	SecondaryColor string    `json:"secondary_color"`
+	HeaderColor    string    `json:"header_color"`
 	CreatedAt      time.Time `json:"created_at"`
 	UpdatedAt      time.Time `json:"updated_at"`
 }

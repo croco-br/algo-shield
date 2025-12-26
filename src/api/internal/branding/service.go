@@ -13,6 +13,7 @@ const (
 	DefaultAppName        = "AlgoShield"
 	DefaultPrimaryColor   = "#3B82F6"
 	DefaultSecondaryColor = "#10B981"
+	DefaultHeaderColor    = "#1e1e1e"
 	DefaultIconURL        = "/assets/logo.svg"
 	DefaultFaviconURL     = "/favicon.ico"
 )
@@ -54,6 +55,7 @@ func (s *service) GetBranding(ctx context.Context) (*models.BrandingConfig, erro
 			FaviconURL:     &defaultFaviconURL,
 			PrimaryColor:   DefaultPrimaryColor,
 			SecondaryColor: DefaultSecondaryColor,
+			HeaderColor:    DefaultHeaderColor,
 		}, nil
 	}
 	return config, nil
@@ -66,6 +68,9 @@ func (s *service) UpdateBranding(ctx context.Context, req *UpdateBrandingRequest
 		return nil, err
 	}
 	if err := validateHexColor(req.SecondaryColor, "secondary_color"); err != nil {
+		return nil, err
+	}
+	if err := validateHexColor(req.HeaderColor, "header_color"); err != nil {
 		return nil, err
 	}
 
@@ -85,6 +90,7 @@ func (s *service) UpdateBranding(ctx context.Context, req *UpdateBrandingRequest
 		FaviconURL:     req.FaviconURL,
 		PrimaryColor:   req.PrimaryColor,
 		SecondaryColor: req.SecondaryColor,
+		HeaderColor:    req.HeaderColor,
 	}
 
 	// Update in database

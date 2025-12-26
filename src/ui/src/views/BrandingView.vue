@@ -114,6 +114,30 @@
             <p class="text-xs text-slate-500 mt-1">Hex format: #RGB or #RRGGBB</p>
           </div>
 
+          <!-- Header Color -->
+          <div>
+            <label for="headerColor" class="block text-sm font-medium text-slate-700 mb-2">
+              Header Background Color
+            </label>
+            <div class="flex gap-3 items-center">
+              <input
+                id="headerColor"
+                v-model="form.header_color"
+                type="color"
+                class="h-12 w-20 border border-slate-300 rounded-lg cursor-pointer"
+              />
+              <input
+                v-model="form.header_color"
+                type="text"
+                pattern="^#([A-Fa-f0-9]{6}|[A-Fa-f0-9]{3})$"
+                required
+                class="flex-1 px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 font-mono"
+                placeholder="#1e1e1e"
+              />
+            </div>
+            <p class="text-xs text-slate-500 mt-1">Hex format: #RGB or #RRGGBB</p>
+          </div>
+
           <!-- Action Buttons -->
           <div class="flex gap-3 pt-4">
             <button
@@ -179,6 +203,35 @@
                   <p class="text-xs text-slate-500 font-mono">{{ form.secondary_color }}</p>
                 </div>
               </div>
+              <div class="flex items-center gap-3">
+                <div
+                  class="w-16 h-16 rounded-lg border-2 border-slate-200"
+                  :style="{ backgroundColor: form.header_color }"
+                ></div>
+                <div>
+                  <p class="text-sm font-medium text-slate-900">Header Background</p>
+                  <p class="text-xs text-slate-500 font-mono">{{ form.header_color }}</p>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Header Preview -->
+          <div>
+            <h3 class="text-sm font-medium text-slate-700 mb-3">Header</h3>
+            <div
+              class="p-4 rounded-lg border-2 border-slate-200"
+              :style="{ backgroundColor: form.header_color }"
+            >
+              <div class="flex items-center gap-3">
+                <img
+                  :src="form.icon_url || '/gopher.png'"
+                  :alt="form.app_name"
+                  class="w-8 h-8 object-contain"
+                  @error="handleImageError"
+                />
+                <span class="text-white font-bold text-sm">{{ form.app_name }}</span>
+              </div>
             </div>
           </div>
 
@@ -220,8 +273,8 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, onMounted } from 'vue'
-import { useBrandingStore } from '@/stores/branding'
+import { ref, reactive, watch } from 'vue'
+import { useBrandingStore, type BrandingConfig } from '@/stores/branding'
 
 const brandingStore = useBrandingStore()
 
@@ -235,18 +288,25 @@ const form = reactive({
   favicon_url: '',
   primary_color: '#3B82F6',
   secondary_color: '#10B981',
+  header_color: '#1e1e1e',
 })
 
-onMounted(() => {
-  // Load current branding configuration
-  if (brandingStore.config) {
-    form.app_name = brandingStore.config.app_name
-    form.icon_url = brandingStore.config.icon_url || ''
-    form.favicon_url = brandingStore.config.favicon_url || ''
-    form.primary_color = brandingStore.config.primary_color
-    form.secondary_color = brandingStore.config.secondary_color
-  }
-})
+// Watch for config changes and populate form when data is available
+// This handles the race condition where the component mounts before loadBranding() completes
+watch(
+  () => brandingStore.config,
+  (config: BrandingConfig | null) => {
+    if (config) {
+      form.app_name = config.app_name
+      form.icon_url = config.icon_url || ''
+      form.favicon_url = config.favicon_url || ''
+      form.primary_color = config.primary_color
+      form.secondary_color = config.secondary_color
+      form.header_color = config.header_color
+    }
+  },
+  { immediate: true } // Run immediately if config is already loaded
+)
 
 async function handleSubmit() {
   try {
@@ -260,6 +320,7 @@ async function handleSubmit() {
       favicon_url: form.favicon_url || null,
       primary_color: form.primary_color,
       secondary_color: form.secondary_color,
+      header_color: form.header_color,
     })
 
     success.value = 'Branding configuration updated successfully!'
@@ -279,6 +340,7 @@ function resetToDefaults() {
   form.favicon_url = '/favicon.ico'
   form.primary_color = '#3B82F6'
   form.secondary_color = '#10B981'
+  form.header_color = '#1e1e1e'
 }
 
 function handleImageError(event: Event) {

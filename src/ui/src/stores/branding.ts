@@ -9,6 +9,7 @@ export interface BrandingConfig {
 	favicon_url?: string | null;
 	primary_color: string;
 	secondary_color: string;
+	header_color: string;
 	created_at: string;
 	updated_at: string;
 }
@@ -19,6 +20,7 @@ export interface UpdateBrandingRequest {
 	favicon_url?: string | null;
 	primary_color: string;
 	secondary_color: string;
+	header_color: string;
 }
 
 export const useBrandingStore = defineStore('branding', () => {
@@ -77,6 +79,7 @@ export const useBrandingStore = defineStore('branding', () => {
 		const root = document.documentElement;
 		root.style.setProperty('--color-primary', brandingConfig.primary_color);
 		root.style.setProperty('--color-secondary', brandingConfig.secondary_color);
+		root.style.setProperty('--color-header-background', brandingConfig.header_color);
 
 		// Update favicon if provided
 		if (brandingConfig.favicon_url) {
@@ -91,6 +94,7 @@ export const useBrandingStore = defineStore('branding', () => {
 		const root = document.documentElement;
 		root.style.setProperty('--color-primary', '#3B82F6');
 		root.style.setProperty('--color-secondary', '#10B981');
+		root.style.setProperty('--color-header-background', '#1e1e1e');
 	}
 
 	function updateFavicon(faviconUrl: string) {
@@ -106,6 +110,8 @@ export const useBrandingStore = defineStore('branding', () => {
 	}
 
 	// Initialize on store creation
+	// Apply default branding immediately to prevent FOUC
+	applyDefaultBranding()
 	loadBranding();
 
 	return {

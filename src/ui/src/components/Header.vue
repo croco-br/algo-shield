@@ -1,21 +1,25 @@
 <template>
   <header
     v-if="user && !isLoginPage"
-    class="fixed top-0 left-0 right-0 bg-dark-slate border-b border-neutral-800 z-fixed"
-    style="height: var(--header-height); background: linear-gradient(180deg, #1f1f1f 0%, #1e1e1e 100%)"
+    class="fixed top-0 left-0 right-0 border-b border-neutral-800 z-fixed"
+    :style="{
+      height: 'var(--header-height)',
+      backgroundColor: 'var(--color-header-background, #1e1e1e)'
+    }"
   >
     <div class="flex items-center justify-between h-full px-8">
       <!-- Left: Logo + Search -->
       <div class="flex items-center gap-6">
         <!-- Logo -->
-        <div class="flex items-center gap-3">
+        <div class="flex items-center gap-2 sm:gap-3">
           <img
             :src="brandingConfig?.icon_url || '/gopher.png'"
             :alt="brandingConfig?.app_name || 'AlgoShield'"
-            class="w-8 h-8 object-contain"
+            class="w-6 h-6 sm:w-8 sm:h-8 object-contain flex-shrink-0"
             @error="handleLogoError"
+            loading="eager"
           />
-          <span class="text-white font-bold text-lg">{{ brandingConfig?.app_name || 'AlgoShield' }}</span>
+          <span class="text-white font-bold text-sm sm:text-lg truncate max-w-[200px] sm:max-w-none">{{ brandingConfig?.app_name || 'AlgoShield' }}</span>
         </div>
 
         <!-- Global Search -->
