@@ -17,16 +17,21 @@ WORKDIR /build
 # Copy go mod files
 COPY go.mod go.sum ./
 
-# Download dependencies (cached layer if go.mod/go.sum don't change)
-RUN go mod download
+# Download dependencies with BuildKit cache mount
+# Cache persists between builds, dramatically speeding up dependency downloads
+RUN --mount=type=cache,target=/go/pkg/mod \
+    --mount=type=cache,target=/root/.cache/go-build \
+    go mod download
 
-# Copy source code
-COPY . .
+# Copy only source code (not everything) to preserve cache
+COPY src/ ./src/
 
-# Build the binary
+# Build the binary with BuildKit cache mount
 # CGO_ENABLED=0 creates a statically linked binary
 # -ldflags="-w -s" reduces binary size by removing debug info
-RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build \
+RUN --mount=type=cache,target=/go/pkg/mod \
+    --mount=type=cache,target=/root/.cache/go-build \
+    CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build \
     -ldflags='-w -s -extldflags "-static"' \
     -a -installsuffix cgo \
     -o /build/bin/api \

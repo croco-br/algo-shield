@@ -14,10 +14,11 @@ WORKDIR /app
 # Copy package files
 COPY src/ui/package.json src/ui/package-lock.json ./
 
-# Install dependencies
+# Install dependencies with BuildKit cache mount
 # Use npm ci for faster, reliable, reproducible builds
-RUN npm ci && \
-    npm cache clean --force
+# Cache mount dramatically speeds up npm installs
+RUN --mount=type=cache,target=/root/.npm \
+    npm ci
 
 # =============================================================================
 # Stage 2: Builder stage
@@ -39,8 +40,10 @@ ENV VITE_API_URL=${VITE_API_URL}
 # Set build-time environment variables
 ENV NODE_ENV=production
 
-# Build Vue.js application
-RUN npm run build
+# Build Vue.js application with BuildKit cache mount
+# Cache mount speeds up Vite builds significantly
+RUN --mount=type=cache,target=/app/node_modules/.vite \
+    npm run build
 
 # =============================================================================
 # Stage 3: Runner stage
