@@ -8,12 +8,10 @@
 
     <!-- Main Content -->
     <main
-      :class="[
-        'min-h-screen transition-all duration-300',
-        mainMarginClass
-      ]"
+      class="transition-all duration-300"
+      :style="mainStyles"
     >
-      <div :class="showHeader ? 'max-w-[1920px] mx-auto px-12 py-16' : 'min-h-screen'">
+      <div :class="[showHeader ? 'max-w-[1920px] mx-auto' : 'min-h-screen', contentPadding]">
         <ProtectedRoute>
           <router-view />
         </ProtectedRoute>
@@ -42,14 +40,36 @@ const handleSidebarCollapse = (collapsed: boolean) => {
   isSidebarCollapsed.value = collapsed
 }
 
-const mainMarginClass = computed(() => {
-  if (showHeader.value && showSidebar.value) {
-    return isSidebarCollapsed.value ? 'ml-20 mt-[60px]' : 'ml-60 mt-[60px]'
+const mainStyles = computed(() => {
+  const styles: Record<string, string> = {}
+
+  // Set min-height
+  if (showHeader.value) {
+    styles.minHeight = 'calc(100vh - var(--header-height))'
+    styles.marginTop = 'var(--header-height)'
+  } else {
+    styles.minHeight = '100vh'
   }
-  if (showHeader.value && !showSidebar.value) {
-    return 'mt-[60px]'
+
+  // Set margin-left for sidebar with additional spacing
+  if (showSidebar.value) {
+    const sidebarWidth = isSidebarCollapsed.value ? 'var(--sidebar-width-collapsed)' : 'var(--sidebar-width)'
+    // Add extra spacing (24px = 1.5rem) to prevent overlap with collapse button
+    styles.marginLeft = `calc(${sidebarWidth} + 1.5rem)`
   }
-  return ''
+  
+  // Add matching spacing on the right side for visual balance
+  styles.marginRight = '1.5rem'
+
+  // Ensure main content stays below fixed header/sidebar
+  styles.position = 'relative'
+  styles.zIndex = '0'
+
+  return styles
+})
+
+const contentPadding = computed(() => {
+  return showHeader.value ? 'py-16 px-12' : ''
 })
 </script>
 

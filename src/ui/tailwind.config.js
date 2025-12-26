@@ -109,6 +109,13 @@ export default {
         popover: 'var(--z-popover)',
         tooltip: 'var(--z-tooltip)',
       },
+      height: {
+        header: 'var(--header-height)',
+      },
+      width: {
+        sidebar: 'var(--sidebar-width)',
+        'sidebar-collapsed': 'var(--sidebar-width-collapsed)',
+      },
     },
   },
   plugins: [],

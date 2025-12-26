@@ -3,7 +3,7 @@
     <Transition name="modal">
       <div
         v-if="modelValue"
-        class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4"
+        class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-modal-backdrop p-4"
         @click="handleBackdropClick"
       >
         <div
@@ -68,7 +68,7 @@ const emit = defineEmits<{
 
 const modalClasses = computed(() => {
   const classes = [
-    'bg-white rounded-lg shadow-xl',
+    'bg-white rounded-lg shadow-xl z-modal',
     'w-full mx-4',
     'flex flex-col',
   ]

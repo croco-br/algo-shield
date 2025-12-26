@@ -1,8 +1,8 @@
 <template>
   <header
     v-if="user && !isLoginPage"
-    class="fixed top-0 left-0 right-0 h-[60px] bg-dark-slate border-b border-neutral-800 z-50"
-    style="background: linear-gradient(180deg, #1f1f1f 0%, #1e1e1e 100%)"
+    class="fixed top-0 left-0 right-0 bg-dark-slate border-b border-neutral-800 z-fixed"
+    style="height: var(--header-height); background: linear-gradient(180deg, #1f1f1f 0%, #1e1e1e 100%)"
   >
     <div class="flex items-center justify-between h-full px-8">
       <!-- Left: Logo + Search -->
@@ -18,9 +18,8 @@
           <input
             type="search"
             placeholder="Search transactions, customers, alerts"
-            class="w-[400px] h-[36px] pl-10 pr-4 bg-neutral-800 border border-neutral-700 rounded text-sm text-white placeholder-neutral-500 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent transition-all"
+            class="w-[400px] h-[36px] px-4 bg-neutral-800 border border-neutral-700 rounded text-sm text-white placeholder-neutral-500 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:ring-offset-2 focus:ring-offset-neutral-800 focus:border-teal-500 transition-all"
           />
-          <i class="fas fa-search absolute left-3 top-1/2 -translate-y-1/2 text-neutral-500 text-sm"></i>
         </div>
       </div>
 
@@ -50,7 +49,7 @@
           <!-- Dropdown -->
           <div
             v-if="showUserMenu"
-            class="absolute top-full right-0 mt-2 bg-white border border-neutral-200 rounded-lg shadow-xl min-w-[220px] z-50"
+            class="absolute top-full right-0 mt-2 bg-white border border-neutral-200 rounded-lg shadow-xl min-w-[220px] z-[1070]"
           >
             <div class="p-4 border-b border-neutral-200">
               <div class="font-semibold text-neutral-900 text-sm">{{ user.name }}</div>

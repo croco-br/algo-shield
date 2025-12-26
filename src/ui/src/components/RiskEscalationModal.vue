@@ -1,11 +1,11 @@
 <template>
   <div
     v-if="modelValue"
-    class="modal-overlay fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4"
+    class="modal-overlay fixed inset-0 bg-black bg-opacity-50 z-modal-backdrop flex items-center justify-center p-4"
     @click.self="close"
   >
     <div
-      class="modal-content bg-white rounded-lg shadow-2xl w-full max-w-[400px] animate-fade-in"
+      class="modal-content bg-white rounded-lg shadow-2xl w-full max-w-[400px] animate-fade-in z-modal"
     >
       <!-- Header -->
       <div class="modal-header px-6 py-4 border-b border-neutral-200 flex items-center justify-between">

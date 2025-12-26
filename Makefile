@@ -59,3 +59,26 @@ clean: ## Remove build artifacts and Docker volumes
 	@docker-compose down -v
 	@go clean -testcache -cache
 	@echo "${GREEN}✓ Cleanup completed!${RESET}"
+
+ui: ## Start UI service only
+	@echo "${YELLOW}Starting UI service...${RESET}"
+	@docker-compose up -d --build ui
+	@echo "${GREEN}✓ UI service started!${RESET}"
+	@echo "${BLUE}UI:${RESET}  http://localhost:3000"
+
+api: ## Start API service with infrastructure (postgres + redis)
+	@echo "${YELLOW}Starting infrastructure services (postgres + redis)...${RESET}"
+	@docker-compose up -d postgres redis
+	@echo "${YELLOW}Waiting for infrastructure to be healthy...${RESET}"
+	@docker-compose up -d --build api
+	@echo "${GREEN}✓ API service with infrastructure started!${RESET}"
+	@echo "${BLUE}API:${RESET} http://localhost:8080"
+	@make logs
+
+worker: ## Start Worker service with infrastructure (postgres + redis)
+	@echo "${YELLOW}Starting infrastructure services (postgres + redis)...${RESET}"
+	@docker-compose up -d postgres redis
+	@echo "${YELLOW}Waiting for infrastructure to be healthy...${RESET}"
+	@docker-compose up -d --build worker
+	@echo "${GREEN}✓ Worker service with infrastructure started!${RESET}"
+	@make logs

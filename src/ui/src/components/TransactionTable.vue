@@ -41,7 +41,7 @@
             :key="transaction.id"
             :class="[
               'transition-colors cursor-pointer hover:bg-neutral-50',
-              index % 2 === 0 ? 'bg-white' : 'bg-neutral-25'
+              index % 2 === 0 ? 'bg-white' : 'bg-neutral-50'
             ]"
             @click="$emit('row-click', transaction)"
           >
@@ -247,10 +247,6 @@ const getStatusBadgeClass = (status: string) => {
 </script>
 
 <style scoped>
-.bg-neutral-25 {
-  background-color: #fafafa;
-}
-
 .shadow-card {
   box-shadow: 0px 4px 12px rgba(0, 0, 0, 0.1);
 }

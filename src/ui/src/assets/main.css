@@ -112,6 +112,11 @@
   --z-modal: 1050;
   --z-popover: 1060;
   --z-tooltip: 1070;
+
+  /* Layout dimensions */
+  --header-height: 60px;
+  --sidebar-width: 240px;      /* 60 * 4 = w-60 */
+  --sidebar-width-collapsed: 80px;  /* 20 * 4 = w-20 */
 }
 
 /* ============================================
