@@ -1,5 +1,6 @@
 <template>
-  <div class="min-h-screen bg-background relative">
+  <v-app>
+    <div class="min-h-screen bg-background relative">
     <!-- Header -->
     <Header v-if="showHeader" ref="headerRef" />
 
@@ -17,7 +18,8 @@
         </ProtectedRoute>
       </div>
     </main>
-  </div>
+    </div>
+  </v-app>
 </template>
 
 <script setup lang="ts">

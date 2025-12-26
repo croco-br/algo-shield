@@ -2,6 +2,9 @@
 
 @import "tailwindcss";
 
+/* Vuetify styles are imported in vuetify.ts plugin */
+/* Tailwind CSS and Vuetify coexist - use Tailwind for layouts/utilities, Vuetify for components */
+
 /* ============================================
    CSS Variables - Design Tokens
    ============================================ */

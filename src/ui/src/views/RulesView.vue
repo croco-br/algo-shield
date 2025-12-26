@@ -1,14 +1,11 @@
 <template>
-  <div class="max-w-7xl mx-auto px-12">
-    <div class="flex justify-between items-center mb-10">
+  <v-container fluid class="pa-8">
+    <div class="d-flex justify-space-between align-center mb-10">
       <div>
-        <h2 class="text-3xl font-bold text-slate-900 mb-2">Rules Management</h2>
-        <p class="text-slate-600 font-medium">Configure custom rules for fraud detection and AML</p>
+        <h2 class="text-h4 font-weight-bold mb-2">Rules Management</h2>
+        <p class="text-body-1 text-grey-darken-1">Configure custom rules for fraud detection and AML</p>
       </div>
-      <BaseButton @click="openCreateModal">
-        <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
-        </svg>
+      <BaseButton @click="openCreateModal" prepend-icon="mdi-plus">
         Create Rule
       </BaseButton>
     </div>
@@ -30,12 +27,12 @@
       empty-text="No rules configured. Create your first rule to get started."
     >
       <template #cell-name="{ row }">
-        <div class="font-semibold text-slate-900">{{ row.name }}</div>
-        <div class="text-sm text-slate-500">{{ row.description }}</div>
+        <div class="font-weight-semibold text-grey-darken-3">{{ row.name }}</div>
+        <div class="text-body-2 text-grey-darken-1">{{ row.description }}</div>
       </template>
 
       <template #cell-type="{ value }">
-        <span class="text-slate-700 font-medium">{{ value }}</span>
+        <span class="text-body-2 font-weight-medium text-grey-darken-2">{{ value }}</span>
       </template>
 
       <template #cell-action="{ row }">
@@ -45,11 +42,11 @@
       </template>
 
       <template #cell-score="{ value }">
-        <span class="text-slate-700 font-medium">{{ value }}</span>
+        <span class="text-body-2 font-weight-medium text-grey-darken-2">{{ value }}</span>
       </template>
 
       <template #cell-priority="{ value }">
-        <span class="text-slate-700 font-medium">{{ value }}</span>
+        <span class="text-body-2 font-weight-medium text-grey-darken-2">{{ value }}</span>
       </template>
 
       <template #cell-status="{ row }">
@@ -64,7 +61,7 @@
       </template>
 
       <template #cell-actions="{ row }">
-        <div class="flex gap-2">
+        <div class="d-flex gap-2">
           <BaseButton size="sm" @click="openEditModal(row)">
             Edit
           </BaseButton>
@@ -80,210 +77,242 @@
       :title="isEditing ? 'Edit Rule' : 'Create New Rule'"
       size="lg"
     >
-      <div class="space-y-8">
-        <BaseInput
-          id="name"
+      <v-form @submit.prevent="handleSubmit" class="mt-4">
+        <v-text-field
           v-model="editingRule.name"
           label="Name"
           placeholder="Rule name"
+          required
+          class="mb-4"
         />
 
-        <BaseInput
-          id="description"
+        <v-text-field
           v-model="editingRule.description"
           label="Description"
           placeholder="Description"
+          class="mb-4"
         />
 
         <BaseSelect
-          id="type"
           v-model="editingRule.type"
           label="Type"
           :options="ruleTypes"
+          required
+          class="mb-4"
         />
 
         <BaseSelect
-          id="action"
           v-model="editingRule.action"
           label="Action"
           :options="ruleActions"
+          required
+          class="mb-4"
         />
 
-        <BaseInput
-          id="score"
+        <v-text-field
           v-model.number="editingRule.score"
           type="number"
-          label="Risk Score"
-          placeholder="0-100"
+          label="Score"
+          min="0"
+          max="100"
+          required
+          class="mb-4"
         />
 
-        <BaseInput
-          id="priority"
-          v-model.number="editingRule.priority"
-          type="number"
+        <BaseSelect
+          v-model="editingRule.priority"
           label="Priority"
-          placeholder="Lower number = higher priority"
+          :options="rulePriorities"
+          required
+          class="mb-4"
         />
-      </div>
+
+        <v-switch
+          v-model="editingRule.enabled"
+          label="Enabled"
+          class="mb-6"
+        />
+      </v-form>
 
       <template #footer>
-        <BaseButton variant="secondary" @click="closeModal">
-          Cancel
-        </BaseButton>
-        <BaseButton @click="saveRule">
-          {{ isEditing ? 'Update' : 'Create' }}
-        </BaseButton>
+        <v-btn variant="text" @click="closeModal">Cancel</v-btn>
+        <v-btn @click="handleSubmit" color="primary" :loading="saving">Save</v-btn>
       </template>
     </BaseModal>
-  </div>
+  </v-container>
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
+import { ref, reactive, onMounted } from 'vue'
+import { useRouter } from 'vue-router'
+import { useAuthStore } from '@/stores/auth'
 import { api } from '@/lib/api'
 import BaseButton from '@/components/BaseButton.vue'
 import BaseBadge from '@/components/BaseBadge.vue'
-import BaseInput from '@/components/BaseInput.vue'
-import BaseSelect from '@/components/BaseSelect.vue'
 import BaseModal from '@/components/BaseModal.vue'
 import BaseTable from '@/components/BaseTable.vue'
+import BaseSelect from '@/components/BaseSelect.vue'
 import LoadingSpinner from '@/components/LoadingSpinner.vue'
 import ErrorMessage from '@/components/ErrorMessage.vue'
-import { useActionBadge } from '@/composables/useActionBadge'
 
-interface Rule {
-	id: string;
-	name: string;
-	description: string;
-	type: string;
-	action: string;
-	priority: number;
-	enabled: boolean;
-	conditions: any;
-	score: number;
-	created_at: string;
-	updated_at: string;
-}
+const router = useRouter()
+const authStore = useAuthStore()
 
 const tableColumns = [
-	{ key: 'name', label: 'Name' },
-	{ key: 'type', label: 'Type' },
-	{ key: 'action', label: 'Action' },
-	{ key: 'score', label: 'Score' },
-	{ key: 'priority', label: 'Priority' },
-	{ key: 'status', label: 'Status' },
-	{ key: 'actions', label: 'Actions' },
+  { key: 'name', label: 'Name' },
+  { key: 'type', label: 'Type' },
+  { key: 'action', label: 'Action' },
+  { key: 'score', label: 'Score' },
+  { key: 'priority', label: 'Priority' },
+  { key: 'status', label: 'Status' },
+  { key: 'actions', label: 'Actions' },
 ]
 
+const rules = ref<any[]>([])
+const loading = ref(true)
+const error = ref('')
+const showModal = ref(false)
+const isEditing = ref(false)
+const saving = ref(false)
+
+const editingRule = reactive<{
+  id?: string
+  name: string
+  description: string
+  type: string
+  action: string
+  score: number
+  priority: string
+  enabled: boolean
+}>({
+  name: '',
+  description: '',
+  type: '',
+  action: '',
+  score: 0,
+  priority: '',
+  enabled: true,
+})
+
 const ruleTypes = [
-	{ value: 'amount', label: 'Amount Threshold' },
-	{ value: 'velocity', label: 'Transaction Velocity' },
-	{ value: 'blocklist', label: 'Blocklist' },
-	{ value: 'pattern', label: 'Pattern Match' },
-	{ value: 'custom', label: 'Custom' },
-];
+  { value: 'fraud', label: 'Fraud' },
+  { value: 'aml', label: 'AML' },
+  { value: 'risk', label: 'Risk' },
+]
 
 const ruleActions = [
-	{ value: 'allow', label: 'Allow' },
-	{ value: 'block', label: 'Block' },
-	{ value: 'review', label: 'Review' },
-	{ value: 'score', label: 'Add Score' },
-];
+  { value: 'block', label: 'Block' },
+  { value: 'flag', label: 'Flag' },
+  { value: 'monitor', label: 'Monitor' },
+]
 
-const rules = ref<Rule[]>([])
-const loading = ref(true)
-const error = ref<string | null>(null)
-const showModal = ref(false)
-const editingRule = ref<Partial<Rule>>({})
-const isEditing = ref(false)
+const rulePriorities = [
+  { value: 'low', label: 'Low' },
+  { value: 'medium', label: 'Medium' },
+  { value: 'high', label: 'High' },
+]
 
 onMounted(() => {
-	loadRules()
+  if (authStore.user) {
+    loadRules()
+  } else {
+    router.push('/login')
+  }
 })
 
 async function loadRules() {
-	loading.value = true
-	error.value = null
-	try {
-		const data = await api.get<{ rules: Rule[] }>('/api/v1/rules')
-		rules.value = data.rules || []
-	} catch (err) {
-		const errorMessage = err instanceof Error ? err.message : 'Failed to load rules'
-		console.error('Failed to load rules:', err)
-		error.value = errorMessage
-	} finally {
-		loading.value = false
-	}
+  try {
+    loading.value = true
+    error.value = ''
+    const response = await api.get<any[]>('/api/v1/rules')
+    rules.value = response || []
+  } catch (e: any) {
+    error.value = e.message || 'Failed to load rules'
+    console.error('Error loading rules:', e)
+  } finally {
+    loading.value = false
+  }
 }
 
 function openCreateModal() {
-	editingRule.value = {
-		name: '',
-		description: '',
-		type: 'amount',
-		action: 'score',
-		priority: 10,
-		enabled: true,
-		conditions: {},
-		score: 0,
-	}
-	isEditing.value = false
-	showModal.value = true
+  isEditing.value = false
+  delete editingRule.id
+  editingRule.name = ''
+  editingRule.description = ''
+  editingRule.type = ''
+  editingRule.action = ''
+  editingRule.score = 0
+  editingRule.priority = ''
+  editingRule.enabled = true
+  showModal.value = true
 }
 
-function openEditModal(rule: Rule) {
-	editingRule.value = { ...rule }
-	isEditing.value = true
-	showModal.value = true
+function openEditModal(rule: any) {
+  isEditing.value = true
+  editingRule.id = rule.id
+  editingRule.name = rule.name
+  editingRule.description = rule.description
+  editingRule.type = rule.type
+  editingRule.action = rule.action
+  editingRule.score = rule.score
+  editingRule.priority = rule.priority
+  editingRule.enabled = rule.enabled
+  showModal.value = true
 }
 
 function closeModal() {
-	showModal.value = false
-	editingRule.value = {}
+  showModal.value = false
 }
 
-async function saveRule() {
-	try {
-		if (isEditing.value) {
-			await api.put(`/api/v1/rules/${editingRule.value.id}`, editingRule.value)
-		} else {
-			await api.post('/api/v1/rules', editingRule.value)
-		}
-		closeModal()
-		loadRules()
-	} catch (err) {
-		const errorMessage = err instanceof Error ? err.message : 'Failed to save rule'
-		console.error('Failed to save rule:', errorMessage)
-		alert(`Error: ${errorMessage}`)
-	}
+async function handleSubmit() {
+  try {
+    saving.value = true
+    if (isEditing.value && editingRule.id) {
+      // Update existing rule
+      await api.put(`/api/v1/rules/${editingRule.id}`, editingRule)
+    } else {
+      // Create new rule
+      await api.post('/api/v1/rules', editingRule)
+    }
+    closeModal()
+    await loadRules()
+  } catch (e: any) {
+    error.value = e.message || 'Failed to save rule'
+  } finally {
+    saving.value = false
+  }
 }
 
 async function deleteRule(id: string) {
-	if (!confirm('Are you sure you want to delete this rule?')) return
-
-	try {
-		await api.delete(`/api/v1/rules/${id}`)
-		loadRules()
-	} catch (err) {
-		const errorMessage = err instanceof Error ? err.message : 'Failed to delete rule'
-		console.error('Failed to delete rule:', errorMessage)
-		alert(`Error: ${errorMessage}`)
-	}
+  if (!confirm('Are you sure you want to delete this rule?')) return
+  
+  try {
+    await api.delete(`/api/v1/rules/${id}`)
+    await loadRules()
+  } catch (e: any) {
+    error.value = e.message || 'Failed to delete rule'
+  }
 }
 
-async function toggleRule(rule: Rule) {
-	try {
-		await api.put(`/api/v1/rules/${rule.id}`, { ...rule, enabled: !rule.enabled })
-		loadRules()
-	} catch (err) {
-		const errorMessage = err instanceof Error ? err.message : 'Failed to toggle rule'
-		console.error('Failed to toggle rule:', errorMessage)
-		alert(`Error: ${errorMessage}`)
-	}
+async function toggleRule(rule: any) {
+  try {
+    await api.put(`/api/v1/rules/${rule.id}`, { ...rule, enabled: !rule.enabled })
+    await loadRules()
+  } catch (e: any) {
+    error.value = e.message || 'Failed to toggle rule'
+  }
 }
 
 function getActionBadgeVariant(action: string): 'success' | 'warning' | 'danger' | 'info' | 'default' {
-	const { variant } = useActionBadge(action)
-	return variant.value
+  switch (action.toLowerCase()) {
+    case 'block':
+      return 'danger'
+    case 'flag':
+      return 'warning'
+    case 'monitor':
+      return 'info'
+    default:
+      return 'default'
+  }
 }
 </script>

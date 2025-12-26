@@ -1,275 +1,271 @@
 <template>
-  <div class="max-w-7xl mx-auto px-12">
+  <v-container fluid class="pa-8">
     <div class="mb-10">
-      <h1 class="text-3xl font-bold text-slate-900 mb-2">Branding Configuration</h1>
-      <p class="text-slate-600 font-medium">Customize your application branding</p>
+      <h1 class="text-h4 font-weight-bold mb-2">Branding Configuration</h1>
+      <p class="text-body-1 text-grey-darken-1">Customize your application branding</p>
     </div>
 
-    <div v-if="error" class="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg text-red-700">
-      {{ error }}
-    </div>
+    <v-alert
+      v-if="error"
+      type="error"
+      :text="error"
+      class="mb-6"
+      closable
+      @click:close="error = ''"
+    />
 
-    <div v-if="success" class="mb-6 p-4 bg-green-50 border border-green-200 rounded-lg text-green-700">
-      {{ success }}
-    </div>
+    <v-alert
+      v-if="success"
+      type="success"
+      :text="success"
+      class="mb-6"
+      closable
+      @click:close="success = ''"
+    />
 
-    <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+    <v-row>
       <!-- Configuration Form -->
-      <div class="bg-white rounded-lg shadow-card p-8">
-        <h2 class="text-xl font-semibold text-slate-900 mb-6">Configuration</h2>
+      <v-col cols="12" lg="6">
+        <v-card class="pa-8">
+          <v-card-title class="text-h6 mb-6">Configuration</v-card-title>
 
-        <form @submit.prevent="handleSubmit" class="space-y-6">
-          <!-- App Name -->
-          <div>
-            <label for="appName" class="block text-sm font-medium text-slate-700 mb-2">
-              Application Name
-            </label>
-            <input
-              id="appName"
+          <v-form @submit.prevent="handleSubmit">
+            <!-- App Name -->
+            <v-text-field
               v-model="form.app_name"
-              type="text"
+              label="Application Name"
+              placeholder="AlgoShield"
               required
               maxlength="100"
-              class="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-              placeholder="AlgoShield"
+              hint="Max 100 characters"
+              persistent-hint
+              class="mb-4"
             />
-            <p class="text-xs text-slate-500 mt-1">Max 100 characters</p>
-          </div>
 
-          <!-- Icon URL -->
-          <div>
-            <label for="iconUrl" class="block text-sm font-medium text-slate-700 mb-2">
-              Logo Icon URL
-            </label>
-            <input
-              id="iconUrl"
+            <!-- Icon URL -->
+            <v-text-field
               v-model="form.icon_url"
-              type="text"
-              class="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              label="Logo Icon URL"
               placeholder="/assets/logo.svg"
+              hint="URL or path to logo image"
+              persistent-hint
+              class="mb-4"
             />
-            <p class="text-xs text-slate-500 mt-1">URL or path to logo image</p>
-          </div>
 
-          <!-- Favicon URL -->
-          <div>
-            <label for="faviconUrl" class="block text-sm font-medium text-slate-700 mb-2">
-              Favicon URL
-            </label>
-            <input
-              id="faviconUrl"
+            <!-- Favicon URL -->
+            <v-text-field
               v-model="form.favicon_url"
-              type="text"
-              class="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              label="Favicon URL"
               placeholder="/favicon.ico"
+              hint="URL or path to favicon"
+              persistent-hint
+              class="mb-4"
             />
-            <p class="text-xs text-slate-500 mt-1">URL or path to favicon</p>
-          </div>
 
-          <!-- Primary Color -->
-          <div>
-            <label for="primaryColor" class="block text-sm font-medium text-slate-700 mb-2">
-              Primary Color
-            </label>
-            <div class="flex gap-3 items-center">
-              <input
-                id="primaryColor"
-                v-model="form.primary_color"
-                type="color"
-                class="h-12 w-20 border border-slate-300 rounded-lg cursor-pointer"
-              />
-              <input
-                v-model="form.primary_color"
-                type="text"
-                pattern="^#([A-Fa-f0-9]{6}|[A-Fa-f0-9]{3})$"
-                required
-                class="flex-1 px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 font-mono"
-                placeholder="#3B82F6"
-              />
+            <!-- Primary Color -->
+            <div class="mb-4">
+              <label class="text-body-2 text-grey-darken-1 mb-2 d-block">Primary Color</label>
+              <div class="d-flex align-center gap-3">
+                <input
+                  v-model="form.primary_color"
+                  type="color"
+                  class="h-12 w-20 border border-grey rounded-lg cursor-pointer"
+                />
+                <v-text-field
+                  v-model="form.primary_color"
+                  placeholder="#3B82F6"
+                  pattern="^#([A-Fa-f0-9]{6}|[A-Fa-f0-9]{3})$"
+                  required
+                  density="compact"
+                  variant="outlined"
+                  class="font-mono"
+                />
+              </div>
+              <p class="text-caption text-grey mt-1">Hex format: #RGB or #RRGGBB</p>
             </div>
-            <p class="text-xs text-slate-500 mt-1">Hex format: #RGB or #RRGGBB</p>
-          </div>
 
-          <!-- Secondary Color -->
-          <div>
-            <label for="secondaryColor" class="block text-sm font-medium text-slate-700 mb-2">
-              Secondary Color
-            </label>
-            <div class="flex gap-3 items-center">
-              <input
-                id="secondaryColor"
-                v-model="form.secondary_color"
-                type="color"
-                class="h-12 w-20 border border-slate-300 rounded-lg cursor-pointer"
-              />
-              <input
-                v-model="form.secondary_color"
-                type="text"
-                pattern="^#([A-Fa-f0-9]{6}|[A-Fa-f0-9]{3})$"
-                required
-                class="flex-1 px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 font-mono"
-                placeholder="#10B981"
-              />
+            <!-- Secondary Color -->
+            <div class="mb-4">
+              <label class="text-body-2 text-grey-darken-1 mb-2 d-block">Secondary Color</label>
+              <div class="d-flex align-center gap-3">
+                <input
+                  v-model="form.secondary_color"
+                  type="color"
+                  class="h-12 w-20 border border-grey rounded-lg cursor-pointer"
+                />
+                <v-text-field
+                  v-model="form.secondary_color"
+                  placeholder="#10B981"
+                  pattern="^#([A-Fa-f0-9]{6}|[A-Fa-f0-9]{3})$"
+                  required
+                  density="compact"
+                  variant="outlined"
+                  class="font-mono"
+                />
+              </div>
+              <p class="text-caption text-grey mt-1">Hex format: #RGB or #RRGGBB</p>
             </div>
-            <p class="text-xs text-slate-500 mt-1">Hex format: #RGB or #RRGGBB</p>
-          </div>
 
-          <!-- Header Color -->
-          <div>
-            <label for="headerColor" class="block text-sm font-medium text-slate-700 mb-2">
-              Header Background Color
-            </label>
-            <div class="flex gap-3 items-center">
-              <input
-                id="headerColor"
-                v-model="form.header_color"
-                type="color"
-                class="h-12 w-20 border border-slate-300 rounded-lg cursor-pointer"
-              />
-              <input
-                v-model="form.header_color"
-                type="text"
-                pattern="^#([A-Fa-f0-9]{6}|[A-Fa-f0-9]{3})$"
-                required
-                class="flex-1 px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 font-mono"
-                placeholder="#1e1e1e"
-              />
+            <!-- Header Color -->
+            <div class="mb-6">
+              <label class="text-body-2 text-grey-darken-1 mb-2 d-block">Header Background Color</label>
+              <div class="d-flex align-center gap-3">
+                <input
+                  v-model="form.header_color"
+                  type="color"
+                  class="h-12 w-20 border border-grey rounded-lg cursor-pointer"
+                />
+                <v-text-field
+                  v-model="form.header_color"
+                  placeholder="#1e1e1e"
+                  pattern="^#([A-Fa-f0-9]{6}|[A-Fa-f0-9]{3})$"
+                  required
+                  density="compact"
+                  variant="outlined"
+                  class="font-mono"
+                />
+              </div>
+              <p class="text-caption text-grey mt-1">Hex format: #RGB or #RRGGBB</p>
             </div>
-            <p class="text-xs text-slate-500 mt-1">Hex format: #RGB or #RRGGBB</p>
-          </div>
 
-          <!-- Action Buttons -->
-          <div class="flex gap-3 pt-4">
-            <button
-              type="submit"
-              :disabled="loading"
-              class="flex-1 px-6 py-3 bg-blue-600 text-white font-medium rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-            >
-              {{ loading ? 'Saving...' : 'Save Configuration' }}
-            </button>
-            <button
-              type="button"
-              @click="resetToDefaults"
-              class="px-6 py-3 border-2 border-slate-300 text-slate-700 font-medium rounded-lg hover:bg-slate-50 transition-colors"
-            >
-              Reset to Defaults
-            </button>
-          </div>
-        </form>
-      </div>
+            <!-- Action Buttons -->
+            <div class="d-flex gap-3">
+              <v-btn
+                type="submit"
+                :loading="loading"
+                :disabled="loading"
+                color="primary"
+                block
+                size="large"
+              >
+                {{ loading ? 'Saving...' : 'Save Configuration' }}
+              </v-btn>
+              <v-btn
+                variant="outlined"
+                @click="resetToDefaults"
+                size="large"
+              >
+                Reset to Defaults
+              </v-btn>
+            </div>
+          </v-form>
+        </v-card>
+      </v-col>
 
       <!-- Live Preview -->
-      <div class="bg-white rounded-lg shadow-card p-8">
-        <h2 class="text-xl font-semibold text-slate-900 mb-6">Live Preview</h2>
+      <v-col cols="12" lg="6">
+        <v-card class="pa-8">
+          <v-card-title class="text-h6 mb-6">Live Preview</v-card-title>
 
-        <div class="space-y-6">
-          <!-- Logo Preview -->
-          <div>
-            <h3 class="text-sm font-medium text-slate-700 mb-3">Logo</h3>
-            <div class="p-6 bg-slate-50 rounded-lg flex items-center gap-3">
-              <img
-                :src="form.icon_url || '/gopher.png'"
-                :alt="form.app_name"
-                class="w-10 h-10 object-contain"
-                @error="handleImageError"
-              />
-              <span class="text-lg font-bold" :style="{ color: form.primary_color }">
-                {{ form.app_name }}
-              </span>
+          <div class="d-flex flex-column gap-6">
+            <!-- Logo Preview -->
+            <div>
+              <h3 class="text-body-2 font-weight-medium text-grey-darken-1 mb-3">Logo</h3>
+              <v-card variant="tonal" class="pa-6">
+                <div class="d-flex align-center gap-3">
+                  <img
+                    :src="form.icon_url || '/gopher.png'"
+                    :alt="form.app_name"
+                    class="w-10 h-10 object-contain"
+                    @error="handleImageError"
+                  />
+                  <span class="text-h6 font-weight-bold" :style="{ color: form.primary_color }">
+                    {{ form.app_name }}
+                  </span>
+                </div>
+              </v-card>
             </div>
-          </div>
 
-          <!-- Color Swatches -->
-          <div>
-            <h3 class="text-sm font-medium text-slate-700 mb-3">Colors</h3>
-            <div class="space-y-3">
-              <div class="flex items-center gap-3">
-                <div
-                  class="w-16 h-16 rounded-lg border-2 border-slate-200"
+            <!-- Color Swatches -->
+            <div>
+              <h3 class="text-body-2 font-weight-medium text-grey-darken-1 mb-3">Colors</h3>
+              <div class="d-flex flex-column gap-3">
+                <div class="d-flex align-center gap-3">
+                  <div
+                    class="w-16 h-16 rounded-lg border"
+                    :style="{ backgroundColor: form.primary_color }"
+                  />
+                  <div>
+                    <p class="text-body-2 font-weight-medium">Primary Color</p>
+                    <p class="text-caption text-grey font-mono">{{ form.primary_color }}</p>
+                  </div>
+                </div>
+                <div class="d-flex align-center gap-3">
+                  <div
+                    class="w-16 h-16 rounded-lg border"
+                    :style="{ backgroundColor: form.secondary_color }"
+                  />
+                  <div>
+                    <p class="text-body-2 font-weight-medium">Secondary Color</p>
+                    <p class="text-caption text-grey font-mono">{{ form.secondary_color }}</p>
+                  </div>
+                </div>
+                <div class="d-flex align-center gap-3">
+                  <div
+                    class="w-16 h-16 rounded-lg border"
+                    :style="{ backgroundColor: form.header_color }"
+                  />
+                  <div>
+                    <p class="text-body-2 font-weight-medium">Header Background</p>
+                    <p class="text-caption text-grey font-mono">{{ form.header_color }}</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Header Preview -->
+            <div>
+              <h3 class="text-body-2 font-weight-medium text-grey-darken-1 mb-3">Header</h3>
+              <v-card
+                :style="{ backgroundColor: form.header_color }"
+                class="pa-4"
+              >
+                <div class="d-flex align-center gap-3">
+                  <img
+                    :src="form.icon_url || '/gopher.png'"
+                    :alt="form.app_name"
+                    class="w-8 h-8 object-contain"
+                    @error="handleImageError"
+                  />
+                  <span class="text-white font-weight-bold text-body-2">{{ form.app_name }}</span>
+                </div>
+              </v-card>
+            </div>
+
+            <!-- Button Preview -->
+            <div>
+              <h3 class="text-body-2 font-weight-medium text-grey-darken-1 mb-3">Buttons</h3>
+              <div class="d-flex gap-3">
+                <v-btn
                   :style="{ backgroundColor: form.primary_color }"
-                ></div>
-                <div>
-                  <p class="text-sm font-medium text-slate-900">Primary Color</p>
-                  <p class="text-xs text-slate-500 font-mono">{{ form.primary_color }}</p>
-                </div>
-              </div>
-              <div class="flex items-center gap-3">
-                <div
-                  class="w-16 h-16 rounded-lg border-2 border-slate-200"
+                  color="primary"
+                >
+                  Primary
+                </v-btn>
+                <v-btn
                   :style="{ backgroundColor: form.secondary_color }"
-                ></div>
-                <div>
-                  <p class="text-sm font-medium text-slate-900">Secondary Color</p>
-                  <p class="text-xs text-slate-500 font-mono">{{ form.secondary_color }}</p>
+                  color="secondary"
+                >
+                  Secondary
+                </v-btn>
+              </div>
+            </div>
+
+            <!-- Browser Title Preview -->
+            <div>
+              <h3 class="text-body-2 font-weight-medium text-grey-darken-1 mb-3">Browser Tab</h3>
+              <v-card variant="tonal" class="pa-4">
+                <div class="d-flex align-center gap-2 text-body-2">
+                  <div class="w-4 h-4 bg-grey rounded" />
+                  <span class="text-grey-darken-1">{{ form.app_name }}</span>
                 </div>
-              </div>
-              <div class="flex items-center gap-3">
-                <div
-                  class="w-16 h-16 rounded-lg border-2 border-slate-200"
-                  :style="{ backgroundColor: form.header_color }"
-                ></div>
-                <div>
-                  <p class="text-sm font-medium text-slate-900">Header Background</p>
-                  <p class="text-xs text-slate-500 font-mono">{{ form.header_color }}</p>
-                </div>
-              </div>
+              </v-card>
             </div>
           </div>
-
-          <!-- Header Preview -->
-          <div>
-            <h3 class="text-sm font-medium text-slate-700 mb-3">Header</h3>
-            <div
-              class="p-4 rounded-lg border-2 border-slate-200"
-              :style="{ backgroundColor: form.header_color }"
-            >
-              <div class="flex items-center gap-3">
-                <img
-                  :src="form.icon_url || '/gopher.png'"
-                  :alt="form.app_name"
-                  class="w-8 h-8 object-contain"
-                  @error="handleImageError"
-                />
-                <span class="text-white font-bold text-sm">{{ form.app_name }}</span>
-              </div>
-            </div>
-          </div>
-
-          <!-- Button Preview -->
-          <div>
-            <h3 class="text-sm font-medium text-slate-700 mb-3">Buttons</h3>
-            <div class="flex gap-3">
-              <button
-                type="button"
-                class="px-6 py-2 text-white font-medium rounded-lg"
-                :style="{ backgroundColor: form.primary_color }"
-              >
-                Primary
-              </button>
-              <button
-                type="button"
-                class="px-6 py-2 text-white font-medium rounded-lg"
-                :style="{ backgroundColor: form.secondary_color }"
-              >
-                Secondary
-              </button>
-            </div>
-          </div>
-
-          <!-- Browser Title Preview -->
-          <div>
-            <h3 class="text-sm font-medium text-slate-700 mb-3">Browser Tab</h3>
-            <div class="p-4 bg-slate-50 rounded-lg">
-              <div class="flex items-center gap-2 text-sm">
-                <div class="w-4 h-4 bg-slate-300 rounded"></div>
-                <span class="text-slate-700">{{ form.app_name }}</span>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-  </div>
+        </v-card>
+      </v-col>
+    </v-row>
+  </v-container>
 </template>
 
 <script setup lang="ts">
@@ -292,7 +288,6 @@ const form = reactive({
 })
 
 // Watch for config changes and populate form when data is available
-// This handles the race condition where the component mounts before loadBranding() completes
 watch(
   () => brandingStore.config,
   (config: BrandingConfig | null) => {
@@ -305,7 +300,7 @@ watch(
       form.header_color = config.header_color
     }
   },
-  { immediate: true } // Run immediately if config is already loaded
+  { immediate: true }
 )
 
 async function handleSubmit() {

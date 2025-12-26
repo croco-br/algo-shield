@@ -13,12 +13,14 @@
           <h2 class="text-xl font-bold text-neutral-900">Transaction Details</h2>
           <p class="text-sm text-neutral-600 mt-1">External ID: {{ transaction?.external_id }}</p>
         </div>
-        <button
+        <v-btn
           @click="close"
-          class="w-8 h-8 flex items-center justify-center rounded-full hover:bg-neutral-200 transition-colors"
+          icon
+          variant="text"
+          size="small"
         >
-          <i class="fas fa-times text-neutral-600"></i>
-        </button>
+          <v-icon icon="mdi-close" />
+        </v-btn>
       </div>
 
       <!-- Tabs -->
@@ -35,7 +37,7 @@
                 : 'text-neutral-600 border-transparent hover:text-neutral-900'
             ]"
           >
-            <i :class="[tab.icon, 'mr-2']"></i>
+            <v-icon :icon="getTabIcon(tab.icon)" size="small" class="mr-2" />
             {{ tab.label }}
           </button>
         </div>
@@ -115,7 +117,7 @@
         <div v-if="activeTab === 'escalation'" class="space-y-6">
           <div class="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
             <div class="flex items-start gap-3">
-              <i class="fas fa-exclamation-triangle text-yellow-600 mt-0.5"></i>
+              <v-icon icon="mdi-alert" color="warning" size="small" class="mt-0.5" />
               <div>
                 <h4 class="text-sm font-semibold text-yellow-900">Escalation Required</h4>
                 <p class="text-sm text-yellow-700 mt-1">
@@ -129,7 +131,7 @@
             @click="$emit('open-escalation')"
             class="w-full px-4 py-3 bg-teal-600 text-white font-semibold rounded-lg hover:bg-teal-700 transition-colors"
           >
-            <i class="fas fa-level-up-alt mr-2"></i>
+            <v-icon icon="mdi-arrow-up" class="mr-2" />
             Escalate Transaction
           </button>
 
@@ -155,7 +157,7 @@
         <button
           class="px-4 py-2 bg-teal-600 text-white text-sm font-semibold rounded-lg hover:bg-teal-700 transition-colors"
         >
-          <i class="fas fa-check mr-2"></i>
+          <v-icon icon="mdi-check" class="mr-2" />
           Mark as Reviewed
         </button>
       </div>
@@ -180,9 +182,17 @@ const emit = defineEmits<{
 }>()
 
 const tabs = [
-  { key: 'overview', label: 'Overview', icon: 'fas fa-info-circle' },
-  { key: 'escalation', label: 'Escalation', icon: 'fas fa-flag' },
+  { key: 'overview', label: 'Overview', icon: 'mdi-information' },
+  { key: 'escalation', label: 'Escalation', icon: 'mdi-flag' },
 ]
+
+const getTabIcon = (icon: string): string => {
+  const iconMap: Record<string, string> = {
+    'fas fa-info-circle': 'mdi-information',
+    'fas fa-flag': 'mdi-flag',
+  }
+  return iconMap[icon] || icon
+}
 
 const activeTab = ref('overview')
 

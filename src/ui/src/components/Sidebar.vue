@@ -1,55 +1,61 @@
 <template>
-  <aside
-    :class="[
-      'sidebar fixed left-0 bg-white border-r border-neutral-200 transition-all duration-300 z-fixed',
-      isMobile && !isOpen ? '-translate-x-full' : 'translate-x-0'
-    ]"
+  <v-navigation-drawer
+    :model-value="!isMobile || isOpen"
+    :width="isCollapsed ? 'var(--sidebar-width-collapsed)' : 'var(--sidebar-width)'"
+    :temporary="isMobile"
+    :permanent="!isMobile"
+    :location="'left'"
+    class="border-r"
     :style="{
       top: 'var(--header-height)',
       height: 'calc(100vh - var(--header-height))',
-      width: isCollapsed ? 'var(--sidebar-width-collapsed)' : 'var(--sidebar-width)'
     }"
   >
     <!-- Collapse Toggle (Desktop) -->
-    <button
-      v-if="!isMobile"
-      @click="toggleCollapse"
-      class="absolute -right-3 top-6 w-6 h-6 bg-white border border-neutral-200 rounded-full flex items-center justify-center shadow-sm hover:shadow-md transition-all z-10"
-    >
-      <i :class="isCollapsed ? 'fas fa-chevron-right' : 'fas fa-chevron-left'" class="text-xs text-neutral-600"></i>
-    </button>
+    <template v-if="!isMobile" #append>
+      <div class="d-flex justify-end pa-2">
+        <v-btn
+          icon
+          variant="text"
+          size="small"
+          @click="toggleCollapse"
+          class="position-absolute"
+          style="right: -12px; top: 24px; z-index: 10;"
+        >
+          <v-icon>
+            {{ isCollapsed ? 'mdi-chevron-right' : 'mdi-chevron-left' }}
+          </v-icon>
+        </v-btn>
+      </div>
+    </template>
 
     <!-- Navigation Links -->
-    <nav class="py-6">
-      <router-link
+    <v-list nav density="comfortable">
+      <v-list-item
         v-for="item in navItems"
         :key="item.path"
         :to="item.path"
-        :class="[
-          'flex items-center gap-4 px-6 py-3 transition-all duration-200',
-          isActive(item.path) ? 'text-teal-600 bg-teal-50 border-r-3 border-teal-600' : 'text-neutral-500 hover:text-neutral-900 hover:bg-neutral-50',
-          isCollapsed ? 'justify-center' : ''
-        ]"
+        :active="isActive(item.path)"
+        :prepend-icon="getIcon(item.icon)"
+        :title="isCollapsed ? '' : item.label"
+        :value="item.path"
         @click="isMobile && closeMobile()"
+        class="mx-2 mb-1"
       >
-        <i :class="[item.icon, 'text-lg', isCollapsed ? 'mx-0' : '']"></i>
-        <span
-          v-if="!isCollapsed"
-          class="font-medium text-sm"
-        >
-          {{ item.label }}
-        </span>
-      </router-link>
-    </nav>
-
-  </aside>
+        <template v-if="isCollapsed" #prepend>
+          <v-icon :icon="getIcon(item.icon)" />
+        </template>
+      </v-list-item>
+    </v-list>
+  </v-navigation-drawer>
 
   <!-- Mobile Overlay -->
-  <div
+  <v-overlay
     v-if="isMobile && isOpen"
-    class="fixed inset-0 bg-black bg-opacity-50 z-modal-backdrop"
+    :model-value="isMobile && isOpen"
+    class="align-start justify-start"
     @click="closeMobile"
-  ></div>
+  />
 </template>
 
 <script setup lang="ts">
@@ -72,11 +78,11 @@ const route = useRoute()
 const authStore = useAuthStore()
 
 const allNavItems: NavItem[] = [
-  { label: 'Dashboard', path: '/dashboard', icon: 'fas fa-chart-line' },
-  { label: 'Transactions', path: '/transactions', icon: 'fas fa-exchange-alt' },
-  { label: 'Rules', path: '/rules', icon: 'fas fa-tasks' },
-  { label: 'Permissions', path: '/permissions', icon: 'fas fa-users-cog', adminOnly: true },
-  { label: 'Branding', path: '/branding', icon: 'fas fa-palette', adminOnly: true },
+  { label: 'Dashboard', path: '/dashboard', icon: 'mdi-chart-line' },
+  { label: 'Transactions', path: '/transactions', icon: 'mdi-swap-horizontal' },
+  { label: 'Rules', path: '/rules', icon: 'mdi-format-list-checkbox' },
+  { label: 'Permissions', path: '/permissions', icon: 'mdi-account-cog', adminOnly: true },
+  { label: 'Branding', path: '/branding', icon: 'mdi-palette', adminOnly: true },
 ]
 
 const navItems = computed(() => {
@@ -98,6 +104,18 @@ const closeMobile = () => {
 
 const isActive = (path: string) => {
   return route.path === path || (path !== '/' && route.path.startsWith(path))
+}
+
+// Map FontAwesome icons to Material Design Icons
+const getIcon = (faIcon: string): string => {
+  const iconMap: Record<string, string> = {
+    'fas fa-chart-line': 'mdi-chart-line',
+    'fas fa-exchange-alt': 'mdi-swap-horizontal',
+    'fas fa-tasks': 'mdi-format-list-checkbox',
+    'fas fa-users-cog': 'mdi-account-cog',
+    'fas fa-palette': 'mdi-palette',
+  }
+  return iconMap[faIcon] || 'mdi-circle'
 }
 
 const checkMobile = () => {
@@ -124,13 +142,3 @@ defineExpose({
   isCollapsed
 })
 </script>
-
-<style scoped>
-.sidebar {
-  box-shadow: 2px 0 8px rgba(0, 0, 0, 0.05);
-}
-
-.border-r-3 {
-  border-right-width: 3px;
-}
-</style>

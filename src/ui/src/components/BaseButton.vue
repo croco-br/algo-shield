@@ -1,12 +1,16 @@
 <template>
-  <button
+  <v-btn
     :type="type"
     :disabled="disabled || loading"
-    :class="buttonClasses"
+    :size="size"
+    :variant="mappedVariant"
+    :color="mappedColor"
+    :block="fullWidth"
+    :loading="loading"
+    :prepend-icon="prependIcon"
   >
-    <span v-if="loading" class="inline-block w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin mr-2"></span>
     <slot />
-  </button>
+  </v-btn>
 </template>
 
 <script setup lang="ts">
@@ -19,6 +23,7 @@ interface Props {
   disabled?: boolean
   loading?: boolean
   fullWidth?: boolean
+  prependIcon?: string
 }
 
 const props = withDefaults(defineProps<Props>(), {
@@ -30,60 +35,27 @@ const props = withDefaults(defineProps<Props>(), {
   fullWidth: false,
 })
 
-const buttonClasses = computed(() => {
-  const classes = [
-    'inline-flex items-center justify-center',
-    'font-semibold rounded-lg',
-    'transition-all duration-200',
-    'focus:outline-none focus:ring-4 focus:ring-offset-2',
-    'disabled:opacity-50 disabled:cursor-not-allowed',
-    'active:scale-[0.98]',
-  ]
-
-  // Size classes
-  if (props.size === 'sm') {
-    classes.push('px-5 py-2.5 text-sm')
-  } else if (props.size === 'lg') {
-    classes.push('px-9 py-5 text-base')
-  } else {
-    classes.push('px-7 py-4 text-sm')
+// Map our variants to Vuetify variants and colors
+const mappedVariant = computed(() => {
+  if (props.variant === 'ghost') {
+    return 'text'
   }
-
-  // Variant classes
-  if (props.variant === 'primary') {
-    classes.push(
-      'bg-gradient-to-r from-blue-600 to-blue-700',
-      'text-white shadow-lg shadow-blue-500/30',
-      'hover:from-blue-700 hover:to-blue-800 hover:shadow-xl hover:shadow-blue-500/40',
-      'focus:ring-blue-200'
-    )
-  } else if (props.variant === 'secondary') {
-    classes.push(
-      'bg-white text-slate-700 shadow-sm',
-      'border-2 border-slate-200',
-      'hover:bg-slate-50 hover:border-slate-300',
-      'focus:ring-slate-200'
-    )
-  } else if (props.variant === 'danger') {
-    classes.push(
-      'bg-gradient-to-r from-red-600 to-red-700',
-      'text-white shadow-lg shadow-red-500/30',
-      'hover:from-red-700 hover:to-red-800 hover:shadow-xl hover:shadow-red-500/40',
-      'focus:ring-red-200'
-    )
-  } else if (props.variant === 'ghost') {
-    classes.push(
-      'bg-transparent text-slate-700',
-      'hover:bg-slate-50',
-      'focus:ring-slate-200'
-    )
+  if (props.variant === 'secondary') {
+    return 'outlined'
   }
+  return 'flat' // primary and danger use flat with color
+})
 
-  // Full width
-  if (props.fullWidth) {
-    classes.push('w-full')
+const mappedColor = computed(() => {
+  if (props.variant === 'danger') {
+    return 'error'
   }
-
-  return classes.join(' ')
+  if (props.variant === 'secondary') {
+    return undefined // outlined buttons use default color
+  }
+  if (props.variant === 'ghost') {
+    return undefined // text buttons use default color
+  }
+  return 'primary' // primary variant
 })
 </script>

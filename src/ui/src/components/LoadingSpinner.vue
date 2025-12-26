@@ -1,6 +1,11 @@
 <template>
   <div :class="containerClasses">
-    <div :class="spinnerClasses"></div>
+    <v-progress-circular
+      :size="mappedSize"
+      :width="mappedWidth"
+      color="primary"
+      indeterminate
+    />
     <p v-if="text" :class="textClasses">{{ text }}</p>
   </div>
 </template>
@@ -22,7 +27,7 @@ const props = withDefaults(defineProps<Props>(), {
 })
 
 const containerClasses = computed(() => {
-  const classes = ['flex flex-col items-center gap-3']
+  const classes = ['d-flex flex-column align-center gap-3']
 
   if (props.fullscreen) {
     classes.push('min-h-screen justify-center')
@@ -33,25 +38,30 @@ const containerClasses = computed(() => {
   return classes.join(' ')
 })
 
-const spinnerClasses = computed(() => {
-  const classes = [
-    'border-gray-200 border-t-indigo-600',
-    'rounded-full animate-spin',
-  ]
-
-  if (props.size === 'sm') {
-    classes.push('w-6 h-6 border-2')
-  } else if (props.size === 'lg') {
-    classes.push('w-12 h-12 border-4')
-  } else {
-    classes.push('w-10 h-10 border-4')
+const mappedSize = computed(() => {
+  switch (props.size) {
+    case 'sm':
+      return 24
+    case 'lg':
+      return 48
+    default:
+      return 40
   }
+})
 
-  return classes.join(' ')
+const mappedWidth = computed(() => {
+  switch (props.size) {
+    case 'sm':
+      return 2
+    case 'lg':
+      return 4
+    default:
+      return 4
+  }
 })
 
 const textClasses = computed(() => {
-  const classes = ['text-gray-500']
+  const classes = ['text-grey-darken-1']
 
   if (props.size === 'sm') {
     classes.push('text-sm')

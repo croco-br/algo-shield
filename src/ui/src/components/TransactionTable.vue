@@ -5,18 +5,22 @@
       <div class="flex items-center justify-between">
         <h3 class="text-lg font-semibold text-neutral-900">Recent Transactions</h3>
         <div class="flex items-center gap-3">
-          <button
-            class="px-3 py-1.5 text-sm font-medium text-neutral-600 hover:text-neutral-900 hover:bg-neutral-100 rounded transition-colors"
+          <v-btn
+            variant="text"
+            size="small"
+            class="text-neutral-600"
           >
-            <i class="fas fa-filter mr-2"></i>
+            <v-icon icon="mdi-filter" size="small" class="mr-2" />
             Filter
-          </button>
-          <button
-            class="px-3 py-1.5 text-sm font-medium text-neutral-600 hover:text-neutral-900 hover:bg-neutral-100 rounded transition-colors"
+          </v-btn>
+          <v-btn
+            variant="text"
+            size="small"
+            class="text-neutral-600"
           >
-            <i class="fas fa-download mr-2"></i>
+            <v-icon icon="mdi-download" size="small" class="mr-2" />
             Export
-          </button>
+          </v-btn>
         </div>
       </div>
     </div>
@@ -92,14 +96,16 @@
           Showing {{ startIndex + 1 }} to {{ endIndex }} of {{ data.length }} transactions
         </div>
         <div class="flex items-center gap-2">
-          <button
+          <v-btn
             :disabled="currentPage === 1"
             @click="prevPage"
-            class="px-3 py-1.5 text-sm font-medium rounded transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-            :class="currentPage === 1 ? 'text-neutral-400' : 'text-neutral-600 hover:bg-neutral-200'"
+            icon
+            variant="text"
+            size="small"
+            :color="currentPage === 1 ? 'grey' : 'grey-darken-1'"
           >
-            <i class="fas fa-chevron-left"></i>
-          </button>
+            <v-icon icon="mdi-chevron-left" />
+          </v-btn>
 
           <div class="flex items-center gap-1">
             <button
@@ -117,14 +123,16 @@
             </button>
           </div>
 
-          <button
+          <v-btn
             :disabled="currentPage === totalPages"
             @click="nextPage"
-            class="px-3 py-1.5 text-sm font-medium rounded transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-            :class="currentPage === totalPages ? 'text-neutral-400' : 'text-neutral-600 hover:bg-neutral-200'"
+            icon
+            variant="text"
+            size="small"
+            :color="currentPage === totalPages ? 'grey' : 'grey-darken-1'"
           >
-            <i class="fas fa-chevron-right"></i>
-          </button>
+            <v-icon icon="mdi-chevron-right" />
+          </v-btn>
         </div>
       </div>
     </div>

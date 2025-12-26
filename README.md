@@ -38,7 +38,7 @@ AlgoShield is built with a modern microservices architecture:
 
 - **API Service**: RESTful API built with Fiber (Go) for high-performance HTTP handling with JWT authentication
 - **Worker Service**: Transaction processing engine with custom rules evaluation and hot-reload support
-- **UI**: Vue.js 3-based modern web interface with Pinia state management for rule management and user administration
+- **UI**: Vue.js 3-based modern web interface with Vuetify (Material Design) components, Pinia state management, and Tailwind CSS for rule management and user administration
 - **PostgreSQL**: Primary data store for transactions, rules, users, roles, and groups
 - **Redis**: Message queue for async processing and rules caching
 
@@ -674,9 +674,10 @@ Built with:
 - [Fiber](https://gofiber.io/) - Web framework
 - [pgx](https://github.com/jackc/pgx) - PostgreSQL driver
 - [Vue.js](https://vuejs.org/) - UI framework
+- [Vuetify](https://vuetifyjs.com/) - Material Design component framework
 - [Pinia](https://pinia.vuejs.org/) - State management
 - [Vue Router](https://router.vuejs.org/) - Routing
-- [Tailwind CSS](https://tailwindcss.com/) - Styling
+- [Tailwind CSS](https://tailwindcss.com/) - Utility-first CSS framework
 - [Vite](https://vitejs.dev/) - Build tool
 - [Redis](https://redis.io/) - Caching and message queue
 - [JWT](https://jwt.io/) - Authentication tokens

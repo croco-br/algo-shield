@@ -1,80 +1,93 @@
 <template>
-  <div class="max-w-7xl mx-auto px-12">
+  <v-container fluid class="pa-8">
     <div class="mb-10">
-      <h2 class="text-3xl font-bold text-slate-900 mb-2">Profile</h2>
-      <p class="text-slate-600 font-medium">Manage your account information and preferences</p>
+      <h2 class="text-h4 font-weight-bold mb-2">Profile</h2>
+      <p class="text-body-1 text-grey-darken-1">Manage your account information and preferences</p>
     </div>
 
-    <div class="bg-white rounded-xl border-2 border-slate-200 shadow-sm p-8">
-      <div class="flex items-center gap-3 mb-6">
-        <div class="w-12 h-12 rounded-full bg-teal-100 flex items-center justify-center">
-          <i class="fas fa-user text-teal-600 text-xl"></i>
-        </div>
+    <v-card class="pa-8">
+      <div class="d-flex align-center gap-3 mb-6">
+        <v-avatar color="primary" size="48">
+          <v-icon icon="mdi-account" color="white" />
+        </v-avatar>
         <div>
-          <h3 class="text-xl font-bold text-slate-900">User Information</h3>
-          <p class="text-sm text-slate-600">View and update your profile details</p>
+          <h3 class="text-h6 font-weight-bold">User Information</h3>
+          <p class="text-body-2 text-grey-darken-1">View and update your profile details</p>
         </div>
       </div>
 
-      <div class="space-y-5">
-        <div class="flex items-center justify-between py-4 px-5 bg-slate-50 rounded-lg">
-          <div class="flex items-center gap-3">
-            <i class="fas fa-user text-slate-600"></i>
-            <span class="font-semibold text-slate-700">Name</span>
-          </div>
-          <span class="text-sm font-medium text-slate-900">{{ user?.name || 'N/A' }}</span>
-        </div>
+      <v-list class="bg-transparent">
+        <v-list-item>
+          <template #prepend>
+            <v-icon icon="mdi-account" color="grey-darken-1" />
+          </template>
+          <v-list-item-title class="font-weight-semibold">Name</v-list-item-title>
+          <template #append>
+            <span class="text-body-2 text-grey-darken-3">{{ user?.name || 'N/A' }}</span>
+          </template>
+        </v-list-item>
 
-        <div class="flex items-center justify-between py-4 px-5 bg-slate-50 rounded-lg">
-          <div class="flex items-center gap-3">
-            <i class="fas fa-envelope text-slate-600"></i>
-            <span class="font-semibold text-slate-700">Email</span>
-          </div>
-          <span class="text-sm font-medium text-slate-900">{{ user?.email || 'N/A' }}</span>
-        </div>
+        <v-list-item>
+          <template #prepend>
+            <v-icon icon="mdi-email" color="grey-darken-1" />
+          </template>
+          <v-list-item-title class="font-weight-semibold">Email</v-list-item-title>
+          <template #append>
+            <span class="text-body-2 text-grey-darken-3">{{ user?.email || 'N/A' }}</span>
+          </template>
+        </v-list-item>
 
-        <div class="flex items-center justify-between py-4 px-5 bg-slate-50 rounded-lg">
-          <div class="flex items-center gap-3">
-            <i class="fas fa-key text-slate-600"></i>
-            <span class="font-semibold text-slate-700">Authentication Type</span>
-          </div>
-          <span class="text-sm font-medium text-slate-900 uppercase">{{ user?.auth_type || 'N/A' }}</span>
-        </div>
+        <v-list-item>
+          <template #prepend>
+            <v-icon icon="mdi-key" color="grey-darken-1" />
+          </template>
+          <v-list-item-title class="font-weight-semibold">Authentication Type</v-list-item-title>
+          <template #append>
+            <span class="text-body-2 text-grey-darken-3 uppercase">{{ user?.auth_type || 'N/A' }}</span>
+          </template>
+        </v-list-item>
 
-        <div class="flex items-center justify-between py-4 px-5 bg-slate-50 rounded-lg">
-          <div class="flex items-center gap-3">
-            <i class="fas fa-shield-alt text-slate-600"></i>
-            <span class="font-semibold text-slate-700">Roles</span>
-          </div>
-          <div class="flex gap-2">
-            <span
-              v-for="role in user?.roles"
-              :key="role.id"
-              class="text-xs font-medium px-3 py-1 bg-teal-100 text-teal-700 rounded-full"
+        <v-list-item>
+          <template #prepend>
+            <v-icon icon="mdi-shield-account" color="grey-darken-1" />
+          </template>
+          <v-list-item-title class="font-weight-semibold">Roles</v-list-item-title>
+          <template #append>
+            <div class="d-flex gap-2 flex-wrap">
+              <v-chip
+                v-for="role in user?.roles"
+                :key="role.id"
+                color="primary"
+                size="small"
+                variant="flat"
+              >
+                {{ role.name }}
+              </v-chip>
+              <span v-if="!user?.roles || user.roles.length === 0" class="text-body-2 text-grey">
+                No roles assigned
+              </span>
+            </div>
+          </template>
+        </v-list-item>
+
+        <v-list-item>
+          <template #prepend>
+            <v-icon icon="mdi-circle" color="grey-darken-1" />
+          </template>
+          <v-list-item-title class="font-weight-semibold">Status</v-list-item-title>
+          <template #append>
+            <v-chip
+              :color="user?.active ? 'success' : 'error'"
+              size="small"
+              variant="flat"
             >
-              {{ role.name }}
-            </span>
-            <span v-if="!user?.roles || user.roles.length === 0" class="text-sm font-medium text-slate-500">No roles assigned</span>
-          </div>
-        </div>
-
-        <div class="flex items-center justify-between py-4 px-5 bg-slate-50 rounded-lg">
-          <div class="flex items-center gap-3">
-            <i class="fas fa-circle text-slate-600"></i>
-            <span class="font-semibold text-slate-700">Status</span>
-          </div>
-          <span
-            :class="[
-              'text-sm font-medium px-3 py-1 rounded-full',
-              user?.active ? 'bg-emerald-100 text-emerald-700' : 'bg-red-100 text-red-700'
-            ]"
-          >
-            {{ user?.active ? 'Active' : 'Inactive' }}
-          </span>
-        </div>
-      </div>
-    </div>
-  </div>
+              {{ user?.active ? 'Active' : 'Inactive' }}
+            </v-chip>
+          </template>
+        </v-list-item>
+      </v-list>
+    </v-card>
+  </v-container>
 </template>
 
 <script setup lang="ts">

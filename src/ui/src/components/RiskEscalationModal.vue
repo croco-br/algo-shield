@@ -10,12 +10,14 @@
       <!-- Header -->
       <div class="modal-header px-6 py-4 border-b border-neutral-200 flex items-center justify-between">
         <h2 class="text-lg font-bold text-neutral-900">Escalate Transaction</h2>
-        <button
+        <v-btn
           @click="close"
-          class="w-8 h-8 flex items-center justify-center rounded-full hover:bg-neutral-100 transition-colors"
+          icon
+          variant="text"
+          size="small"
         >
-          <i class="fas fa-times text-neutral-600"></i>
-        </button>
+          <v-icon icon="mdi-close" />
+        </v-btn>
       </div>
 
       <!-- Content -->
@@ -106,7 +108,7 @@
             :disabled="!isFormValid"
             class="flex-1 px-4 py-2.5 bg-teal-600 text-white text-sm font-semibold rounded-lg hover:bg-teal-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
           >
-            <i class="fas fa-paper-plane mr-2"></i>
+            <v-icon icon="mdi-send" class="mr-2" />
             Submit
           </button>
         </div>

@@ -1,139 +1,126 @@
 <template>
-  <div class="min-h-screen flex items-center justify-center bg-neutral-100 p-8">
-    <div class="bg-white rounded shadow-card w-full max-w-[420px] px-12 py-14">
-      <!-- Logo Section -->
-      <div class="mb-10 text-center">
-        <div class="flex items-center justify-center gap-3 mb-3">
-          <img src="/gopher.png" alt="AlgoShield" class="w-10 h-10 object-contain" />
-          <h1 class="text-2xl font-bold text-neutral-900">AlgoShield</h1>
-        </div>
-        <p class="text-sm text-neutral-600">
-          Enterprise AML Platform
-        </p>
-      </div>
+  <v-container fluid class="fill-height pa-0">
+    <v-row align="center" justify="center" class="fill-height">
+      <v-col cols="12" sm="8" md="5" lg="4">
+        <v-card class="pa-8 elevation-2">
+          <!-- Logo Section -->
+          <div class="text-center mb-8">
+            <div class="d-flex align-center justify-center gap-3 mb-3">
+              <img src="/gopher.png" alt="AlgoShield" class="w-10 h-10 object-contain" />
+              <h1 class="text-h5 font-weight-bold">AlgoShield</h1>
+            </div>
+            <p class="text-body-2 text-grey-darken-1">
+              Enterprise AML Platform
+            </p>
+          </div>
 
-      <!-- Tabs -->
-      <div class="flex gap-0 mb-8 border-b border-neutral-200">
-        <button
-          @click="activeTab = 'login'; error = ''"
-          :class="[
-            'flex-1 py-3 text-sm font-semibold transition-all duration-200 border-b-2',
-            activeTab === 'login'
-              ? 'text-teal-600 border-teal-600'
-              : 'text-neutral-500 border-transparent hover:text-neutral-900'
-          ]"
-        >
-          Login
-        </button>
-        <button
-          @click="activeTab = 'register'; error = ''"
-          :class="[
-            'flex-1 py-3 text-sm font-semibold transition-all duration-200 border-b-2',
-            activeTab === 'register'
-              ? 'text-teal-600 border-teal-600'
-              : 'text-neutral-500 border-transparent hover:text-neutral-900'
-          ]"
-        >
-          Register
-        </button>
-      </div>
+          <!-- Tabs -->
+          <v-tabs v-model="activeTab" class="mb-6">
+            <v-tab value="login" @click="error = ''">Login</v-tab>
+            <v-tab value="register" @click="error = ''">Register</v-tab>
+          </v-tabs>
 
-      <ErrorMessage
-        v-if="error"
-        :message="error"
-        variant="error"
-        class="mb-6"
-        @dismiss="error = ''"
-      />
-
-      <form v-if="activeTab === 'login'" @submit.prevent="handleLogin" class="space-y-10">
-        <div>
-          <label class="block text-sm font-semibold text-neutral-700 mb-3">Email</label>
-          <input
-            type="email"
-            v-model="email"
-            placeholder="user@example.com"
-            :disabled="loading"
-            required
-            class="w-full px-4 py-3 border border-neutral-200 rounded text-sm text-neutral-900 placeholder-neutral-400 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent transition-all disabled:opacity-50 disabled:bg-neutral-50"
+          <ErrorMessage
+            v-if="error"
+            :message="error"
+            variant="error"
+            class="mb-6"
+            @dismiss="error = ''"
           />
-        </div>
 
-        <div>
-          <label class="block text-sm font-semibold text-neutral-700 mb-3">Password</label>
-          <input
-            type="password"
-            v-model="password"
-            placeholder="••••••••"
-            :disabled="loading"
-            :minlength="8"
-            required
-            class="w-full px-4 py-3 border border-neutral-200 rounded text-sm text-neutral-900 placeholder-neutral-400 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent transition-all disabled:opacity-50 disabled:bg-neutral-50"
-          />
-        </div>
+          <v-window v-model="activeTab">
+            <!-- Login Form -->
+            <v-window-item value="login">
+              <v-form @submit.prevent="handleLogin" class="mt-4">
+                <v-text-field
+                  v-model="email"
+                  type="email"
+                  label="Email"
+                  placeholder="user@example.com"
+                  :disabled="loading"
+                  required
+                  class="mb-4"
+                />
 
-        <div class="pt-4">
-          <button
-            type="submit"
-            :disabled="loading"
-            class="w-full px-6 py-3 bg-teal-600 text-white text-sm font-semibold rounded hover:bg-teal-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 ripple"
-          >
-            {{ loading ? 'Signing in...' : 'Sign In' }}
-          </button>
-        </div>
-      </form>
+                <v-text-field
+                  v-model="password"
+                  type="password"
+                  label="Password"
+                  placeholder="••••••••"
+                  :disabled="loading"
+                  :minlength="8"
+                  required
+                  class="mb-6"
+                />
 
-      <form v-else @submit.prevent="handleRegister" class="space-y-10">
-        <div>
-          <label class="block text-sm font-semibold text-neutral-700 mb-3">Name</label>
-          <input
-            type="text"
-            v-model="name"
-            placeholder="Your Name"
-            :disabled="loading"
-            required
-            class="w-full px-4 py-3 border border-neutral-200 rounded text-sm text-neutral-900 placeholder-neutral-400 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent transition-all disabled:opacity-50 disabled:bg-neutral-50"
-          />
-        </div>
+                <v-btn
+                  type="submit"
+                  :loading="loading"
+                  :disabled="loading"
+                  block
+                  color="primary"
+                  size="large"
+                  class="mb-2"
+                >
+                  {{ loading ? 'Signing in...' : 'Sign In' }}
+                </v-btn>
+              </v-form>
+            </v-window-item>
 
-        <div>
-          <label class="block text-sm font-semibold text-neutral-700 mb-3">Email</label>
-          <input
-            type="email"
-            v-model="email"
-            placeholder="user@example.com"
-            :disabled="loading"
-            required
-            class="w-full px-4 py-3 border border-neutral-200 rounded text-sm text-neutral-900 placeholder-neutral-400 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent transition-all disabled:opacity-50 disabled:bg-neutral-50"
-          />
-        </div>
+            <!-- Register Form -->
+            <v-window-item value="register">
+              <v-form @submit.prevent="handleRegister" class="mt-4">
+                <v-text-field
+                  v-model="name"
+                  type="text"
+                  label="Name"
+                  placeholder="Your Name"
+                  :disabled="loading"
+                  required
+                  class="mb-4"
+                />
 
-        <div>
-          <label class="block text-sm font-semibold text-neutral-700 mb-3">Password</label>
-          <input
-            type="password"
-            v-model="password"
-            placeholder="••••••••"
-            :disabled="loading"
-            :minlength="8"
-            required
-            class="w-full px-4 py-3 border border-neutral-200 rounded text-sm text-neutral-900 placeholder-neutral-400 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent transition-all disabled:opacity-50 disabled:bg-neutral-50"
-          />
-          <p class="text-xs text-neutral-500 mt-2">Minimum 8 characters</p>
-        </div>
+                <v-text-field
+                  v-model="email"
+                  type="email"
+                  label="Email"
+                  placeholder="user@example.com"
+                  :disabled="loading"
+                  required
+                  class="mb-4"
+                />
 
-        <div class="pt-4">
-          <button
-            type="submit"
-            :disabled="loading"
-            class="w-full px-6 py-3 bg-teal-600 text-white text-sm font-semibold rounded hover:bg-teal-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 ripple"
-          >
-            {{ loading ? 'Creating account...' : 'Create Account' }}
-          </button>
-        </div>
-      </form>
-    </div>
-  </div>
+                <v-text-field
+                  v-model="password"
+                  type="password"
+                  label="Password"
+                  placeholder="••••••••"
+                  :disabled="loading"
+                  :minlength="8"
+                  required
+                  hint="Minimum 8 characters"
+                  persistent-hint
+                  class="mb-6"
+                />
+
+                <v-btn
+                  type="submit"
+                  :loading="loading"
+                  :disabled="loading"
+                  block
+                  color="primary"
+                  size="large"
+                  class="mb-2"
+                >
+                  {{ loading ? 'Creating account...' : 'Create Account' }}
+                </v-btn>
+              </v-form>
+            </v-window-item>
+          </v-window>
+        </v-card>
+      </v-col>
+    </v-row>
+  </v-container>
 </template>
 
 <script setup lang="ts">
@@ -182,10 +169,8 @@ async function handleLogin() {
     router.push('/')
   } catch (e: any) {
     console.error('Login error:', e)
-    // Use the error message from the API, or provide a user-friendly default
     const errorMsg = e.message || 'Login failed. Please try again.'
     
-    // Improve error messages for common cases
     if (errorMsg.includes('Invalid email or password') || errorMsg.includes('invalid email or password')) {
       error.value = 'Email ou senha inválidos. Verifique suas credenciais e tente novamente.'
     } else if (errorMsg.includes('not available') || errorMsg.includes('not found')) {
@@ -232,10 +217,8 @@ async function handleRegister() {
     router.push('/')
   } catch (e: any) {
     console.error('Registration error:', e)
-    // Use the error message from the API, or provide a user-friendly default
     const errorMsg = e.message || 'Registration failed. Please try again.'
     
-    // Improve error messages for common cases
     if (errorMsg.includes('already exists') || errorMsg.includes('já existe')) {
       error.value = 'Este email já está cadastrado. Use outro email ou faça login.'
     } else if (errorMsg.includes('validation failed') || errorMsg.includes('Validation failed')) {

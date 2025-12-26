@@ -1,104 +1,130 @@
 <template>
-  <header
+  <v-app-bar
     v-if="user && !isLoginPage"
-    class="fixed top-0 left-0 right-0 border-b border-neutral-800 z-fixed"
-    :style="{
-      height: 'var(--header-height)',
-      backgroundColor: 'var(--color-header-background, #1e1e1e)'
-    }"
+    :height="'var(--header-height)'"
+    :color="brandingConfig?.header_color || 'var(--color-header-background)'"
+    fixed
+    elevation="0"
+    class="border-b border-neutral-800"
   >
-    <div class="flex items-center justify-between h-full px-8">
+    <div class="d-flex align-center justify-space-between w-100 px-4">
       <!-- Left: Logo + Search -->
-      <div class="flex items-center gap-6">
+      <div class="d-flex align-center gap-6">
         <!-- Logo -->
-        <div class="flex items-center gap-2 sm:gap-3">
-          <img
-            :src="brandingConfig?.icon_url || '/gopher.png'"
-            :alt="brandingConfig?.app_name || 'AlgoShield'"
-            class="w-6 h-6 sm:w-8 sm:h-8 object-contain flex-shrink-0"
-            @error="handleLogoError"
-            loading="eager"
-          />
-          <span class="text-white font-bold text-sm sm:text-lg truncate max-w-[200px] sm:max-w-none">{{ brandingConfig?.app_name || 'AlgoShield' }}</span>
+        <div class="d-flex align-center gap-2 sm:gap-3">
+          <v-avatar size="32" class="flex-shrink-0">
+            <img
+              :src="brandingConfig?.icon_url || '/gopher.png'"
+              :alt="brandingConfig?.app_name || 'AlgoShield'"
+              @error="handleLogoError"
+              class="w-full h-full object-contain"
+              loading="eager"
+            />
+          </v-avatar>
+          <span class="text-white font-bold text-sm sm:text-lg truncate max-w-[200px] sm:max-w-none">
+            {{ brandingConfig?.app_name || 'AlgoShield' }}
+          </span>
         </div>
 
         <!-- Global Search -->
-        <div class="relative">
-          <input
-            type="search"
-            placeholder="Search transactions, customers, alerts"
-            class="w-[400px] h-[36px] px-4 bg-neutral-800 border border-neutral-700 rounded text-sm text-white placeholder-neutral-500 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:ring-offset-2 focus:ring-offset-neutral-800 focus:border-teal-500 transition-all"
-          />
-        </div>
+        <v-text-field
+          v-model="searchQuery"
+          placeholder="Search transactions, customers, alerts"
+          variant="solo-filled"
+          density="compact"
+          hide-details
+          class="search-field"
+          style="max-width: 400px;"
+          bg-color="rgba(255, 255, 255, 0.1)"
+          color="white"
+        >
+          <template #prepend-inner>
+            <v-icon icon="mdi-magnify" color="white" size="small" />
+          </template>
+        </v-text-field>
       </div>
 
       <!-- Right: Notifications + User -->
-      <div class="flex items-center gap-4">
+      <div class="d-flex align-center gap-2">
         <!-- Notifications -->
-        <button
-          class="relative w-10 h-10 flex items-center justify-center rounded-full hover:bg-neutral-800 transition-colors"
+        <v-btn
+          icon
+          variant="text"
+          color="white"
+          class="position-relative"
         >
-          <i class="far fa-bell text-white text-lg"></i>
-          <span class="absolute top-1 right-1 w-2 h-2 bg-red-500 rounded-full"></span>
-        </button>
+          <v-icon icon="mdi-bell-outline" />
+          <v-badge
+            color="error"
+            content=""
+            dot
+            location="top end"
+            offset-x="2"
+            offset-y="2"
+          />
+        </v-btn>
 
         <!-- User Menu -->
-        <div class="relative" ref="menuRef">
-          <button
-            ref="buttonRef"
-            @click="handleToggleMenu"
-            class="flex items-center gap-2 px-2 py-1 rounded-lg hover:bg-neutral-800 transition-colors"
-          >
-            <div class="w-8 h-8 rounded-full bg-gradient-to-br from-teal-500 to-teal-600 text-white flex items-center justify-center font-semibold text-sm overflow-hidden">
-              <img v-if="user.picture_url" :src="user.picture_url" :alt="user.name" class="w-full h-full object-cover" />
-              <span v-else>{{ user.name.charAt(0).toUpperCase() }}</span>
-            </div>
-            <i class="fas fa-chevron-down text-neutral-400 text-xs"></i>
-          </button>
-
-          <!-- Dropdown -->
-          <Teleport to="body">
-            <div
-              v-if="showUserMenu"
-              ref="dropdownRef"
-              class="fixed bg-white border border-neutral-200 rounded-lg shadow-xl min-w-[220px] z-[1100]"
-              :style="{
-                top: `${dropdownPosition.top}px`,
-                right: `${dropdownPosition.right}px`
-              }"
+        <v-menu
+          v-model="showUserMenu"
+          location="bottom end"
+          offset="8"
+        >
+          <template #activator="{ props: menuProps }">
+            <v-btn
+              v-bind="menuProps"
+              variant="text"
+              color="white"
+              class="d-flex align-center gap-2"
             >
-            <div class="p-4 border-b border-neutral-200">
-              <div class="font-semibold text-neutral-900 text-sm">{{ user.name }}</div>
-              <div class="text-xs text-neutral-500 mt-1">{{ user.email }}</div>
-            </div>
-            <div class="py-2">
-              <router-link
-                to="/profile"
-                class="flex items-center gap-3 px-4 py-2 text-sm text-neutral-700 hover:bg-neutral-50 transition-colors"
-              >
-                <i class="fas fa-user w-4"></i>
-                <span>Profile</span>
-              </router-link>
-            </div>
-            <div class="border-t border-neutral-200">
-              <button
-                @click="handleLogout"
-                class="w-full flex items-center gap-3 px-4 py-3 text-sm font-medium text-red-600 hover:bg-red-50 transition-colors"
-              >
-                <i class="fas fa-sign-out-alt w-4"></i>
-                <span>Logout</span>
-              </button>
-            </div>
-            </div>
-          </Teleport>
-        </div>
+              <v-avatar size="32">
+                <v-img
+                  v-if="user.picture_url"
+                  :src="user.picture_url"
+                  :alt="user.name"
+                  cover
+                />
+                <span v-else class="text-white">
+                  {{ user.name.charAt(0).toUpperCase() }}
+                </span>
+              </v-avatar>
+              <v-icon icon="mdi-chevron-down" size="small" />
+            </v-btn>
+          </template>
+
+          <v-list>
+            <v-list-item>
+              <v-list-item-title class="font-weight-semibold">
+                {{ user.name }}
+              </v-list-item-title>
+              <v-list-item-subtitle>
+                {{ user.email }}
+              </v-list-item-subtitle>
+            </v-list-item>
+            <v-divider />
+            <v-list-item
+              to="/profile"
+              prepend-icon="mdi-account"
+            >
+              Profile
+            </v-list-item>
+            <v-divider />
+            <v-list-item
+              @click="handleLogout"
+              prepend-icon="mdi-logout"
+              class="text-error"
+            >
+              Logout
+            </v-list-item>
+          </v-list>
+        </v-menu>
       </div>
     </div>
-  </header>
+  </v-app-bar>
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, onUnmounted, nextTick } from 'vue'
+import { ref, computed } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import { useBrandingStore } from '@/stores/branding'
@@ -108,33 +134,12 @@ const route = useRoute()
 const authStore = useAuthStore()
 const brandingStore = useBrandingStore()
 
+const searchQuery = ref('')
 const showUserMenu = ref(false)
-const menuRef = ref<HTMLElement | null>(null)
-const buttonRef = ref<HTMLElement | null>(null)
-const dropdownRef = ref<HTMLElement | null>(null)
-const dropdownPosition = ref({ top: 0, right: 0 })
 
 const user = computed(() => authStore.user)
 const isLoginPage = computed(() => route.path.startsWith('/login'))
 const brandingConfig = computed(() => brandingStore.config)
-
-const updateDropdownPosition = () => {
-  if (buttonRef.value) {
-    const rect = buttonRef.value.getBoundingClientRect()
-    dropdownPosition.value = {
-      top: rect.bottom + 8, // 8px = mt-2
-      right: window.innerWidth - rect.right
-    }
-  }
-}
-
-const handleToggleMenu = async () => {
-  showUserMenu.value = !showUserMenu.value
-  if (showUserMenu.value) {
-    await nextTick()
-    updateDropdownPosition()
-  }
-}
 
 const handleLogout = async () => {
   await authStore.logout()
@@ -146,26 +151,14 @@ const handleLogoError = (event: Event) => {
   const img = event.target as HTMLImageElement
   img.src = '/gopher.png'
 }
+</script>
 
-function handleClickOutside(event: MouseEvent) {
-  const target = event.target as Node
-  const clickedInsideButton = buttonRef.value && buttonRef.value.contains(target)
-  const clickedInsideDropdown = dropdownRef.value && dropdownRef.value.contains(target)
-  
-  if (!clickedInsideButton && !clickedInsideDropdown) {
-    showUserMenu.value = false
-  }
+<style scoped>
+.search-field :deep(.v-field__input) {
+  color: white;
 }
 
-onMounted(() => {
-  document.addEventListener('click', handleClickOutside)
-  window.addEventListener('resize', updateDropdownPosition)
-  window.addEventListener('scroll', updateDropdownPosition, true)
-})
-
-onUnmounted(() => {
-  document.removeEventListener('click', handleClickOutside)
-  window.removeEventListener('resize', updateDropdownPosition)
-  window.removeEventListener('scroll', updateDropdownPosition, true)
-})
-</script>
+.search-field :deep(.v-field__input::placeholder) {
+  color: rgba(255, 255, 255, 0.7);
+}
+</style>

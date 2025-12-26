@@ -1,6 +1,7 @@
 import { defineStore } from 'pinia';
 import { ref } from 'vue';
 import { api } from '@/lib/api';
+import { updateVuetifyTheme } from '@/plugins/vuetify';
 
 export interface BrandingConfig {
 	id: number;
@@ -81,6 +82,9 @@ export const useBrandingStore = defineStore('branding', () => {
 		root.style.setProperty('--color-secondary', brandingConfig.secondary_color);
 		root.style.setProperty('--color-header-background', brandingConfig.header_color);
 
+		// Update Vuetify theme with branding colors
+		updateVuetifyTheme(brandingConfig.primary_color, brandingConfig.secondary_color);
+
 		// Update favicon if provided
 		if (brandingConfig.favicon_url) {
 			updateFavicon(brandingConfig.favicon_url);
@@ -95,6 +99,9 @@ export const useBrandingStore = defineStore('branding', () => {
 		root.style.setProperty('--color-primary', '#3B82F6');
 		root.style.setProperty('--color-secondary', '#10B981');
 		root.style.setProperty('--color-header-background', '#1e1e1e');
+
+		// Update Vuetify theme with default colors
+		updateVuetifyTheme('#3B82F6', '#10B981');
 	}
 
 	function updateFavicon(faviconUrl: string) {

@@ -1,45 +1,36 @@
 <template>
-  <Teleport to="body">
-    <Transition name="modal">
-      <div
-        v-if="modelValue"
-        class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-modal-backdrop p-4"
-        @click="handleBackdropClick"
-      >
-        <div
-          :class="modalClasses"
-          @click.stop
-          role="dialog"
-          aria-modal="true"
-        >
-          <!-- Header -->
-          <div v-if="title || $slots.header" class="flex items-center justify-between p-6 border-b border-gray-200">
-            <slot name="header">
-              <h2 class="text-2xl font-semibold text-gray-900">{{ title }}</h2>
-            </slot>
-            <button
-              v-if="closable"
-              @click="close"
-              class="text-gray-400 hover:text-gray-600 transition-colors w-8 h-8 flex items-center justify-center text-2xl leading-none"
-              aria-label="Close modal"
-            >
-              ×
-            </button>
-          </div>
+  <v-dialog
+    :model-value="modelValue"
+    :max-width="maxWidth"
+    :persistent="!closeOnBackdrop"
+    @update:model-value="handleUpdate"
+  >
+    <v-card>
+      <!-- Header -->
+      <v-card-title v-if="title || $slots.header" class="d-flex align-center justify-space-between">
+        <slot name="header">
+          <span>{{ title }}</span>
+        </slot>
+        <v-btn
+          v-if="closable"
+          icon="mdi-close"
+          variant="text"
+          size="small"
+          @click="close"
+        />
+      </v-card-title>
 
-          <!-- Body -->
-          <div class="p-6 overflow-y-auto" :style="{ maxHeight: maxContentHeight }">
-            <slot />
-          </div>
+      <!-- Body -->
+      <v-card-text :style="{ maxHeight: maxContentHeight, overflowY: 'auto' }">
+        <slot />
+      </v-card-text>
 
-          <!-- Footer -->
-          <div v-if="$slots.footer" class="flex items-center justify-end gap-4 p-6 border-t border-gray-200">
-            <slot name="footer" />
-          </div>
-        </div>
-      </div>
-    </Transition>
-  </Teleport>
+      <!-- Footer -->
+      <v-card-actions v-if="$slots.footer" class="d-flex justify-end gap-2">
+        <slot name="footer" />
+      </v-card-actions>
+    </v-card>
+  </v-dialog>
 </template>
 
 <script setup lang="ts">
@@ -66,25 +57,18 @@ const emit = defineEmits<{
   'close': []
 }>()
 
-const modalClasses = computed(() => {
-  const classes = [
-    'bg-white rounded-lg shadow-xl z-modal',
-    'w-full mx-4',
-    'flex flex-col',
-  ]
-
-  // Size classes
-  if (props.size === 'sm') {
-    classes.push('max-w-md')
-  } else if (props.size === 'lg') {
-    classes.push('max-w-3xl')
-  } else if (props.size === 'xl') {
-    classes.push('max-w-5xl')
-  } else {
-    classes.push('max-w-2xl')
+// Map size to Vuetify max-width
+const maxWidth = computed(() => {
+  switch (props.size) {
+    case 'sm':
+      return '500'
+    case 'lg':
+      return '900'
+    case 'xl':
+      return '1200'
+    default:
+      return '700' // md
   }
-
-  return classes.join(' ')
 })
 
 const maxContentHeight = computed(() => {
@@ -96,31 +80,10 @@ const close = () => {
   emit('close')
 }
 
-const handleBackdropClick = () => {
-  if (props.closeOnBackdrop) {
-    close()
+const handleUpdate = (value: boolean) => {
+  emit('update:modelValue', value)
+  if (!value) {
+    emit('close')
   }
 }
 </script>
-
-<style scoped>
-.modal-enter-active,
-.modal-leave-active {
-  transition: opacity 0.3s ease;
-}
-
-.modal-enter-from,
-.modal-leave-to {
-  opacity: 0;
-}
-
-.modal-enter-active .bg-white,
-.modal-leave-active .bg-white {
-  transition: transform 0.3s ease;
-}
-
-.modal-enter-from .bg-white,
-.modal-leave-to .bg-white {
-  transform: scale(0.95);
-}
-</style>

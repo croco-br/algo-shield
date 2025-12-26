@@ -1,42 +1,46 @@
 <template>
-  <div class="dashboard-container">
-    <div class="mb-8">
-      <h2 class="text-3xl font-bold text-neutral-900 mb-2">Transactions</h2>
-      <p class="text-neutral-600">View and manage transaction records</p>
-    </div>
+  <v-container fluid class="pa-8">
+    <v-row>
+      <v-col cols="12">
+        <div class="mb-8">
+          <h2 class="text-h4 font-weight-bold mb-2">Transactions</h2>
+          <p class="text-body-1 text-grey-darken-1">View and manage transaction records</p>
+        </div>
 
-    <LoadingSpinner v-if="loading" text="Loading transactions..." :centered="false" />
+        <LoadingSpinner v-if="loading" text="Loading transactions..." :centered="false" />
 
-    <ErrorMessage
-      v-else-if="error"
-      title="Error loading transactions"
-      :message="error"
-      retryable
-      @retry="loadTransactions"
-    />
+        <ErrorMessage
+          v-else-if="error"
+          title="Error loading transactions"
+          :message="error"
+          retryable
+          @retry="loadTransactions"
+        />
 
-    <!-- Transaction Table -->
-    <TransactionTable
-      v-else
-      :data="transactions"
-      :pageSize="50"
-      @row-click="openTransactionDetail"
-    />
+        <!-- Transaction Table -->
+        <TransactionTable
+          v-else
+          :data="transactions"
+          :pageSize="50"
+          @row-click="openTransactionDetail"
+        />
 
-    <!-- Transaction Detail Modal -->
-    <TransactionDetailModal
-      v-model="showDetailModal"
-      :transaction="selectedTransaction"
-      @open-escalation="openEscalationModal"
-    />
+        <!-- Transaction Detail Modal -->
+        <TransactionDetailModal
+          v-model="showDetailModal"
+          :transaction="selectedTransaction"
+          @open-escalation="openEscalationModal"
+        />
 
-    <!-- Risk Escalation Modal -->
-    <RiskEscalationModal
-      v-model="showEscalationModal"
-      :transaction="selectedTransaction"
-      @submit="handleEscalationSubmit"
-    />
-  </div>
+        <!-- Risk Escalation Modal -->
+        <RiskEscalationModal
+          v-model="showEscalationModal"
+          :transaction="selectedTransaction"
+          @submit="handleEscalationSubmit"
+        />
+      </v-col>
+    </v-row>
+  </v-container>
 </template>
 
 <script setup lang="ts">
@@ -91,7 +95,3 @@ onMounted(() => {
   loadTransactions()
 })
 </script>
-
-<style scoped>
-/* Dashboard uses Tailwind's grid system with harmonious spacing */
-</style>

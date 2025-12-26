@@ -1,67 +1,50 @@
 <template>
-  <div class="bg-white rounded-lg border border-gray-200 overflow-hidden">
-    <div v-if="$slots.header" class="px-6 py-4 border-b border-gray-200">
+  <v-card>
+    <v-card-title v-if="$slots.header">
       <slot name="header" />
-    </div>
+    </v-card-title>
 
-    <div class="overflow-x-auto">
-      <table class="w-full border-collapse">
-        <thead class="bg-gray-50">
-          <tr>
-            <th
-              v-for="column in columns"
-              :key="column.key"
-              :class="[
-                'px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider border-b border-gray-200',
-                column.headerClass
-              ]"
-              :style="column.width ? { width: column.width } : {}"
-            >
-              {{ column.label }}
-            </th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr
-            v-for="(row, index) in data"
-            :key="getRowKey(row, index)"
-            :class="['hover:bg-gray-50 transition-colors', rowClass]"
-          >
-            <td
-              v-for="column in columns"
-              :key="column.key"
-              :class="[
-                'px-6 py-5 border-b border-gray-200',
-                column.cellClass
-              ]"
-            >
-              <slot
-                :name="`cell-${column.key}`"
-                :row="row"
-                :value="getNestedValue(row, column.key)"
-                :index="index"
-              >
-                {{ getNestedValue(row, column.key) }}
-              </slot>
-            </td>
-          </tr>
-        </tbody>
-      </table>
-    </div>
+    <v-data-table
+      :headers="normalizedHeaders"
+      :items="data"
+      :item-value="getItemKey"
+      :items-per-page="-1"
+      hide-default-footer
+      class="elevation-0"
+    >
+      <template
+        v-for="column in columns"
+        :key="`cell-${column.key}`"
+        #[`item.${column.key}`]="{ item }"
+      >
+        <slot
+          :name="`cell-${column.key}`"
+          :row="item"
+          :value="getNestedValue(item, column.key)"
+          :index="data.indexOf(item)"
+        >
+          {{ getNestedValue(item, column.key) }}
+        </slot>
+      </template>
 
-    <div v-if="$slots.footer" class="px-6 py-4 border-t border-gray-200 bg-gray-50">
+      <template #no-data>
+        <div v-if="!hideEmpty" class="pa-12 text-center text-grey">
+          <slot name="empty">
+            {{ emptyText }}
+          </slot>
+        </div>
+      </template>
+    </v-data-table>
+
+    <v-card-actions v-if="$slots.footer">
       <slot name="footer" />
-    </div>
-
-    <div v-if="data.length === 0 && !hideEmpty" class="px-6 py-12 text-center text-gray-500">
-      <slot name="empty">
-        {{ emptyText }}
-      </slot>
-    </div>
-  </div>
+    </v-card-actions>
+  </v-card>
 </template>
 
 <script setup lang="ts">
+import { computed } from 'vue'
+
 interface Column {
   key: string
   label: string
@@ -85,11 +68,22 @@ const props = withDefaults(defineProps<Props>(), {
   hideEmpty: false,
 })
 
-const getRowKey = (row: any, index: number): string | number => {
-  if (props.rowKey && row[props.rowKey]) {
-    return row[props.rowKey]
+// Normalize columns to Vuetify headers format
+const normalizedHeaders = computed(() => {
+  return props.columns.map(column => ({
+    title: column.label,
+    key: column.key,
+    width: column.width,
+    align: 'start' as const,
+    sortable: false,
+  }))
+})
+
+const getItemKey = (item: any): string | number => {
+  if (props.rowKey && item[props.rowKey] !== undefined) {
+    return item[props.rowKey]
   }
-  return index
+  return String(item) || Math.random().toString()
 }
 
 const getNestedValue = (obj: any, path: string): any => {
