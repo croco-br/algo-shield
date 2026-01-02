@@ -13,14 +13,7 @@
           <h2 class="text-xl font-bold text-neutral-900">Transaction Details</h2>
           <p class="text-sm text-neutral-600 mt-1">External ID: {{ transaction?.external_id }}</p>
         </div>
-        <v-btn
-          @click="close"
-          icon
-          variant="text"
-          size="small"
-        >
-          <v-icon icon="fa-xmark" />
-        </v-btn>
+        <BaseButton variant="ghost" size="sm" @click="close" prepend-icon="fa-xmark" />
       </div>
 
       <!-- Tabs -->
@@ -127,13 +120,13 @@
             </div>
           </div>
 
-          <button
+          <BaseButton
             @click="$emit('open-escalation')"
-            class="w-full px-4 py-3 bg-teal-600 text-white font-semibold rounded-lg hover:bg-teal-700 transition-colors"
+            full-width
+            prepend-icon="fa-arrow-up"
           >
-            <v-icon icon="fa-arrow-up" class="mr-2" />
             Escalate Transaction
-          </button>
+          </BaseButton>
 
           <div class="border-t border-neutral-200 pt-4">
             <h4 class="text-sm font-semibold text-neutral-700 mb-3">Escalation History</h4>
@@ -148,18 +141,12 @@
 
       <!-- Footer -->
       <div class="modal-footer px-6 py-4 border-t border-neutral-200 bg-neutral-50 flex items-center justify-end gap-3">
-        <button
-          @click="close"
-          class="px-4 py-2 text-sm font-semibold text-neutral-700 hover:bg-neutral-200 rounded-lg transition-colors"
-        >
+        <BaseButton variant="ghost" @click="close">
           Close
-        </button>
-        <button
-          class="px-4 py-2 bg-teal-600 text-white text-sm font-semibold rounded-lg hover:bg-teal-700 transition-colors"
-        >
-          <v-icon icon="fa-check" class="mr-2" />
+        </BaseButton>
+        <BaseButton prepend-icon="fa-check">
           Mark as Reviewed
-        </button>
+        </BaseButton>
       </div>
     </div>
   </div>
@@ -168,6 +155,7 @@
 <script setup lang="ts">
 import { ref } from 'vue'
 import type { Transaction } from '@/types/transaction'
+import BaseButton from '@/components/BaseButton.vue'
 
 interface Props {
   modelValue: boolean

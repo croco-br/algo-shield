@@ -16,14 +16,14 @@
 
     <template v-if="$slots.actions || retryable" #append>
       <slot name="actions">
-        <v-btn
+        <BaseButton
           v-if="retryable"
-          variant="text"
-          size="small"
+          variant="ghost"
+          size="sm"
           @click="$emit('retry')"
         >
           Try again
-        </v-btn>
+        </BaseButton>
       </slot>
     </template>
   </v-alert>
@@ -31,6 +31,7 @@
 
 <script setup lang="ts">
 import { computed } from 'vue'
+import BaseButton from '@/components/BaseButton.vue'
 
 interface Props {
   variant?: 'error' | 'warning' | 'info'

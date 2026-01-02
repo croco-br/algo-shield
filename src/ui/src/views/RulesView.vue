@@ -8,7 +8,7 @@
         </div>
         <p class="text-body-1 text-grey-darken-1">Configure custom rules for fraud detection and AML</p>
       </div>
-      <BaseButton @click="openCreateModal" prepend-icon="fa-plus" style="text-transform: none; font-family: var(--font-family-sans);">
+      <BaseButton @click="openCreateModal" prepend-icon="fa-plus">
         Create Rule
       </BaseButton>
     </div>
@@ -144,8 +144,8 @@
       </v-form>
 
       <template #footer>
-        <v-btn variant="text" @click="closeModal" prepend-icon="fa-xmark">Cancel</v-btn>
-        <v-btn @click="handleSubmit" color="primary" :loading="saving" prepend-icon="fa-save">Save</v-btn>
+        <BaseButton variant="ghost" @click="closeModal" prepend-icon="fa-xmark">Cancel</BaseButton>
+        <BaseButton @click="handleSubmit" :loading="saving" prepend-icon="fa-save">Save</BaseButton>
       </template>
     </BaseModal>
   </v-container>

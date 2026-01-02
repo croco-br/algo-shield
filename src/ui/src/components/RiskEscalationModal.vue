@@ -10,14 +10,7 @@
       <!-- Header -->
       <div class="modal-header px-6 py-4 border-b border-neutral-200 flex items-center justify-between">
         <h2 class="text-lg font-bold text-neutral-900">Escalate Transaction</h2>
-        <v-btn
-          @click="close"
-          icon
-          variant="text"
-          size="small"
-        >
-          <v-icon icon="fa-xmark" />
-        </v-btn>
+        <BaseButton variant="ghost" size="sm" @click="close" prepend-icon="fa-xmark" />
       </div>
 
       <!-- Content -->
@@ -96,21 +89,17 @@
 
         <!-- Actions -->
         <div class="flex items-center gap-3 pt-2">
-          <button
-            type="button"
-            @click="close"
-            class="flex-1 px-4 py-2.5 text-sm font-semibold text-neutral-700 hover:bg-neutral-100 rounded-lg transition-colors"
-          >
+          <BaseButton variant="ghost" @click="close" class="flex-1">
             Cancel
-          </button>
-          <button
+          </BaseButton>
+          <BaseButton
             type="submit"
             :disabled="!isFormValid"
-            class="flex-1 px-4 py-2.5 bg-teal-600 text-white text-sm font-semibold rounded-lg hover:bg-teal-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+            prepend-icon="fa-paper-plane"
+            class="flex-1"
           >
-            <v-icon icon="fa-paper-plane" class="mr-2" />
             Submit
-          </button>
+          </BaseButton>
         </div>
       </form>
     </div>
@@ -120,6 +109,7 @@
 <script setup lang="ts">
 import { ref, computed } from 'vue'
 import type { Transaction } from '@/types/transaction'
+import BaseButton from '@/components/BaseButton.vue'
 
 interface Props {
   modelValue: boolean

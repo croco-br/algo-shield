@@ -2,13 +2,13 @@
   <v-btn
     :type="type"
     :disabled="disabled || loading"
-    :size="size"
+    :size="mappedSize"
     :variant="mappedVariant"
     :color="mappedColor"
     :block="fullWidth"
     :loading="loading"
     :prepend-icon="prependIcon"
-    style="text-transform: none; font-family: var(--font-family-sans);"
+    class="base-button"
   >
     <slot />
   </v-btn>
@@ -36,6 +36,18 @@ const props = withDefaults(defineProps<Props>(), {
   fullWidth: false,
 })
 
+// Map sizes consistently
+const mappedSize = computed(() => {
+  switch (props.size) {
+    case 'sm':
+      return 'small'
+    case 'lg':
+      return 'large'
+    default:
+      return 'default'
+  }
+})
+
 // Map our variants to Vuetify variants and colors
 const mappedVariant = computed(() => {
   if (props.variant === 'ghost') {
@@ -60,3 +72,12 @@ const mappedColor = computed(() => {
   return 'primary' // primary variant
 })
 </script>
+
+<style scoped>
+.base-button {
+  text-transform: none;
+  font-family: var(--font-family-sans);
+  font-weight: 500;
+  letter-spacing: 0.01em;
+}
+</style>

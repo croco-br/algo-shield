@@ -53,17 +53,16 @@
                   class="mb-6"
                 />
 
-                <v-btn
+                <BaseButton
                   type="submit"
                   :loading="loading"
                   :disabled="loading"
-                  block
-                  color="primary"
-                  size="large"
+                  full-width
+                  size="lg"
                   class="mb-2"
                 >
                   {{ loading ? 'Signing in...' : 'Sign In' }}
-                </v-btn>
+                </BaseButton>
               </v-form>
             </v-window-item>
 
@@ -103,17 +102,16 @@
                   class="mb-6"
                 />
 
-                <v-btn
+                <BaseButton
                   type="submit"
                   :loading="loading"
                   :disabled="loading"
-                  block
-                  color="primary"
-                  size="large"
+                  full-width
+                  size="lg"
                   class="mb-2"
                 >
                   {{ loading ? 'Creating account...' : 'Create Account' }}
-                </v-btn>
+                </BaseButton>
               </v-form>
             </v-window-item>
           </v-window>
@@ -128,6 +126,7 @@ import { ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import { api } from '@/lib/api'
+import BaseButton from '@/components/BaseButton.vue'
 import ErrorMessage from '@/components/ErrorMessage.vue'
 
 const router = useRouter()

@@ -158,26 +158,24 @@
             </div>
 
             <!-- Action Buttons -->
-            <div class="d-flex gap-2">
-              <v-btn
+            <div class="d-flex flex-column gap-2">
+              <BaseButton
                 type="submit"
                 :loading="loading"
                 :disabled="loading"
-                color="primary"
-                block
-                size="default"
+                full-width
                 prepend-icon="fa-save"
               >
                 {{ loading ? 'Saving...' : 'Save Configuration' }}
-              </v-btn>
-              <v-btn
-                variant="outlined"
+              </BaseButton>
+              <BaseButton
+                variant="secondary"
                 @click="resetToDefaults"
-                size="default"
+                full-width
                 prepend-icon="fa-rotate-left"
               >
-                Reset
-              </v-btn>
+                Reset to Defaults
+              </BaseButton>
             </div>
           </v-form>
         </v-card>
@@ -268,20 +266,18 @@
             <div>
               <h3 class="text-caption font-weight-medium text-grey-darken-1 mb-1">Buttons</h3>
               <div class="d-flex gap-2">
-                <v-btn
+                <BaseButton
+                  size="sm"
                   :style="{ backgroundColor: form.primary_color }"
-                  color="primary"
-                  size="x-small"
                 >
                   Primary
-                </v-btn>
-                <v-btn
+                </BaseButton>
+                <BaseButton
+                  size="sm"
                   :style="{ backgroundColor: form.secondary_color }"
-                  color="secondary"
-                  size="x-small"
                 >
                   Secondary
-                </v-btn>
+                </BaseButton>
               </div>
             </div>
 
@@ -306,6 +302,7 @@
 <script setup lang="ts">
 import { ref, reactive, watch } from 'vue'
 import { useBrandingStore, type BrandingConfig } from '@/stores/branding'
+import BaseButton from '@/components/BaseButton.vue'
 
 const brandingStore = useBrandingStore()
 

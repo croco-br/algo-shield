@@ -5,22 +5,12 @@
       <div class="flex items-center justify-between">
         <h3 class="text-lg font-semibold text-neutral-900">Recent Transactions</h3>
         <div class="flex items-center gap-3">
-          <v-btn
-            variant="text"
-            size="small"
-            class="text-neutral-600"
-          >
-            <v-icon icon="fa-filter" size="small" class="mr-2" />
+          <BaseButton variant="ghost" size="sm" prepend-icon="fa-filter">
             Filter
-          </v-btn>
-          <v-btn
-            variant="text"
-            size="small"
-            class="text-neutral-600"
-          >
-            <v-icon icon="fa-download" size="small" class="mr-2" />
+          </BaseButton>
+          <BaseButton variant="ghost" size="sm" prepend-icon="fa-download">
             Export
-          </v-btn>
+          </BaseButton>
         </div>
       </div>
     </div>
@@ -102,7 +92,6 @@
             icon
             variant="text"
             size="small"
-            :color="currentPage === 1 ? 'grey' : 'grey-darken-1'"
           >
             <v-icon icon="fa-chevron-left" />
           </v-btn>
@@ -129,7 +118,6 @@
             icon
             variant="text"
             size="small"
-            :color="currentPage === totalPages ? 'grey' : 'grey-darken-1'"
           >
             <v-icon icon="fa-chevron-right" />
           </v-btn>
@@ -142,6 +130,7 @@
 <script setup lang="ts">
 import { ref, computed } from 'vue'
 import type { Transaction } from '@/types/transaction'
+import BaseButton from '@/components/BaseButton.vue'
 
 interface Column {
   key: string

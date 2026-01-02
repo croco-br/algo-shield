@@ -44,13 +44,12 @@
           </template>
           <v-list-item-title class="font-weight-semibold">Status</v-list-item-title>
           <template #append>
-            <v-chip
-              :color="healthData.status === 'ok' ? 'success' : 'warning'"
-              size="small"
-              variant="flat"
+            <BaseBadge
+              :variant="healthData.status === 'ok' ? 'success' : 'warning'"
+              size="sm"
             >
               {{ healthData.status.toUpperCase() }}
-            </v-chip>
+            </BaseBadge>
           </template>
         </v-list-item>
 
@@ -63,13 +62,12 @@
           </template>
           <v-list-item-title class="font-weight-semibold">PostgreSQL</v-list-item-title>
           <template #append>
-            <v-chip
-              :color="healthData.postgres === 'healthy' ? 'success' : 'error'"
-              size="small"
-              variant="flat"
+            <BaseBadge
+              :variant="healthData.postgres === 'healthy' ? 'success' : 'danger'"
+              size="sm"
             >
               {{ healthData.postgres.toUpperCase() }}
-            </v-chip>
+            </BaseBadge>
           </template>
         </v-list-item>
 
@@ -82,13 +80,12 @@
           </template>
           <v-list-item-title class="font-weight-semibold">Redis</v-list-item-title>
           <template #append>
-            <v-chip
-              :color="healthData.redis === 'healthy' ? 'success' : 'error'"
-              size="small"
-              variant="flat"
+            <BaseBadge
+              :variant="healthData.redis === 'healthy' ? 'success' : 'danger'"
+              size="sm"
             >
               {{ healthData.redis.toUpperCase() }}
-            </v-chip>
+            </BaseBadge>
           </template>
         </v-list-item>
 
@@ -111,6 +108,7 @@
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
 import { api } from '@/lib/api'
+import BaseBadge from '@/components/BaseBadge.vue'
 import LoadingSpinner from '@/components/LoadingSpinner.vue'
 import ErrorMessage from '@/components/ErrorMessage.vue'
 

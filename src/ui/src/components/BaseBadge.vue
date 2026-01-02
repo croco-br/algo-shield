@@ -3,7 +3,10 @@
     :color="mappedColor"
     :variant="mappedVariant"
     :size="mappedSize"
+    :closable="closable"
     :rounded="rounded ? 'pill' : undefined"
+    class="base-badge"
+    @click:close="$emit('close')"
   >
     <slot />
   </v-chip>
@@ -17,6 +20,7 @@ interface Props {
   size?: 'sm' | 'md' | 'lg'
   outline?: boolean
   rounded?: boolean
+  closable?: boolean
 }
 
 const props = withDefaults(defineProps<Props>(), {
@@ -24,7 +28,12 @@ const props = withDefaults(defineProps<Props>(), {
   size: 'md',
   outline: false,
   rounded: false,
+  closable: false,
 })
+
+defineEmits<{
+  close: []
+}>()
 
 // Map variants to Vuetify colors
 const mappedColor = computed(() => {
@@ -47,15 +56,23 @@ const mappedVariant = computed(() => {
   return props.outline ? 'outlined' : 'flat'
 })
 
-// Map sizes
+// Map sizes to match BaseButton
 const mappedSize = computed(() => {
   switch (props.size) {
     case 'sm':
-      return 'x-small'
+      return 'small'
     case 'lg':
       return 'large'
     default:
-      return 'small'
+      return 'default'
   }
 })
 </script>
+
+<style scoped>
+.base-badge {
+  font-family: var(--font-family-sans);
+  font-weight: 500;
+  letter-spacing: 0.01em;
+}
+</style>

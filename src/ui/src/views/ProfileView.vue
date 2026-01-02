@@ -55,15 +55,14 @@
           <template #append>
             <div class="d-flex gap-2 flex-wrap align-center">
               <template v-if="user?.roles && user.roles.length > 0">
-                <v-chip
+                <BaseBadge
                   v-for="role in user.roles"
                   :key="role.id"
-                  color="primary"
-                  size="small"
-                  variant="flat"
+                  variant="info"
+                  size="sm"
                 >
                   {{ role.name }}
-                </v-chip>
+                </BaseBadge>
               </template>
               <span v-else class="text-body-2 text-grey-darken-1">
                 No roles assigned
@@ -78,13 +77,12 @@
           </template>
           <v-list-item-title class="font-weight-semibold">Status</v-list-item-title>
           <template #append>
-            <v-chip
-              :color="user?.active ? 'success' : 'error'"
-              size="small"
-              variant="flat"
+            <BaseBadge
+              :variant="user?.active ? 'success' : 'danger'"
+              size="sm"
             >
               {{ user?.active ? 'Active' : 'Inactive' }}
-            </v-chip>
+            </BaseBadge>
           </template>
         </v-list-item>
       </v-list>
@@ -95,6 +93,7 @@
 <script setup lang="ts">
 import { computed, onMounted } from 'vue'
 import { useAuthStore } from '@/stores/auth'
+import BaseBadge from '@/components/BaseBadge.vue'
 
 const authStore = useAuthStore()
 

@@ -25,14 +25,14 @@
     >
       <template #cell-user="{ row }">
         <div class="d-flex align-center gap-3">
-          <v-avatar size="32">
+          <v-avatar size="32" color="primary">
             <v-img
               v-if="row.picture_url"
               :src="row.picture_url"
               :alt="row.name"
               cover
             />
-            <span v-else class="text-white">
+            <span v-else class="text-white text-body-2 font-weight-medium">
               {{ row.name.charAt(0).toUpperCase() }}
             </span>
           </v-avatar>
@@ -50,18 +50,11 @@
             v-for="role in (row.roles || [])"
             :key="role.id"
             variant="info"
-            class="cursor-pointer"
+            size="sm"
+            closable
+            @close="removeRole(row.id, role.id)"
           >
             {{ role.name }}
-            <v-btn
-              icon
-              size="x-small"
-              variant="text"
-              @click.stop="removeRole(row.id, role.id)"
-              class="ml-2"
-            >
-              <v-icon size="small">fa-xmark</v-icon>
-            </v-btn>
           </BaseBadge>
           <BaseButton
             size="sm"
@@ -75,7 +68,7 @@
       </template>
 
       <template #cell-status="{ row }">
-        <BaseBadge :variant="row.active ? 'success' : 'danger'">
+        <BaseBadge :variant="row.active ? 'success' : 'danger'" size="sm">
           {{ row.active ? 'Active' : 'Inactive' }}
         </BaseBadge>
       </template>
