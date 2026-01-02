@@ -7,6 +7,7 @@
 - **⚡ Ultra-Fast Processing**: Process transactions in <50ms with highly optimized Go workers
 - **🔧 Custom Rules Engine**: Configure custom fraud detection rules with an intuitive UI
 - **🔄 Hot-Reload Rules**: Update rules in real-time without restarting services
+- **📋 Event Schema Management**: Define and manage event schemas with automatic field extraction from sample JSON
 - **📊 Risk Scoring**: Flexible scoring system supporting OK/NOK or numeric scores
 - **🧪 Synthetic Data Generation**: Generate test data to validate rules before production
 - **🎯 Dual Processing Modes**: Support for pre-transaction (fraud prevention) and post-transaction (AML) analysis
@@ -15,6 +16,7 @@
 - **🔐 Authentication & Authorization**: JWT-based authentication with role-based access control (RBAC)
 - **👥 User Management**: Complete user, role, and group management system
 - **🛡️ Permission System**: Fine-grained permissions for rule editing and administrative tasks
+- **🎨 Branding Configuration**: White-label customization with configurable colors, logos, and app name
 
 ## 🏗️ Architecture
 
@@ -37,10 +39,10 @@ AlgoShield is built with a modern microservices architecture:
 ### Components
 
 - **API Service**: RESTful API built with Fiber (Go) for high-performance HTTP handling with JWT authentication
-- **Worker Service**: Transaction processing engine with custom rules evaluation and hot-reload support
-- **UI**: Vue.js 3-based modern web interface with Vuetify (Material Design) components, Pinia state management, and Tailwind CSS for rule management and user administration
-- **PostgreSQL**: Primary data store for transactions, rules, users, roles, and groups
-- **Redis**: Message queue for async processing and rules caching
+- **Worker Service**: Transaction processing engine with custom rules evaluation, schema management, and hot-reload support
+- **UI**: Vue.js 3-based modern web interface with Vuetify (Material Design) components, Pinia state management, and Tailwind CSS for rule management, schema management, and user administration
+- **PostgreSQL**: Primary data store for transactions, rules, event schemas, users, roles, and groups
+- **Redis**: Message queue for async processing, rules caching, and schema invalidation pub/sub
 
 ## 🚀 Quick Start
 
@@ -100,6 +102,9 @@ psql -h localhost -U algoshield -d algoshield -f scripts/migrations/001_initial_
 psql -h localhost -U algoshield -d algoshield -f scripts/migrations/002_auth_schema.sql
 psql -h localhost -U algoshield -d algoshield -f scripts/migrations/003_local_auth.sql
 psql -h localhost -U algoshield -d algoshield -f scripts/migrations/004_insert_admin.sql
+psql -h localhost -U algoshield -d algoshield -f scripts/migrations/005_branding_config.sql
+psql -h localhost -U algoshield -d algoshield -f scripts/migrations/006_add_header_color.sql
+psql -h localhost -U algoshield -d algoshield -f scripts/migrations/007_event_schemas.sql
 ```
 
 **Note**: The migrations script (`migrations.sh`) is designed for Docker environments. For local development, run migrations manually as shown above.
@@ -449,6 +454,111 @@ Authorization: Bearer <token>
 
 **Note**: Rule creation, update, and deletion require `admin` or `rule_editor` role.
 
+### Event Schemas
+
+Event schemas define the structure of transaction events and enable automatic field extraction from sample JSON. Rules can be associated with specific schemas to ensure type safety and proper field validation.
+
+#### List Schemas
+
+```bash
+GET /api/v1/schemas
+Authorization: Bearer <token>
+```
+
+#### Get Schema
+
+```bash
+GET /api/v1/schemas/{id}
+Authorization: Bearer <token>
+```
+
+#### Create Schema
+
+**Requires `admin` or `rule_editor` role**
+
+Create a new event schema from sample JSON. The system automatically extracts all fields from the sample JSON.
+
+```bash
+POST /api/v1/schemas
+Authorization: Bearer <token>
+Content-Type: application/json
+
+{
+  "name": "Payment Transaction",
+  "description": "Schema for payment transactions",
+  "sample_json": {
+    "amount": 100.50,
+    "currency": "USD",
+    "from_account": "ACC001",
+    "to_account": "ACC002",
+    "timestamp": "2024-12-05T10:00:00Z",
+    "metadata": {
+      "ip_address": "192.168.1.1",
+      "device_id": "device_123"
+    }
+  }
+}
+```
+
+Response:
+```json
+{
+  "id": "uuid",
+  "name": "Payment Transaction",
+  "description": "Schema for payment transactions",
+  "sample_json": { ... },
+  "extracted_fields": [
+    "amount",
+    "currency",
+    "from_account",
+    "to_account",
+    "timestamp",
+    "metadata.ip_address",
+    "metadata.device_id"
+  ],
+  "created_at": "2024-12-05T10:00:00Z",
+  "updated_at": "2024-12-05T10:00:00Z"
+}
+```
+
+#### Update Schema
+
+**Requires `admin` or `rule_editor` role**
+
+```bash
+PUT /api/v1/schemas/{id}
+Authorization: Bearer <token>
+Content-Type: application/json
+
+{
+  "name": "Updated Schema Name",
+  "description": "Updated description",
+  "sample_json": { ... }
+}
+```
+
+#### Delete Schema
+
+**Requires `admin` or `rule_editor` role**
+
+**Note**: Schemas cannot be deleted if they are referenced by any rules.
+
+```bash
+DELETE /api/v1/schemas/{id}
+Authorization: Bearer <token>
+```
+
+#### Parse Schema
+
+**Requires `admin` or `rule_editor` role**
+
+Re-extract fields from a schema's sample JSON without updating other fields.
+
+```bash
+POST /api/v1/schemas/{id}/parse
+Authorization: Bearer <token>
+```
+
 ## 🔧 Rule Types
 
 ### Amount Rule
@@ -597,12 +707,13 @@ AlgoShield is designed for maximum performance:
 1. **Compiled with Go 1.25.4** for enhanced performance
 2. **Connection pooling** for PostgreSQL and Redis
 3. **Rule caching** with Redis to minimize database queries
-4. **Async processing** through Redis queues
-5. **Horizontal scaling** of worker processes
-6. **Optimized database indexes** for fast queries
-7. **Hot-reload rules** without service restart
-8. **Configurable timeouts** for transaction processing and rule evaluation
-9. **Retry mechanisms** with exponential backoff
+4. **Schema caching** with in-memory cache and Redis pub/sub invalidation
+5. **Async processing** through Redis queues
+6. **Horizontal scaling** of worker processes
+7. **Optimized database indexes** for fast queries
+8. **Hot-reload rules and schemas** without service restart
+9. **Configurable timeouts** for transaction processing and rule evaluation
+10. **Retry mechanisms** with exponential backoff
 
 ## 🧪 Testing
 
@@ -681,6 +792,8 @@ Built with:
 - [Vite](https://vitejs.dev/) - Build tool
 - [Redis](https://redis.io/) - Caching and message queue
 - [JWT](https://jwt.io/) - Authentication tokens
+- [Font Awesome](https://fontawesome.com/) - Icon library
+- [Prism.js](https://prismjs.com/) - Syntax highlighting
 
 ## 📧 Support
 

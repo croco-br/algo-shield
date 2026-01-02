@@ -58,8 +58,9 @@ func (e *Engine) LoadRules(ctx context.Context) error {
 }
 
 // StartSchemaInvalidationSubscription starts listening for schema changes
+// This is a blocking function that should be called in a goroutine managed by errgroup
 func (e *Engine) StartSchemaInvalidationSubscription(ctx context.Context) {
-	go e.schemaService.SubscribeToInvalidations(ctx)
+	e.schemaService.SubscribeToInvalidations(ctx)
 }
 
 // Evaluate evaluates an event against all loaded rules using schema-based evaluation

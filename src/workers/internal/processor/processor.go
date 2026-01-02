@@ -66,8 +66,11 @@ func (p *Processor) Start(ctx context.Context) error {
 	// Create errgroup for managing all goroutines with proper error handling
 	g, gCtx := errgroup.WithContext(ctx)
 
-	// Start schema invalidation subscription
-	p.ruleEngine.StartSchemaInvalidationSubscription(gCtx)
+	// Start schema invalidation subscription (managed by errgroup)
+	g.Go(func() error {
+		p.ruleEngine.StartSchemaInvalidationSubscription(gCtx)
+		return nil // Subscription runs until context cancellation
+	})
 
 	// Reload rules periodically for hot-reload
 	g.Go(func() error {
