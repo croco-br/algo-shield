@@ -134,24 +134,24 @@
         />
 
         <!-- Available Fields from Selected Schema -->
-        <div v-if="selectedSchema && selectedSchema.extracted_fields?.length > 0" class="mb-4 pa-3 bg-blue-lighten-5 rounded-lg">
+        <div v-if="currentSchema && currentSchema.extracted_fields?.length > 0" class="mb-4 pa-3 bg-blue-lighten-5 rounded-lg">
           <div class="d-flex justify-space-between align-center mb-2">
             <label class="text-caption text-grey-darken-1 d-flex align-center">
               <v-icon icon="fa-info-circle" size="x-small" class="mr-1" />
-              Available fields from "{{ selectedSchema.name }}" ({{ selectedSchema.extracted_fields.length }}):
+              Available fields from "{{ currentSchema.name }}" ({{ currentSchema.extracted_fields.length }}):
             </label>
             <v-btn
-              v-if="selectedSchema.extracted_fields.length > 10"
+              v-if="currentSchema.extracted_fields.length > 10"
               size="x-small"
               variant="text"
               @click="showAllFields = !showAllFields"
             >
-              {{ showAllFields ? 'Show Less' : `Show All (${selectedSchema.extracted_fields.length})` }}
+              {{ showAllFields ? 'Show Less' : `Show All (${currentSchema.extracted_fields.length})` }}
             </v-btn>
           </div>
           <div class="d-flex flex-wrap gap-1">
             <v-chip
-              v-for="field in (showAllFields ? selectedSchema.extracted_fields : selectedSchema.extracted_fields.slice(0, 10))"
+              v-for="field in (showAllFields ? currentSchema.extracted_fields : currentSchema.extracted_fields.slice(0, 10))"
               :key="field.path"
               size="x-small"
               variant="outlined"
@@ -207,7 +207,7 @@
         />
 
         <!-- Rule Expression Section -->
-        <div v-if="selectedSchema" class="mb-6 pa-4 bg-grey-lighten-5 rounded-lg">
+        <div v-if="currentSchema" class="mb-6 pa-4 bg-grey-lighten-5 rounded-lg">
           <div class="d-flex justify-space-between align-center mb-4">
             <h4 class="text-subtitle-1 font-weight-medium d-flex align-center">
               <v-icon icon="fa-code" size="small" class="mr-2" />
@@ -448,6 +448,15 @@ const schemas = ref<EventSchema[]>([])
 const selectedSchema = ref<EventSchema | null>(null)
 const showAllFields = ref(false)
 
+// Computed property that resolves schema directly from editingRule.schema_id
+// This avoids race conditions with the async watcher that updates selectedSchema
+const currentSchema = computed(() => {
+  if (!editingRule.schema_id) {
+    return null
+  }
+  return schemas.value.find(s => s.id === editingRule.schema_id) || null
+})
+
 // Computed list of schema options for the dropdown
 const schemaOptions = computed(() => {
   return schemas.value.map(s => ({
@@ -456,12 +465,12 @@ const schemaOptions = computed(() => {
   }))
 })
 
-// Computed list of field options from selected schema
+// Computed list of field options from current schema (resolved directly from editingRule.schema_id)
 const fieldOptions = computed(() => {
-  if (!selectedSchema.value || !selectedSchema.value.extracted_fields) {
+  if (!currentSchema.value || !currentSchema.value.extracted_fields) {
     return []
   }
-  return selectedSchema.value.extracted_fields.map(f => ({
+  return currentSchema.value.extracted_fields.map(f => ({
     value: f.path,
     label: `${f.path} (${f.type})`,
   }))
@@ -469,11 +478,11 @@ const fieldOptions = computed(() => {
 
 // Get operator options based on field type
 function getOperatorOptions(fieldPath: string): Array<{ value: string; label: string }> {
-  if (!selectedSchema.value || !fieldPath) {
+  if (!currentSchema.value || !fieldPath) {
     return []
   }
   
-  const field = selectedSchema.value.extracted_fields.find(f => f.path === fieldPath)
+  const field = currentSchema.value.extracted_fields.find(f => f.path === fieldPath)
   if (!field) {
     return []
   }
@@ -517,11 +526,11 @@ function getOperatorOptions(fieldPath: string): Array<{ value: string; label: st
 
 // Get input type for value field based on field type
 function getValueInputType(fieldPath: string): 'number' | 'string' | 'boolean' | 'array' {
-  if (!selectedSchema.value || !fieldPath) {
+  if (!currentSchema.value || !fieldPath) {
     return 'string'
   }
   
-  const field = selectedSchema.value.extracted_fields.find(f => f.path === fieldPath)
+  const field = currentSchema.value.extracted_fields.find(f => f.path === fieldPath)
   if (!field) {
     return 'string'
   }
@@ -540,11 +549,11 @@ function getValueInputType(fieldPath: string): 'number' | 'string' | 'boolean' |
 
 // Get placeholder for value input based on field type and operator
 function getValuePlaceholder(fieldPath: string): string {
-  if (!selectedSchema.value || !fieldPath) {
+  if (!currentSchema.value || !fieldPath) {
     return 'Enter value'
   }
   
-  const field = selectedSchema.value.extracted_fields.find(f => f.path === fieldPath)
+  const field = currentSchema.value.extracted_fields.find(f => f.path === fieldPath)
   if (!field) {
     return 'Enter value'
   }
@@ -583,6 +592,11 @@ const generatedExpression = computed(() => {
     return ''
   }
 
+  // Resolve schema directly from editingRule.schema_id to avoid async watcher timing issues
+  const currentSchema = editingRule.schema_id 
+    ? schemas.value.find(s => s.id === editingRule.schema_id) 
+    : null
+
   const parts: string[] = []
   
   for (let i = 0; i < conditionRows.value.length; i++) {
@@ -600,7 +614,7 @@ const generatedExpression = computed(() => {
     let conditionPart = `${row.field} ${row.operator} `
     
     // Format value based on type and operator
-    const field = selectedSchema.value?.extracted_fields.find(f => f.path === row.field)
+    const field = currentSchema?.extracted_fields?.find(f => f.path === row.field)
     const fieldType = field?.type || 'string'
     
     if (row.operator === 'in' || row.operator === 'contains') {
@@ -722,14 +736,14 @@ const rulePresets: RulePreset[] = [
   },
 ]
 
-// Placeholder for custom expression textarea (computed based on selected schema)
+// Placeholder for custom expression textarea (computed based on current schema)
 // Syntax follows expr-lang: https://github.com/expr-lang/expr
 const customExpressionPlaceholder = computed(() => {
-  if (!selectedSchema.value || !selectedSchema.value.extracted_fields?.length) {
+  if (!currentSchema.value || !currentSchema.value.extracted_fields?.length) {
     return 'Select a schema and click on fields above to build your expression...\n\nExamples:\nfield_name > 10000\nfield_name == "value"\nfield1 > 5000 and field2 != "USD"'
   }
-  const firstField = selectedSchema.value.extracted_fields[0]?.path || 'field_name'
-  return `Click on fields above or type directly:\n\nExamples:\n${firstField} > 10000\n${firstField} == "value"\n${firstField} > 5000 and ${selectedSchema.value.extracted_fields[1]?.path || 'other_field'} != "USD"`
+  const firstField = currentSchema.value.extracted_fields[0]?.path || 'field_name'
+  return `Click on fields above or type directly:\n\nExamples:\n${firstField} > 10000\n${firstField} == "value"\n${firstField} > 5000 and ${currentSchema.value.extracted_fields[1]?.path || 'other_field'} != "USD"`
 })
 
 // Sanitize expression to prevent code injection
@@ -854,13 +868,13 @@ const highlightedExpression = computed(() => {
   }
 })
 
-// Generate dynamic examples based on selected schema fields
+// Generate dynamic examples based on current schema fields
 const dynamicExamples = computed(() => {
-  if (!selectedSchema.value || !selectedSchema.value.extracted_fields?.length) {
+  if (!currentSchema.value || !currentSchema.value.extracted_fields?.length) {
     return 'Select a schema to see examples based on your fields.'
   }
 
-  const fields = selectedSchema.value.extracted_fields
+  const fields = currentSchema.value.extracted_fields
   const examples: string[] = []
 
   // Group fields by type
@@ -1125,11 +1139,11 @@ async function handleSubmit() {
 
 function validateConditions(): string | null {
   // Validate that a schema is selected
-  if (!editingRule.schema_id || !selectedSchema.value) {
+  if (!editingRule.schema_id || !currentSchema.value) {
     return 'Please select a schema first'
   }
 
-  const schemaFields = selectedSchema.value.extracted_fields || []
+  const schemaFields = currentSchema.value.extracted_fields || []
   
   if (schemaFields.length === 0) {
     return 'Selected schema has no fields. Please select a different schema.'
