@@ -31,6 +31,11 @@ const router = createRouter({
       component: () => import('@/views/RulesView.vue'),
     },
     {
+      path: '/schemas',
+      name: 'schemas',
+      component: () => import('@/views/SchemasView.vue'),
+    },
+    {
       path: '/permissions',
       name: 'permissions',
       component: () => import('@/views/PermissionsView.vue'),

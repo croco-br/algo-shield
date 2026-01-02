@@ -10,6 +10,7 @@ import (
 	"github.com/algo-shield/algo-shield/src/api/internal/permissions"
 	"github.com/algo-shield/algo-shield/src/api/internal/roles"
 	"github.com/algo-shield/algo-shield/src/api/internal/rules"
+	"github.com/algo-shield/algo-shield/src/api/internal/schemas"
 	"github.com/algo-shield/algo-shield/src/api/internal/shared/middleware"
 	"github.com/algo-shield/algo-shield/src/api/internal/transactions"
 	"github.com/algo-shield/algo-shield/src/api/internal/user"
@@ -35,6 +36,7 @@ func Setup(app *fiber.App, db *pgxpool.Pool, redis *redis.Client, cfg *config.Co
 	transactionRepo := transactions.NewPostgresRepository(db)
 	ruleRepo := rulespkg.NewPostgresRepository(db, redis)
 	brandingRepo := branding.NewPostgresRepository(db, redis)
+	schemaRepo := schemas.NewPostgresRepository(db, redis)
 
 	// Create services with dependency injection (business layer - receives interfaces)
 	roleService := roles.NewService(roleRepo)
@@ -44,6 +46,7 @@ func Setup(app *fiber.App, db *pgxpool.Pool, redis *redis.Client, cfg *config.Co
 	permissionsService := permissions.NewService(permissionsUserRepo, roleService, groupService)
 	transactionService := transactions.NewService(transactionRepo, redis)
 	brandingService := branding.NewService(brandingRepo)
+	schemaService := schemas.NewService(schemaRepo)
 
 	// Create handlers with dependency injection (presentation layer - receives interfaces)
 	authHandler := auth.NewHandler(authService, userService)
@@ -54,6 +57,7 @@ func Setup(app *fiber.App, db *pgxpool.Pool, redis *redis.Client, cfg *config.Co
 	ruleHandler := rules.NewHandler(ruleRepo)
 	healthHandler := health.NewHandler(db, redis)
 	brandingHandler := branding.NewHandler(brandingService)
+	schemaHandler := schemas.NewHandler(schemaService)
 
 	// Health routes (public)
 	app.Get("/health", healthHandler.Health)
@@ -89,6 +93,18 @@ func Setup(app *fiber.App, db *pgxpool.Pool, redis *redis.Client, cfg *config.Co
 	rulesProtected.Post("/", ruleHandler.CreateRule)
 	rulesProtected.Put("/:id", ruleHandler.UpdateRule)
 	rulesProtected.Delete("/:id", ruleHandler.DeleteRule)
+
+	// Schema routes (protected)
+	schemasGroup := v1.Group("/schemas")
+	schemasGroup.Get("/", schemaHandler.ListSchemas)
+	schemasGroup.Get("/:id", schemaHandler.GetSchema)
+
+	// Schema modification requires rule_editor or admin role
+	schemasProtected := schemasGroup.Group("", middleware.RequireAnyRole("admin", "rule_editor"))
+	schemasProtected.Post("/", schemaHandler.CreateSchema)
+	schemasProtected.Put("/:id", schemaHandler.UpdateSchema)
+	schemasProtected.Delete("/:id", schemaHandler.DeleteSchema)
+	schemasProtected.Post("/:id/parse", schemaHandler.ParseSchema)
 
 	// Permissions management (admin only)
 	permissionsGroup := v1.Group("/permissions", middleware.RequireRole("admin"))

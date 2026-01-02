@@ -41,11 +41,4 @@ CREATE INDEX IF NOT EXISTS idx_transactions_created_at ON transactions(created_a
 CREATE INDEX IF NOT EXISTS idx_rules_enabled ON rules(enabled);
 CREATE INDEX IF NOT EXISTS idx_rules_priority ON rules(priority ASC);
 
--- Insert sample rules
-INSERT INTO rules (id, name, description, type, action, priority, enabled, conditions, score) VALUES
-    (gen_random_uuid(), 'High Amount Transaction', 'Flag transactions above $10,000', 'amount', 'score', 10, true, '{"amount_threshold": 10000}', 30),
-    (gen_random_uuid(), 'Very High Amount Transaction', 'Block transactions above $50,000', 'amount', 'block', 5, true, '{"amount_threshold": 50000}', 100),
-    (gen_random_uuid(), 'Transaction Velocity Check', 'Flag accounts with more than 10 transactions per hour', 'velocity', 'score', 20, true, '{"transaction_count": 10, "time_window_seconds": 3600}', 40),
-    (gen_random_uuid(), 'Blocklist Check', 'Block transactions from blocklisted accounts', 'blocklist', 'block', 1, true, '{"blocklisted_accounts": []}', 100)
-ON CONFLICT DO NOTHING;
 

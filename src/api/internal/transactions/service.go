@@ -12,7 +12,7 @@ import (
 // Service defines the interface for transaction business logic
 // This interface follows Dependency Inversion Principle
 type Service interface {
-	ProcessTransaction(ctx context.Context, event models.TransactionEvent) error
+	ProcessTransaction(ctx context.Context, event models.Event) error
 	GetTransaction(ctx context.Context, id uuid.UUID) (*models.Transaction, error)
 	ListTransactions(ctx context.Context, limit, offset int) ([]models.Transaction, error)
 }
@@ -37,7 +37,7 @@ func NewService(repo Repository, queuePush QueuePusher) Service {
 	}
 }
 
-func (s *service) ProcessTransaction(ctx context.Context, event models.TransactionEvent) error {
+func (s *service) ProcessTransaction(ctx context.Context, event models.Event) error {
 	eventJSON, err := json.Marshal(event)
 	if err != nil {
 		return err

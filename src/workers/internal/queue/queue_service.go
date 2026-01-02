@@ -31,10 +31,10 @@ func NewQueueService(redis *redis.Client, popTimeout time.Duration) *QueueServic
 	}
 }
 
-// PopTransaction pops a transaction from the Redis queue
-// Returns ErrTimeout if no transaction is available (expected)
+// PopTransaction pops an event from the Redis queue
+// Returns ErrTimeout if no event is available (expected)
 // Returns other errors for actual failures
-func (q *QueueService) PopTransaction(ctx context.Context) (*models.TransactionEvent, error) {
+func (q *QueueService) PopTransaction(ctx context.Context) (*models.Event, error) {
 	result, err := q.redis.BRPop(ctx, q.popTimeout, "transaction:queue").Result()
 
 	// Check if it's a timeout (expected) vs actual error
@@ -50,7 +50,7 @@ func (q *QueueService) PopTransaction(ctx context.Context) (*models.TransactionE
 	}
 
 	eventJSON := result[1]
-	var event models.TransactionEvent
+	var event models.Event
 
 	if err := json.Unmarshal([]byte(eventJSON), &event); err != nil {
 		return nil, ErrInvalidData

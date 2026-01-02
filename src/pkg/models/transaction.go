@@ -41,16 +41,9 @@ type Transaction struct {
 	ProcessedAt    *time.Time        `json:"processed_at"`
 }
 
-type TransactionEvent struct {
-	ExternalID  string         `json:"external_id" validate:"required,min=1,max=255"`
-	Amount      float64        `json:"amount" validate:"required,gt=0"`
-	Currency    string         `json:"currency" validate:"required,currency"`
-	FromAccount string         `json:"from_account" validate:"required,account"`
-	ToAccount   string         `json:"to_account" validate:"required,account"`
-	Type        string         `json:"type" validate:"required,transaction_type"`
-	Metadata    map[string]any `json:"metadata"`
-	Timestamp   time.Time      `json:"timestamp"`
-}
+// Event represents a generic JSON event for rule evaluation
+// The structure is defined by the event schema, not hardcoded
+type Event map[string]any
 
 type TransactionResult struct {
 	TransactionID  uuid.UUID         `json:"transaction_id"`

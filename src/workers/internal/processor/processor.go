@@ -58,13 +58,16 @@ func NewProcessor(db *pgxpool.Pool, redis *redis.Client, concurrency, batchSize 
 func (p *Processor) Start(ctx context.Context) error {
 	log.Println("Starting transaction processor...")
 
-	// Load rules initially
+	// Load rules and schemas initially
 	if err := p.ruleEngine.LoadRules(ctx); err != nil {
 		return err
 	}
 
 	// Create errgroup for managing all goroutines with proper error handling
 	g, gCtx := errgroup.WithContext(ctx)
+
+	// Start schema invalidation subscription
+	p.ruleEngine.StartSchemaInvalidationSubscription(gCtx)
 
 	// Reload rules periodically for hot-reload
 	g.Go(func() error {
@@ -174,17 +177,25 @@ func (p *Processor) processNextTransaction(ctx context.Context) {
 	success := err == nil
 	p.metricsCollector.RecordProcessing(duration, success)
 
+	// Extract external_id for logging
+	externalID := "unknown"
+	if id, ok := (*event)["external_id"].(string); ok {
+		externalID = id
+	} else if id, ok := (*event)["id"].(string); ok {
+		externalID = id
+	}
+
 	if err != nil {
-		log.Printf("Failed to process transaction %s after retries: %v (duration: %v)", event.ExternalID, err, duration)
+		log.Printf("Failed to process transaction %s after retries: %v (duration: %v)", externalID, err, duration)
 	} else {
-		log.Printf("Processed transaction %s successfully (duration: %v)", event.ExternalID, duration)
+		log.Printf("Processed transaction %s successfully (duration: %v)", externalID, duration)
 	}
 }
 
 // processBatch processes multiple transactions in a batch using parallel processing
 // Uses worker pool pattern with controlled concurrency to avoid overwhelming the system
 func (p *Processor) processBatch(ctx context.Context) {
-	events := make([]*models.TransactionEvent, 0, p.batchSize)
+	events := make([]*models.Event, 0, p.batchSize)
 
 	// Collect batch
 	for i := 0; i < p.batchSize; i++ {
@@ -244,7 +255,7 @@ type BatchResult struct {
 
 // processBatchParallel processes events in parallel with controlled concurrency
 // Uses golang.org/x/sync/semaphore for robust concurrency control and errgroup for error handling
-func (p *Processor) processBatchParallel(ctx context.Context, events []*models.TransactionEvent) []BatchResult {
+func (p *Processor) processBatchParallel(ctx context.Context, events []*models.Event) []BatchResult {
 	// Use concurrency limit to prevent overwhelming the system
 	// Use the processor's concurrency setting, but cap at batch size
 	concurrencyLimit := int64(p.concurrency)
@@ -272,8 +283,16 @@ func (p *Processor) processBatchParallel(ctx context.Context, events []*models.T
 			// Acquire semaphore (blocks if limit reached, respects context cancellation)
 			if err := sem.Acquire(gCtx, 1); err != nil {
 				// Context cancelled or semaphore acquisition failed
+				// Extract external_id for logging
+				externalID := "unknown"
+				if id, ok := (*evt)["external_id"].(string); ok {
+					externalID = id
+				} else if id, ok := (*evt)["id"].(string); ok {
+					externalID = id
+				}
+
 				results <- BatchResult{
-					ExternalID: evt.ExternalID,
+					ExternalID: externalID,
 					Success:    false,
 					Error:      err,
 					Duration:   0,
@@ -292,8 +311,16 @@ func (p *Processor) processBatchParallel(ctx context.Context, events []*models.T
 				})
 			})
 
+			// Extract external_id for logging
+			externalID := "unknown"
+			if id, ok := (*evt)["external_id"].(string); ok {
+				externalID = id
+			} else if id, ok := (*evt)["id"].(string); ok {
+				externalID = id
+			}
+
 			results <- BatchResult{
-				ExternalID: evt.ExternalID,
+				ExternalID: externalID,
 				Success:    err == nil,
 				Error:      err,
 				Duration:   duration,

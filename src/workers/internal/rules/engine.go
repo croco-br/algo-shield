@@ -7,6 +7,7 @@ import (
 
 	"github.com/algo-shield/algo-shield/src/pkg/models"
 	"github.com/algo-shield/algo-shield/src/pkg/rules"
+	"github.com/algo-shield/algo-shield/src/workers/internal/schemas"
 	"github.com/algo-shield/algo-shield/src/workers/internal/transactions"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/redis/go-redis/v9"
@@ -17,9 +18,10 @@ type TransactionHistoryProvider interface {
 	CountByAccountInTimeWindow(ctx context.Context, account string, timeWindowSeconds int) (int, error)
 }
 
-// Engine evaluates transactions against rules
+// Engine evaluates events against rules using schemas
 type Engine struct {
 	ruleService     *RuleService
+	schemaService   *schemas.SchemaService
 	historyProvider TransactionHistoryProvider
 	defaultTimeout  time.Duration
 }
@@ -35,20 +37,33 @@ func NewEngine(db *pgxpool.Pool, redis *redis.Client, historyProvider Transactio
 	ruleRepo := rules.NewPostgresRepository(db, redis)
 	ruleService := NewRuleService(ruleRepo)
 
+	// Create schema repository and service
+	schemaRepo := schemas.NewPostgresRepository(db)
+	schemaService := schemas.NewSchemaService(schemaRepo, redis)
+
 	return &Engine{
 		ruleService:     ruleService,
+		schemaService:   schemaService,
 		historyProvider: historyProvider,
 		defaultTimeout:  ruleEvaluationTimeout,
 	}
 }
 
-// LoadRules loads rules from the rule loader
+// LoadRules loads rules and schemas
 func (e *Engine) LoadRules(ctx context.Context) error {
-	return e.ruleService.LoadRules(ctx)
+	if err := e.ruleService.LoadRules(ctx); err != nil {
+		return err
+	}
+	return e.schemaService.LoadSchemas(ctx)
 }
 
-// Evaluate evaluates a transaction against all loaded rules
-func (e *Engine) Evaluate(ctx context.Context, event models.TransactionEvent) (*models.TransactionResult, error) {
+// StartSchemaInvalidationSubscription starts listening for schema changes
+func (e *Engine) StartSchemaInvalidationSubscription(ctx context.Context) {
+	go e.schemaService.SubscribeToInvalidations(ctx)
+}
+
+// Evaluate evaluates an event against all loaded rules using schema-based evaluation
+func (e *Engine) Evaluate(ctx context.Context, event models.Event) (*models.TransactionResult, error) {
 	startTime := time.Now()
 
 	riskScore := 0.0
@@ -104,115 +119,35 @@ func (e *Engine) Evaluate(ctx context.Context, event models.TransactionEvent) (*
 	return result, nil
 }
 
-// evaluateRule evaluates a single rule against a transaction
-func (e *Engine) evaluateRule(ctx context.Context, event models.TransactionEvent, rule models.Rule) bool {
-	switch rule.Type {
-	case models.RuleTypeAmount:
-		return e.evaluateAmountRule(event, rule)
-	case models.RuleTypeVelocity:
-		return e.evaluateVelocityRule(ctx, event, rule)
-	case models.RuleTypeBlocklist:
-		return e.evaluateBlocklistRule(event, rule)
-	case models.RuleTypeGeography:
-		return e.evaluateGeographyRule(event, rule)
-	case models.RuleTypeCustom:
-		return e.evaluateCustomRule(event, rule)
-	default:
-		log.Printf("Unknown rule type: %s", rule.Type)
+// evaluateRule evaluates a single rule against an event
+// Only custom rules are supported (schema-based expressions)
+func (e *Engine) evaluateRule(ctx context.Context, event models.Event, rule models.Rule) bool {
+	if rule.Type != models.RuleTypeCustom {
+		log.Printf("Unsupported rule type: %s (only 'custom' is supported)", rule.Type)
 		return false
 	}
+	return e.evaluateCustomRule(event, rule)
 }
 
-// evaluateAmountRule checks if transaction amount exceeds threshold
-func (e *Engine) evaluateAmountRule(event models.TransactionEvent, rule models.Rule) bool {
-	threshold, ok := rule.Conditions["amount_threshold"].(float64)
-	if !ok {
-		log.Printf("Amount rule missing or invalid amount_threshold condition")
-		return false
-	}
-	return event.Amount > threshold
-}
-
-// evaluateVelocityRule checks transaction velocity (count in time window)
-func (e *Engine) evaluateVelocityRule(ctx context.Context, event models.TransactionEvent, rule models.Rule) bool {
-	timeWindow, ok := rule.Conditions["time_window_seconds"].(float64)
-	if !ok {
-		timeWindow = 3600 // default 1 hour
-	}
-
-	maxCount, ok := rule.Conditions["transaction_count"].(float64)
-	if !ok {
-		log.Printf("Velocity rule missing transaction_count condition")
-		return false
-	}
-
-	// Use history provider instead of direct DB access
-	ctx, cancel := context.WithTimeout(ctx, e.defaultTimeout)
-	defer cancel()
-
-	count, err := e.historyProvider.CountByAccountInTimeWindow(ctx, event.FromAccount, int(timeWindow))
-	if err != nil {
-		log.Printf("Failed to query transaction history for velocity rule: %v", err)
-		return false
-	}
-
-	return count > int(maxCount)
-}
-
-// evaluateBlocklistRule checks if accounts are in blocklist
-func (e *Engine) evaluateBlocklistRule(event models.TransactionEvent, rule models.Rule) bool {
-	blocklist, ok := rule.Conditions["blocklisted_accounts"].([]interface{})
-	if !ok {
-		log.Printf("Blocklist rule missing or invalid blocklisted_accounts condition")
-		return false
-	}
-
-	for _, account := range blocklist {
-		if accountStr, ok := account.(string); ok {
-			if accountStr == event.FromAccount || accountStr == event.ToAccount {
-				return true
-			}
-		}
-	}
-
-	return false
-}
-
-// evaluateGeographyRule checks if transaction coordinates are within restricted polygon
-func (e *Engine) evaluateGeographyRule(event models.TransactionEvent, rule models.Rule) bool {
-	polygonStr, ok := rule.Conditions["polygon_coordinates"].(string)
-	if !ok {
-		log.Printf("Geography rule missing or invalid polygon_coordinates condition")
-		return false
-	}
-
-	polygon, err := ParsePolygon(polygonStr)
-	if err != nil {
-		log.Printf("Geography rule: failed to parse polygon coordinates: %v", err)
-		return false
-	}
-
-	if len(polygon) < 3 {
-		log.Printf("Geography rule: polygon must have at least 3 points")
-		return false
-	}
-
-	lat, lon, ok := GetCoordinatesFromMetadata(event.Metadata)
-	if !ok {
-		// No coordinates in transaction metadata, rule doesn't match
-		return false
-	}
-
-	return PointInPolygon(lat, lon, polygon)
-}
-
-// evaluateCustomRule evaluates custom expression against transaction
-func (e *Engine) evaluateCustomRule(event models.TransactionEvent, rule models.Rule) bool {
+// evaluateCustomRule evaluates custom expression against event using schema
+func (e *Engine) evaluateCustomRule(event models.Event, rule models.Rule) bool {
 	expression, ok := rule.Conditions["custom_expression"].(string)
 	if !ok {
 		log.Printf("Custom rule missing or invalid custom_expression condition")
 		return false
 	}
 
-	return EvaluateExpression(expression, event)
+	// Get schema for this rule
+	if rule.SchemaID == nil {
+		log.Printf("Custom rule missing schema_id")
+		return false
+	}
+	schema := e.schemaService.GetSchema(*rule.SchemaID)
+	if schema == nil {
+		log.Printf("Schema %s not found for rule %s", *rule.SchemaID, rule.Name)
+		return false
+	}
+
+	// Use schema-based expression evaluation
+	return schemas.EvaluateExpressionWithSchema(expression, event, schema)
 }

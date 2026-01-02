@@ -23,17 +23,17 @@ func NewHandler(service Service) *Handler {
 }
 
 func (h *Handler) ProcessTransaction(c *fiber.Ctx) error {
-	var event models.TransactionEvent
+	var event models.Event
 	if err := c.BodyParser(&event); err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
 			"error": "Invalid request body",
 		})
 	}
 
-	// Validate transaction event
-	if err := validation.ValidateStruct(event); err != nil {
+	// Basic validation: event must be a non-empty JSON object
+	if len(event) == 0 {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"error": err.Error(),
+			"error": "Event must be a non-empty JSON object",
 		})
 	}
 
@@ -45,9 +45,17 @@ func (h *Handler) ProcessTransaction(c *fiber.Ctx) error {
 		})
 	}
 
+	// Try to extract external_id for response (if present)
+	externalID := "unknown"
+	if id, ok := event["external_id"].(string); ok {
+		externalID = id
+	} else if id, ok := event["id"].(string); ok {
+		externalID = id
+	}
+
 	return c.Status(fiber.StatusAccepted).JSON(fiber.Map{
 		"status":      "queued",
-		"external_id": event.ExternalID,
+		"external_id": externalID,
 		"message":     "Transaction queued for processing",
 	})
 }

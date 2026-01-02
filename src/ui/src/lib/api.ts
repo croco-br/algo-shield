@@ -107,7 +107,7 @@ async function request<T>(
 			// Handle network errors (Failed to fetch, CORS, etc.)
 			if (error.message.includes('Failed to fetch') || error.message.includes('NetworkError')) {
 				const apiUrl = uiConfig.api.baseUrl || 'the API server';
-				throw new Error(`Unable to connect to ${apiUrl}. Please ensure the API server is running and accessible.`);
+				throw new Error(`Unable to connect to server.`);
 			}
 			// Re-throw if it's already our formatted error
 			throw error;
