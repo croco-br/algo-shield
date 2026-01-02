@@ -12,7 +12,6 @@ const (
 	RuleTypeAmount    RuleType = "amount"
 	RuleTypeVelocity  RuleType = "velocity"
 	RuleTypeBlocklist RuleType = "blocklist"
-	RuleTypePattern   RuleType = "pattern"
 	RuleTypeGeography RuleType = "geography"
 	RuleTypeCustom    RuleType = "custom"
 )
@@ -30,7 +29,7 @@ type Rule struct {
 	ID          uuid.UUID      `json:"id"`
 	Name        string         `json:"name" validate:"required,min=1,max=255"`
 	Description string         `json:"description" validate:"max=1000"`
-	Type        RuleType       `json:"type" validate:"required,oneof=amount velocity blocklist pattern geography custom"`
+	Type        RuleType       `json:"type" validate:"required,oneof=amount velocity blocklist geography custom"`
 	Action      RuleAction     `json:"action" validate:"required,oneof=allow block review score"`
 	Priority    int            `json:"priority" validate:"gte=0,lte=1000"`
 	Enabled     bool           `json:"enabled"`
@@ -45,6 +44,5 @@ type RuleConfig struct {
 	TransactionCount    *int     `json:"transaction_count,omitempty"`
 	TimeWindowSeconds   *int     `json:"time_window_seconds,omitempty"`
 	BlocklistedAccounts []string `json:"blocklisted_accounts,omitempty"`
-	Pattern             *string  `json:"pattern,omitempty"`
 	CustomExpression    *string  `json:"custom_expression,omitempty"`
 }

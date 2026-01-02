@@ -113,18 +113,17 @@ func (e *Engine) evaluateRule(ctx context.Context, event models.TransactionEvent
 		return e.evaluateVelocityRule(ctx, event, rule)
 	case models.RuleTypeBlocklist:
 		return e.evaluateBlocklistRule(event, rule)
-	case models.RuleTypePattern:
-		return e.evaluatePatternRule(event, rule)
 	case models.RuleTypeGeography:
 		return e.evaluateGeographyRule(event, rule)
 	case models.RuleTypeCustom:
-		return e.evaluateCustomRule(ctx, event, rule)
+		return e.evaluateCustomRule(event, rule)
 	default:
 		log.Printf("Unknown rule type: %s", rule.Type)
 		return false
 	}
 }
 
+// evaluateAmountRule checks if transaction amount exceeds threshold
 func (e *Engine) evaluateAmountRule(event models.TransactionEvent, rule models.Rule) bool {
 	threshold, ok := rule.Conditions["amount_threshold"].(float64)
 	if !ok {
@@ -134,8 +133,8 @@ func (e *Engine) evaluateAmountRule(event models.TransactionEvent, rule models.R
 	return event.Amount > threshold
 }
 
+// evaluateVelocityRule checks transaction velocity (count in time window)
 func (e *Engine) evaluateVelocityRule(ctx context.Context, event models.TransactionEvent, rule models.Rule) bool {
-	// Check transaction velocity (count in time window)
 	timeWindow, ok := rule.Conditions["time_window_seconds"].(float64)
 	if !ok {
 		timeWindow = 3600 // default 1 hour
@@ -160,6 +159,7 @@ func (e *Engine) evaluateVelocityRule(ctx context.Context, event models.Transact
 	return count > int(maxCount)
 }
 
+// evaluateBlocklistRule checks if accounts are in blocklist
 func (e *Engine) evaluateBlocklistRule(event models.TransactionEvent, rule models.Rule) bool {
 	blocklist, ok := rule.Conditions["blocklisted_accounts"].([]interface{})
 	if !ok {
@@ -178,88 +178,41 @@ func (e *Engine) evaluateBlocklistRule(event models.TransactionEvent, rule model
 	return false
 }
 
-func (e *Engine) evaluatePatternRule(event models.TransactionEvent, rule models.Rule) bool {
-	// Simple pattern matching - can be extended
-	pattern, ok := rule.Conditions["pattern"].(string)
-	if !ok {
-		log.Printf("Pattern rule missing or invalid pattern condition")
-		return false
-	}
-
-	// Example: Check if transaction type matches pattern
-	return event.Type == pattern
-}
-
+// evaluateGeographyRule checks if transaction coordinates are within restricted polygon
 func (e *Engine) evaluateGeographyRule(event models.TransactionEvent, rule models.Rule) bool {
-	// Check if transaction involves restricted geographic regions
-	restrictedRegions, ok := rule.Conditions["restricted_regions"].([]interface{})
+	polygonStr, ok := rule.Conditions["polygon_coordinates"].(string)
 	if !ok {
-		log.Printf("Geography rule missing or invalid restricted_regions condition")
+		log.Printf("Geography rule missing or invalid polygon_coordinates condition")
 		return false
 	}
 
-	// Get transaction region from metadata
-	region, ok := event.Metadata["region"].(string)
+	polygon, err := ParsePolygon(polygonStr)
+	if err != nil {
+		log.Printf("Geography rule: failed to parse polygon coordinates: %v", err)
+		return false
+	}
+
+	if len(polygon) < 3 {
+		log.Printf("Geography rule: polygon must have at least 3 points")
+		return false
+	}
+
+	lat, lon, ok := GetCoordinatesFromMetadata(event.Metadata)
 	if !ok {
-		// If no region in metadata, check country
-		country, ok := event.Metadata["country"].(string)
-		if !ok {
-			return false
-		}
-		region = country
+		// No coordinates in transaction metadata, rule doesn't match
+		return false
 	}
 
-	// Check if region is in restricted list
-	for _, restricted := range restrictedRegions {
-		if restrictedStr, ok := restricted.(string); ok {
-			if restrictedStr == region {
-				return true
-			}
-		}
-	}
-
-	return false
+	return PointInPolygon(lat, lon, polygon)
 }
 
-func (e *Engine) evaluateCustomRule(ctx context.Context, event models.TransactionEvent, rule models.Rule) bool {
-	// Custom expression evaluation
+// evaluateCustomRule evaluates custom expression against transaction
+func (e *Engine) evaluateCustomRule(event models.TransactionEvent, rule models.Rule) bool {
 	expression, ok := rule.Conditions["custom_expression"].(string)
 	if !ok {
 		log.Printf("Custom rule missing or invalid custom_expression condition")
 		return false
 	}
 
-	if expression == "" {
-		return false
-	}
-
-	// Basic custom rule evaluation
-	// Supports simple field checks from metadata or event fields
-	// Format examples:
-	// - "amount > 1000"
-	// - "currency == USD"
-	// - "type == transfer"
-	// - "metadata.key == value"
-
-	// For now, evaluate based on metadata conditions
-	// If custom_expression is a key in metadata, check if it evaluates to true
-	if value, exists := event.Metadata[expression]; exists {
-		// If it's a boolean, return it
-		if boolVal, ok := value.(bool); ok {
-			return boolVal
-		}
-		// If it's a string "true", return true
-		if strVal, ok := value.(string); ok && strVal == "true" {
-			return true
-		}
-	}
-
-	// Check if expression matches event fields
-	// Simple pattern: "field:value" format
-	// This is a basic implementation - for complex expressions, use a proper expression engine
-	// like github.com/antonmedv/expr
-
-	log.Printf("Custom rule expression evaluation: %s (basic implementation)", expression)
-	// Return false for now - requires proper expression parser for full implementation
-	return false
+	return EvaluateExpression(expression, event)
 }
