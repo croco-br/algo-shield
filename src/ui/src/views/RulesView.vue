@@ -358,13 +358,16 @@ async function toggleRule(rule: any) {
   }
 }
 
+// Badge variants for rule actions (matches backend RuleAction enum in src/pkg/models/rule.go)
 function getActionBadgeVariant(action: string): 'success' | 'warning' | 'danger' | 'info' | 'default' {
   switch (action.toLowerCase()) {
+    case 'allow':
+      return 'success'
     case 'block':
       return 'danger'
-    case 'flag':
+    case 'review':
       return 'warning'
-    case 'monitor':
+    case 'score':
       return 'info'
     default:
       return 'default'
