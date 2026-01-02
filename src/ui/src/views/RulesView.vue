@@ -80,12 +80,13 @@
       :title="isEditing ? 'Edit Rule' : 'Create New Rule'"
       size="lg"
     >
-      <v-form @submit.prevent="handleSubmit" class="mt-4">
+      <v-form ref="formRef" @submit.prevent="handleSubmit" class="mt-4">
         <v-text-field
           v-model="editingRule.name"
           label="Name"
           placeholder="Rule name"
           required
+          :rules="[(v: string) => !!v || 'Name is required']"
           prepend-inner-icon="fa-text"
           variant="outlined"
           class="mb-4"
@@ -95,6 +96,8 @@
           v-model="editingRule.description"
           label="Description"
           placeholder="Description"
+          required
+          :rules="[(v: string) => !!v || 'Description is required']"
           prepend-inner-icon="fa-align-left"
           variant="outlined"
           class="mb-4"
@@ -105,6 +108,7 @@
           label="Type"
           :options="ruleTypes"
           required
+          :rules="[(v: string) => !!v || 'Type is required']"
           class="mb-4"
         />
 
@@ -113,6 +117,7 @@
           label="Action"
           :options="ruleActions"
           required
+          :rules="[(v: string) => !!v || 'Action is required']"
           class="mb-4"
         />
 
@@ -123,24 +128,51 @@
           min="0"
           max="100"
           required
+          :rules="[
+            (v: any) => (v !== null && v !== undefined && v !== '') || 'Score is required',
+            (v: any) => (typeof v === 'number' && v >= 0 && v <= 100) || 'Score must be between 0 and 100'
+          ]"
           prepend-inner-icon="fa-hashtag"
           variant="outlined"
           class="mb-4"
         />
 
-        <BaseSelect
-          v-model="editingRule.priority"
+        <v-text-field
+          v-model.number="editingRule.priority"
+          type="number"
           label="Priority"
-          :options="rulePriorities"
+          min="0"
+          max="1000"
           required
+          :rules="[
+            (v: any) => (v !== null && v !== undefined && v !== '') || 'Priority is required',
+            (v: any) => (typeof v === 'number' && v >= 0 && v <= 1000) || 'Priority must be between 0 and 1000'
+          ]"
+          hint="0 = highest priority, 1000 = lowest priority"
+          persistent-hint
+          prepend-inner-icon="fa-sort"
+          variant="outlined"
           class="mb-4"
         />
 
-        <v-switch
-          v-model="editingRule.enabled"
-          label="Enabled"
-          class="mb-6"
-        />
+        <div class="mb-6">
+          <label class="text-body-2 text-grey-darken-1 d-block mb-2">Status</label>
+          <v-btn-toggle
+            v-model="editingRule.enabled"
+            mandatory
+            color="primary"
+            variant="outlined"
+          >
+            <v-btn :value="true" class="px-6">
+              <v-icon icon="fa-check" size="small" class="mr-2" />
+              Enabled
+            </v-btn>
+            <v-btn :value="false" class="px-6">
+              <v-icon icon="fa-ban" size="small" class="mr-2" />
+              Disabled
+            </v-btn>
+          </v-btn-toggle>
+        </div>
       </v-form>
 
       <template #footer>
@@ -183,6 +215,7 @@ const error = ref('')
 const showModal = ref(false)
 const isEditing = ref(false)
 const saving = ref(false)
+const formRef = ref<any>(null)
 
 const editingRule = reactive<{
   id?: string
@@ -191,35 +224,38 @@ const editingRule = reactive<{
   type: string
   action: string
   score: number
-  priority: string
+  priority: number
   enabled: boolean
+  conditions: Record<string, any>
 }>({
   name: '',
   description: '',
   type: '',
   action: '',
   score: 0,
-  priority: '',
+  priority: 500,
   enabled: true,
+  conditions: {},
 })
 
+// Rule types must match backend validation: amount|velocity|blocklist|pattern|geography|custom
 const ruleTypes = [
-  { value: 'fraud', label: 'Fraud' },
-  { value: 'aml', label: 'AML' },
-  { value: 'risk', label: 'Risk' },
+  { value: 'amount', label: 'Amount Threshold' },
+  { value: 'velocity', label: 'Velocity Check' },
+  { value: 'blocklist', label: 'Blocklist' },
+  { value: 'pattern', label: 'Pattern Match' },
+  { value: 'geography', label: 'Geography' },
+  { value: 'custom', label: 'Custom' },
 ]
 
+// Rule actions must match backend validation: allow|block|review|score
 const ruleActions = [
+  { value: 'allow', label: 'Allow' },
   { value: 'block', label: 'Block' },
-  { value: 'flag', label: 'Flag' },
-  { value: 'monitor', label: 'Monitor' },
+  { value: 'review', label: 'Review' },
+  { value: 'score', label: 'Score Only' },
 ]
 
-const rulePriorities = [
-  { value: 'low', label: 'Low' },
-  { value: 'medium', label: 'Medium' },
-  { value: 'high', label: 'High' },
-]
 
 onMounted(() => {
   if (authStore.user) {
@@ -233,8 +269,10 @@ async function loadRules() {
   try {
     loading.value = true
     error.value = ''
-    const response = await api.get<any[]>('/api/v1/rules')
-    rules.value = response || []
+    const response = await api.get<{ rules: any[] }>('/api/v1/rules')
+    // Sort by priority ascending (0 = highest priority, 1000 = lowest)
+    const loadedRules = response?.rules || []
+    rules.value = loadedRules.sort((a, b) => (a.priority ?? 1000) - (b.priority ?? 1000))
   } catch (e: any) {
     error.value = e.message || 'Failed to load rules'
     console.error('Error loading rules:', e)
@@ -248,11 +286,12 @@ function openCreateModal() {
   delete editingRule.id
   editingRule.name = ''
   editingRule.description = ''
-  editingRule.type = 'fraud'
-  editingRule.action = 'flag'
+  editingRule.type = 'amount'
+  editingRule.action = 'review'
   editingRule.score = 0
-  editingRule.priority = 'medium'
+  editingRule.priority = 500
   editingRule.enabled = true
+  editingRule.conditions = {}
   showModal.value = true
 }
 
@@ -266,6 +305,7 @@ function openEditModal(rule: any) {
   editingRule.score = rule.score
   editingRule.priority = rule.priority
   editingRule.enabled = rule.enabled
+  editingRule.conditions = rule.conditions || {}
   showModal.value = true
 }
 
@@ -274,6 +314,12 @@ function closeModal() {
 }
 
 async function handleSubmit() {
+  // Validate form before submission
+  if (formRef.value) {
+    const { valid } = await formRef.value.validate()
+    if (!valid) return
+  }
+  
   try {
     saving.value = true
     if (isEditing.value && editingRule.id) {

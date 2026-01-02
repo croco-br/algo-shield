@@ -76,13 +76,27 @@ async function request<T>(
 			throw new Error(errorMessage);
 		}
 
+		// Handle 204 No Content responses (common for DELETE operations)
+		if (response.status === 204) {
+			return undefined as T;
+		}
+
 		// Parse response as JSON
 		if (isJson) {
 			return response.json();
 		} else {
-			// This should not happen for successful responses, but handle it gracefully
+			// For successful responses without JSON content-type, try to parse anyway
+			// or return undefined if empty
 			const text = await response.text();
-			throw new Error(`Expected JSON response but received: ${contentType || 'unknown format'}`);
+			if (!text || text.trim() === '') {
+				return undefined as T;
+			}
+			// Try to parse as JSON anyway (some servers don't set content-type correctly)
+			try {
+				return JSON.parse(text);
+			} catch {
+				throw new Error(`Expected JSON response but received: ${contentType || 'unknown format'}`);
+			}
 		}
 	} catch (error) {
 		clearTimeout(timeoutId);

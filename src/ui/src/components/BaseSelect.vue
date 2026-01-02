@@ -7,6 +7,7 @@
     :items="normalizedOptions"
     :disabled="disabled"
     :required="required"
+    :rules="rules"
     :error="!!error"
     :error-messages="error ? [error] : []"
     :hint="hint"
@@ -35,6 +36,7 @@ interface Props {
   options: Option[] | string[] | number[]
   disabled?: boolean
   required?: boolean
+  rules?: ((value: any) => boolean | string)[]
   error?: string
   hint?: string
   valueKey?: string
@@ -46,6 +48,7 @@ interface Props {
 const props = withDefaults(defineProps<Props>(), {
   disabled: false,
   required: false,
+  rules: () => [],
   valueKey: 'value',
   labelKey: 'label',
   variant: 'outlined',
