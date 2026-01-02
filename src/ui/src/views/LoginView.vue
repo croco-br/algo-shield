@@ -32,7 +32,7 @@
             <!-- Login Form -->
             <v-window-item value="login">
               <v-form @submit.prevent="handleLogin" class="mt-4">
-                <v-text-field
+                <BaseInput
                   v-model="email"
                   type="email"
                   label="Email"
@@ -42,7 +42,7 @@
                   class="mb-4"
                 />
 
-                <v-text-field
+                <BaseInput
                   v-model="password"
                   type="password"
                   label="Password"
@@ -69,7 +69,7 @@
             <!-- Register Form -->
             <v-window-item value="register">
               <v-form @submit.prevent="handleRegister" class="mt-4">
-                <v-text-field
+                <BaseInput
                   v-model="name"
                   type="text"
                   label="Name"
@@ -79,7 +79,7 @@
                   class="mb-4"
                 />
 
-                <v-text-field
+                <BaseInput
                   v-model="email"
                   type="email"
                   label="Email"
@@ -89,7 +89,7 @@
                   class="mb-4"
                 />
 
-                <v-text-field
+                <BaseInput
                   v-model="password"
                   type="password"
                   label="Password"
@@ -127,6 +127,7 @@ import { useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import { api } from '@/lib/api'
 import BaseButton from '@/components/BaseButton.vue'
+import BaseInput from '@/components/BaseInput.vue'
 import ErrorMessage from '@/components/ErrorMessage.vue'
 
 const router = useRouter()

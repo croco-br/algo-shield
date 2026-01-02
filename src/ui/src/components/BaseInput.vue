@@ -10,12 +10,17 @@
     :error="!!error"
     :error-messages="error ? [error] : []"
     :hint="hint"
+    :persistent-hint="persistentHint"
     :min="min"
     :max="max"
     :minlength="minlength"
     :maxlength="maxlength"
     :variant="variant"
     :density="density"
+    :prepend-inner-icon="prependInnerIcon"
+    :hide-details="hideDetails"
+    :rules="rules"
+    :pattern="pattern"
     @update:model-value="handleUpdate"
   />
 </template>
@@ -31,12 +36,17 @@ interface Props {
   required?: boolean
   error?: string
   hint?: string
+  persistentHint?: boolean
   min?: number | string
   max?: number | string
   minlength?: number
   maxlength?: number
   variant?: 'outlined' | 'filled' | 'underlined' | 'plain'
   density?: 'default' | 'comfortable' | 'compact'
+  prependInnerIcon?: string
+  hideDetails?: boolean | 'auto'
+  rules?: ((value: any) => boolean | string)[]
+  pattern?: string
 }
 
 const props = withDefaults(defineProps<Props>(), {
@@ -45,6 +55,9 @@ const props = withDefaults(defineProps<Props>(), {
   required: false,
   variant: 'outlined',
   density: 'comfortable',
+  persistentHint: false,
+  hideDetails: false,
+  rules: () => [],
 })
 
 const emit = defineEmits<{

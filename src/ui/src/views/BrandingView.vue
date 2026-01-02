@@ -36,22 +36,21 @@
 
           <v-form @submit.prevent="handleSubmit">
             <!-- App Name -->
-            <v-text-field
+            <BaseInput
               v-model="form.app_name"
               label="Application Name"
               placeholder="AlgoShield"
               required
-              maxlength="100"
+              :maxlength="100"
               hint="Max 100 characters"
               persistent-hint
               prepend-inner-icon="fa-window-maximize"
               class="mb-3"
-              variant="outlined"
               density="compact"
             />
 
             <!-- Icon URL -->
-            <v-text-field
+            <BaseInput
               v-model="form.icon_url"
               label="Logo Icon URL"
               placeholder="/assets/logo.svg"
@@ -59,12 +58,11 @@
               persistent-hint
               prepend-inner-icon="fa-image"
               class="mb-3"
-              variant="outlined"
               density="compact"
             />
 
             <!-- Favicon URL -->
-            <v-text-field
+            <BaseInput
               v-model="form.favicon_url"
               label="Favicon URL"
               placeholder="/favicon.ico"
@@ -72,7 +70,6 @@
               persistent-hint
               prepend-inner-icon="fa-star"
               class="mb-3"
-              variant="outlined"
               density="compact"
             />
 
@@ -89,13 +86,12 @@
                   class="color-picker-input"
                   style="width: 50px; height: 40px; border: 1px solid rgba(0,0,0,0.12); border-radius: 4px; cursor: pointer; flex-shrink: 0;"
                 />
-                <v-text-field
+                <BaseInput
                   v-model="form.primary_color"
                   placeholder="#3B82F6"
                   pattern="^#([A-Fa-f0-9]{6}|[A-Fa-f0-9]{3})$"
                   required
                   density="compact"
-                  variant="outlined"
                   prepend-inner-icon="fa-hashtag"
                   class="font-mono flex-grow-1"
                   hide-details
@@ -116,13 +112,12 @@
                   class="color-picker-input"
                   style="width: 50px; height: 40px; border: 1px solid rgba(0,0,0,0.12); border-radius: 4px; cursor: pointer; flex-shrink: 0;"
                 />
-                <v-text-field
+                <BaseInput
                   v-model="form.secondary_color"
                   placeholder="#10B981"
                   pattern="^#([A-Fa-f0-9]{6}|[A-Fa-f0-9]{3})$"
                   required
                   density="compact"
-                  variant="outlined"
                   prepend-inner-icon="fa-hashtag"
                   class="font-mono flex-grow-1"
                   hide-details
@@ -143,13 +138,12 @@
                   class="color-picker-input"
                   style="width: 50px; height: 40px; border: 1px solid rgba(0,0,0,0.12); border-radius: 4px; cursor: pointer; flex-shrink: 0;"
                 />
-                <v-text-field
+                <BaseInput
                   v-model="form.header_color"
                   placeholder="#1e1e1e"
                   pattern="^#([A-Fa-f0-9]{6}|[A-Fa-f0-9]{3})$"
                   required
                   density="compact"
-                  variant="outlined"
                   prepend-inner-icon="fa-hashtag"
                   class="font-mono flex-grow-1"
                   hide-details
@@ -286,7 +280,7 @@
               <h3 class="text-caption font-weight-medium text-grey-darken-1 mb-1">Browser Tab</h3>
               <v-card variant="tonal" class="pa-1">
                 <div class="d-flex align-center gap-1 text-caption">
-                  <div style="width: 12px; height: 12px; background-color: #grey; border-radius: 2px;" />
+                  <div style="width: 12px; height: 12px; background-color: grey; border-radius: 2px;" />
                   <span class="text-grey-darken-1" style="font-size: 11px;">{{ form.app_name }}</span>
                 </div>
               </v-card>
@@ -303,6 +297,7 @@
 import { ref, reactive, watch } from 'vue'
 import { useBrandingStore, type BrandingConfig } from '@/stores/branding'
 import BaseButton from '@/components/BaseButton.vue'
+import BaseInput from '@/components/BaseInput.vue'
 
 const brandingStore = useBrandingStore()
 
