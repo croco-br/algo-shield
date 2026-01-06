@@ -49,20 +49,10 @@
               {{ formatCurrency(transaction.amount, transaction.currency) }}
             </td>
             <td class="px-8 py-5 whitespace-nowrap text-sm text-neutral-900">
-              {{ transaction.from_account }}
+              {{ transaction.origin }}
             </td>
             <td class="px-8 py-5 whitespace-nowrap text-sm text-neutral-900">
-              {{ transaction.to_account }}
-            </td>
-            <td class="px-8 py-5 whitespace-nowrap">
-              <span
-                :class="[
-                  'inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold',
-                  getRiskBadgeClass(transaction.risk_level)
-                ]"
-              >
-                {{ capitalize(transaction.risk_level) }}
-              </span>
+              {{ transaction.destination }}
             </td>
             <td class="px-8 py-5 whitespace-nowrap">
               <span
@@ -71,7 +61,7 @@
                   getStatusBadgeClass(transaction.status)
                 ]"
               >
-                {{ capitalize(transaction.status) }}
+                {{ formatStatus(transaction.status) }}
               </span>
             </td>
           </tr>
@@ -154,9 +144,8 @@ const columns: Column[] = [
   { key: 'external_id', label: 'External ID' },
   { key: 'created_at', label: 'Date' },
   { key: 'amount', label: 'Amount' },
-  { key: 'from_account', label: 'From Account' },
-  { key: 'to_account', label: 'To Account' },
-  { key: 'risk_level', label: 'Risk Level' },
+  { key: 'origin', label: 'Origin' },
+  { key: 'destination', label: 'Destination' },
   { key: 'status', label: 'Status' },
 ]
 
@@ -223,23 +212,21 @@ const capitalize = (str: string) => {
   return str.charAt(0).toUpperCase() + str.slice(1)
 }
 
-const getRiskBadgeClass = (level: string) => {
-  const classes = {
-    low: 'bg-green-100 text-green-800',
-    medium: 'bg-orange-100 text-orange-800',
-    high: 'bg-red-100 text-red-800',
-  }
-  return classes[level.toLowerCase() as keyof typeof classes] || classes.low
-}
-
 const getStatusBadgeClass = (status: string) => {
   const classes = {
     pending: 'bg-yellow-100 text-yellow-800',
     approved: 'bg-green-100 text-green-800',
     rejected: 'bg-red-100 text-red-800',
-    review: 'bg-blue-100 text-blue-800',
+    in_review: 'bg-blue-100 text-blue-800',
   }
   return classes[status.toLowerCase() as keyof typeof classes] || classes.pending
+}
+
+const formatStatus = (status: string) => {
+  if (status === 'in_review') {
+    return 'In Review'
+  }
+  return capitalize(status)
 }
 </script>
 

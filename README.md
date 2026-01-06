@@ -359,8 +359,8 @@ Content-Type: application/json
   "external_id": "txn_123456",
   "amount": 5000.00,
   "currency": "USD",
-  "from_account": "ACC001",
-  "to_account": "ACC002",
+  "origin": "ACC001",
+  "destination": "ACC002",
   "type": "transfer",
   "metadata": {
     "ip_address": "192.168.1.1",
@@ -489,8 +489,8 @@ Content-Type: application/json
   "sample_json": {
     "amount": 100.50,
     "currency": "USD",
-    "from_account": "ACC001",
-    "to_account": "ACC002",
+    "origin": "ACC001",
+    "destination": "ACC002",
     "timestamp": "2024-12-05T10:00:00Z",
     "metadata": {
       "ip_address": "192.168.1.1",
@@ -510,8 +510,8 @@ Response:
   "extracted_fields": [
     "amount",
     "currency",
-    "from_account",
-    "to_account",
+    "origin",
+    "destination",
     "timestamp",
     "metadata.ip_address",
     "metadata.device_id"
@@ -626,13 +626,13 @@ Check transaction velocity (count or sum) within a time window:
 
 ```javascript
 // Count transactions in the last hour (3600 seconds)
-velocityCount(from_account, 3600) > 10
+velocityCount(origin, 3600) > 10
 
 // Sum transaction amounts in the last hour
-velocitySum(from_account, 3600) > 10000
+velocitySum(origin, 3600) > 10000
 ```
 
-**Note:** Velocity checks query transaction history from the database. The `from_account` field should match the account identifier in your event schema.
+**Note:** Velocity checks query transaction history from the database. The `origin` field should match the account identifier in your event schema.
 
 ### Recreating Legacy Rule Types
 
@@ -649,21 +649,21 @@ amount > 10000
 ```javascript
 // Old: type: "velocity", conditions: { "transaction_count": 10, "time_window_seconds": 3600 }
 // New:
-velocityCount(from_account, 3600) > 10
+velocityCount(origin, 3600) > 10
 ```
 
 #### Velocity Rule (Amount Sum)
 ```javascript
 // Old: type: "velocity", conditions: { "amount_threshold": 10000, "time_window_seconds": 3600 }
 // New:
-velocitySum(from_account, 3600) > 10000
+velocitySum(origin, 3600) > 10000
 ```
 
 #### Blocklist Rule
 ```javascript
 // Old: type: "blocklist", conditions: { "blocklisted_accounts": ["ACC123", "ACC456"] }
 // New:
-from_account in ["ACC123", "ACC456"]
+origin in ["ACC123", "ACC456"]
 ```
 
 #### Geography Rule (Polygon Check)

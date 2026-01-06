@@ -60,7 +60,6 @@ func (e *Engine) StartSchemaInvalidationSubscription(ctx context.Context) {
 func (e *Engine) Evaluate(ctx context.Context, event models.Event) (*models.TransactionResult, error) {
 	startTime := time.Now()
 
-	riskScore := 0.0
 	matchedRules := make([]string, 0)
 	status := models.StatusApproved
 
@@ -70,7 +69,6 @@ func (e *Engine) Evaluate(ctx context.Context, event models.Event) (*models.Tran
 		matched := e.evaluateRule(ctx, event, rule)
 		if matched {
 			matchedRules = append(matchedRules, rule.Name)
-			riskScore += rule.Score
 
 			// Determine action
 			switch rule.Action {
@@ -78,34 +76,18 @@ func (e *Engine) Evaluate(ctx context.Context, event models.Event) (*models.Tran
 				status = models.StatusRejected
 			case models.ActionReview:
 				if status != models.StatusRejected {
-					status = models.StatusReview
+					status = models.StatusInReview
 				}
-			case models.ActionScore:
-				// Just add to score
+			case models.ActionAllow:
+				status = models.StatusApproved
 			}
 		}
-	}
-
-	// Determine risk level based on score
-	var riskLevel models.RiskLevel
-	switch {
-	case riskScore >= 80:
-		riskLevel = models.RiskHigh
-		if status == models.StatusApproved {
-			status = models.StatusReview
-		}
-	case riskScore >= 50:
-		riskLevel = models.RiskMedium
-	default:
-		riskLevel = models.RiskLow
 	}
 
 	processingTime := time.Since(startTime).Milliseconds()
 
 	result := &models.TransactionResult{
 		Status:         status,
-		RiskScore:      riskScore,
-		RiskLevel:      riskLevel,
 		MatchedRules:   matchedRules,
 		ProcessingTime: processingTime,
 	}

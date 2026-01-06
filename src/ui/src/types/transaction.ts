@@ -7,12 +7,10 @@ export interface Transaction {
   external_id: string
   amount: number
   currency: string
-  from_account: string
-  to_account: string
+  origin: string
+  destination: string
   type: string
-  status: 'pending' | 'approved' | 'rejected' | 'review'
-  risk_score: number
-  risk_level: 'low' | 'medium' | 'high'
+  status: 'pending' | 'approved' | 'rejected' | 'in_review'
   processing_time_ms: number
   matched_rules: string[]
   metadata: Record<string, any>

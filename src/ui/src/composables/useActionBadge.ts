@@ -1,6 +1,6 @@
 import { computed } from 'vue'
 
-export type ActionType = 'allow' | 'block' | 'review' | 'score'
+export type ActionType = 'allow' | 'block' | 'review'
 
 export function useActionBadge(action: ActionType | string) {
   const variant = computed(() => {
@@ -11,7 +11,6 @@ export function useActionBadge(action: ActionType | string) {
         return 'danger'
       case 'review':
         return 'warning'
-      case 'score':
       default:
         return 'info'
     }

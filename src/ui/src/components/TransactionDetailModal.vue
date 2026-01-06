@@ -42,12 +42,12 @@
         <div v-if="activeTab === 'overview'" class="space-y-8">
           <div class="grid grid-cols-2 gap-8">
             <div>
-              <label class="text-sm font-semibold text-neutral-700">From Account</label>
-              <p class="text-base text-neutral-900 mt-1">{{ transaction?.from_account }}</p>
+              <label class="text-sm font-semibold text-neutral-700">Origin</label>
+              <p class="text-base text-neutral-900 mt-1">{{ transaction?.origin }}</p>
             </div>
             <div>
-              <label class="text-sm font-semibold text-neutral-700">To Account</label>
-              <p class="text-base text-neutral-900 mt-1">{{ transaction?.to_account }}</p>
+              <label class="text-sm font-semibold text-neutral-700">Destination</label>
+              <p class="text-base text-neutral-900 mt-1">{{ transaction?.destination }}</p>
             </div>
             <div>
               <label class="text-sm font-semibold text-neutral-700">Amount</label>
@@ -58,21 +58,6 @@
               <p class="text-base text-neutral-900 mt-1">{{ formatDate(transaction?.created_at || '') }}</p>
             </div>
             <div>
-              <label class="text-sm font-semibold text-neutral-700">Risk Level</label>
-              <span
-                :class="[
-                  'inline-block mt-1 px-3 py-1 rounded-full text-sm font-semibold',
-                  getRiskBadgeClass(transaction?.risk_level || 'low')
-                ]"
-              >
-                {{ capitalize(transaction?.risk_level || 'low') }}
-              </span>
-            </div>
-            <div>
-              <label class="text-sm font-semibold text-neutral-700">Risk Score</label>
-              <p class="text-base text-neutral-900 mt-1">{{ transaction?.risk_score || 0 }}</p>
-            </div>
-            <div>
               <label class="text-sm font-semibold text-neutral-700">Status</label>
               <span
                 :class="[
@@ -80,7 +65,7 @@
                   getStatusBadgeClass(transaction?.status || 'pending')
                 ]"
               >
-                {{ capitalize(transaction?.status || 'pending') }}
+                {{ formatStatus(transaction?.status || 'pending') }}
               </span>
             </div>
             <div>
@@ -205,23 +190,21 @@ const formatCurrency = (amount: number, currency: string = 'USD') => {
   }).format(amount)
 }
 
-const getRiskBadgeClass = (level: string) => {
-  const classes = {
-    low: 'bg-green-100 text-green-800',
-    medium: 'bg-orange-100 text-orange-800',
-    high: 'bg-red-100 text-red-800',
-  }
-  return classes[level.toLowerCase() as keyof typeof classes] || classes.low
-}
-
 const getStatusBadgeClass = (status: string) => {
   const classes = {
     pending: 'bg-yellow-100 text-yellow-800',
     approved: 'bg-green-100 text-green-800',
     rejected: 'bg-red-100 text-red-800',
-    review: 'bg-blue-100 text-blue-800',
+    in_review: 'bg-blue-100 text-blue-800',
   }
   return classes[status.toLowerCase() as keyof typeof classes] || classes.pending
+}
+
+const formatStatus = (status: string) => {
+  if (status === 'in_review') {
+    return 'In Review'
+  }
+  return capitalize(status)
 }
 </script>
 

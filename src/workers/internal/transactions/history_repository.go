@@ -28,7 +28,7 @@ func (r *PostgresHistoryRepository) CountByAccountInTimeWindow(ctx context.Conte
 	query := `
 		SELECT COUNT(*) 
 		FROM transactions 
-		WHERE from_account = $1 
+		WHERE origin = $1 
 		AND created_at > NOW() - INTERVAL '1 second' * $2
 	`
 
@@ -45,7 +45,7 @@ func (r *PostgresHistoryRepository) SumAmountByAccountInTimeWindow(ctx context.C
 	query := `
 		SELECT COALESCE(SUM(amount), 0) 
 		FROM transactions 
-		WHERE from_account = $1 
+		WHERE origin = $1 
 		AND created_at > NOW() - INTERVAL '1 second' * $2
 	`
 

@@ -27,8 +27,8 @@ func (r *PostgresRepository) GetTransaction(ctx context.Context, id uuid.UUID) (
 	var transaction models.Transaction
 
 	query := `
-		SELECT id, external_id, amount, currency, from_account, to_account, 
-		       type, status, risk_score, risk_level, processing_time, 
+		SELECT id, external_id, amount, currency, origin, destination, 
+		       type, status, processing_time, 
 		       matched_rules, metadata, created_at, processed_at
 		FROM transactions
 		WHERE id = $1
@@ -39,12 +39,10 @@ func (r *PostgresRepository) GetTransaction(ctx context.Context, id uuid.UUID) (
 		&transaction.ExternalID,
 		&transaction.Amount,
 		&transaction.Currency,
-		&transaction.FromAccount,
-		&transaction.ToAccount,
+		&transaction.Origin,
+		&transaction.Destination,
 		&transaction.Type,
 		&transaction.Status,
-		&transaction.RiskScore,
-		&transaction.RiskLevel,
 		&transaction.ProcessingTime,
 		&transaction.MatchedRules,
 		&transaction.Metadata,
@@ -61,8 +59,8 @@ func (r *PostgresRepository) GetTransaction(ctx context.Context, id uuid.UUID) (
 
 func (r *PostgresRepository) ListTransactions(ctx context.Context, limit, offset int) ([]models.Transaction, error) {
 	query := `
-		SELECT id, external_id, amount, currency, from_account, to_account, 
-		       type, status, risk_score, risk_level, processing_time, 
+		SELECT id, external_id, amount, currency, origin, destination, 
+		       type, status, processing_time, 
 		       matched_rules, metadata, created_at, processed_at
 		FROM transactions
 		ORDER BY created_at DESC
@@ -83,12 +81,10 @@ func (r *PostgresRepository) ListTransactions(ctx context.Context, limit, offset
 			&transaction.ExternalID,
 			&transaction.Amount,
 			&transaction.Currency,
-			&transaction.FromAccount,
-			&transaction.ToAccount,
+			&transaction.Origin,
+			&transaction.Destination,
 			&transaction.Type,
 			&transaction.Status,
-			&transaction.RiskScore,
-			&transaction.RiskLevel,
 			&transaction.ProcessingTime,
 			&transaction.MatchedRules,
 			&transaction.Metadata,

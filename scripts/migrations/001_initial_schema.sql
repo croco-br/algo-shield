@@ -4,12 +4,10 @@ CREATE TABLE IF NOT EXISTS transactions (
     external_id VARCHAR(255) UNIQUE NOT NULL,
     amount DECIMAL(20, 2) NOT NULL,
     currency VARCHAR(3) NOT NULL,
-    from_account VARCHAR(255) NOT NULL,
-    to_account VARCHAR(255) NOT NULL,
+    origin VARCHAR(255) NOT NULL,
+    destination VARCHAR(255) NOT NULL,
     type VARCHAR(50) NOT NULL,
-    status VARCHAR(50) NOT NULL,
-    risk_score DECIMAL(5, 2) DEFAULT 0,
-    risk_level VARCHAR(20) DEFAULT 'low',
+    status VARCHAR(50) NOT NULL DEFAULT 'approved',
     processing_time BIGINT DEFAULT 0,
     matched_rules JSONB DEFAULT '[]',
     metadata JSONB DEFAULT '{}',
@@ -27,15 +25,14 @@ CREATE TABLE IF NOT EXISTS rules (
     priority INTEGER DEFAULT 0,
     enabled BOOLEAN DEFAULT true,
     conditions JSONB DEFAULT '{}',
-    score DECIMAL(5, 2) DEFAULT 0,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
 -- Create indexes for performance
 CREATE INDEX IF NOT EXISTS idx_transactions_external_id ON transactions(external_id);
-CREATE INDEX IF NOT EXISTS idx_transactions_from_account ON transactions(from_account);
-CREATE INDEX IF NOT EXISTS idx_transactions_to_account ON transactions(to_account);
+CREATE INDEX IF NOT EXISTS idx_transactions_origin ON transactions(origin);
+CREATE INDEX IF NOT EXISTS idx_transactions_destination ON transactions(destination);
 CREATE INDEX IF NOT EXISTS idx_transactions_status ON transactions(status);
 CREATE INDEX IF NOT EXISTS idx_transactions_created_at ON transactions(created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_rules_enabled ON rules(enabled);

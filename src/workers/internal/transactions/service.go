@@ -45,8 +45,8 @@ func (s *Service) ProcessTransaction(ctx context.Context, event models.Event) er
 	externalID := extractStringFromEvent(event, "external_id", "id", "event_id")
 	amount := extractFloat64FromEvent(event, "amount", "value", "total")
 	currency := extractStringFromEvent(event, "currency", "currency_code", "curr")
-	fromAccount := extractStringFromEvent(event, "from_account", "account", "user_id", "customer_id")
-	toAccount := extractStringFromEvent(event, "to_account", "recipient_account", "recipient_id")
+	origin := extractStringFromEvent(event, "origin", "from_account", "account", "user_id", "customer_id")
+	destination := extractStringFromEvent(event, "destination", "to_account", "recipient_account", "recipient_id")
 	eventType := extractStringFromEvent(event, "type", "transaction_type", "event_type")
 
 	// Extract metadata if present
@@ -63,12 +63,10 @@ func (s *Service) ProcessTransaction(ctx context.Context, event models.Event) er
 		ExternalID:     externalID,
 		Amount:         amount,
 		Currency:       currency,
-		FromAccount:    fromAccount,
-		ToAccount:      toAccount,
+		Origin:         origin,
+		Destination:    destination,
 		Type:           eventType,
 		Status:         result.Status,
-		RiskScore:      result.RiskScore,
-		RiskLevel:      result.RiskLevel,
 		ProcessingTime: result.ProcessingTime,
 		MatchedRules:   result.MatchedRules,
 		Metadata:       metadata,
@@ -82,8 +80,8 @@ func (s *Service) ProcessTransaction(ctx context.Context, event models.Event) er
 	}
 
 	log.Printf(
-		"Processed transaction %s: status=%s, risk_score=%.2f, risk_level=%s, time=%dms",
-		externalID, result.Status, result.RiskScore, result.RiskLevel, result.ProcessingTime,
+		"Processed transaction %s: status=%s, time=%dms",
+		externalID, result.Status, result.ProcessingTime,
 	)
 
 	return nil

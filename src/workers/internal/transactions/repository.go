@@ -30,10 +30,10 @@ func (r *PostgresRepository) SaveTransaction(ctx context.Context, transaction *m
 
 	query := `
 		INSERT INTO transactions (
-			id, external_id, amount, currency, from_account, to_account, 
-			type, status, risk_score, risk_level, processing_time, 
+			id, external_id, amount, currency, origin, destination, 
+			type, status, processing_time, 
 			matched_rules, metadata, created_at, processed_at
-		) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
+		) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
 	`
 
 	_, err := r.db.Exec(ctx, query,
@@ -41,12 +41,10 @@ func (r *PostgresRepository) SaveTransaction(ctx context.Context, transaction *m
 		transaction.ExternalID,
 		transaction.Amount,
 		transaction.Currency,
-		transaction.FromAccount,
-		transaction.ToAccount,
+		transaction.Origin,
+		transaction.Destination,
 		transaction.Type,
 		transaction.Status,
-		transaction.RiskScore,
-		transaction.RiskLevel,
 		transaction.ProcessingTime,
 		matchedRulesJSON,
 		metadataJSON,
