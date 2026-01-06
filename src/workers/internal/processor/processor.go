@@ -28,11 +28,8 @@ type Processor struct {
 }
 
 func NewProcessor(db *pgxpool.Pool, redis *redis.Client, concurrency, batchSize int, transactionTimeout, ruleEvaluationTimeout, queuePopTimeout, rulesReloadInterval time.Duration, retryConfig RetryConfig) *Processor {
-	// Create history provider for engine
-	historyProvider := transactions.NewPostgresHistoryRepository(db)
-
-	// Create single instance of rule engine with history provider and timeout
-	ruleEngine := engine.NewEngine(db, redis, historyProvider, ruleEvaluationTimeout)
+	// Create single instance of rule engine with timeout
+	ruleEngine := engine.NewEngine(db, redis, ruleEvaluationTimeout)
 
 	// Create transaction repository and service with dependency injection
 	transactionService := transactions.NewService(transactions.NewPostgresRepository(db), ruleEngine)

@@ -9,11 +9,7 @@ import (
 type RuleType string
 
 const (
-	RuleTypeAmount    RuleType = "amount"
-	RuleTypeVelocity  RuleType = "velocity"
-	RuleTypeBlocklist RuleType = "blocklist"
-	RuleTypeGeography RuleType = "geography"
-	RuleTypeCustom    RuleType = "custom"
+	RuleTypeCustom RuleType = "custom"
 )
 
 type RuleAction string
@@ -38,12 +34,4 @@ type Rule struct {
 	SchemaID    *uuid.UUID     `json:"schema_id,omitempty"` // Reference to event schema
 	CreatedAt   time.Time      `json:"created_at"`
 	UpdatedAt   time.Time      `json:"updated_at"`
-}
-
-type RuleConfig struct {
-	AmountThreshold     *float64 `json:"amount_threshold,omitempty"`
-	TransactionCount    *int     `json:"transaction_count,omitempty"`
-	TimeWindowSeconds   *int     `json:"time_window_seconds,omitempty"`
-	BlocklistedAccounts []string `json:"blocklisted_accounts,omitempty"`
-	CustomExpression    *string  `json:"custom_expression,omitempty"`
 }

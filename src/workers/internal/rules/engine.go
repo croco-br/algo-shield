@@ -13,26 +13,16 @@ import (
 	"github.com/redis/go-redis/v9"
 )
 
-// TransactionHistoryProvider defines the interface for transaction history queries
-type TransactionHistoryProvider interface {
-	CountByAccountInTimeWindow(ctx context.Context, account string, timeWindowSeconds int) (int, error)
-}
-
 // Engine evaluates events against rules using schemas
 type Engine struct {
-	ruleService     *RuleService
-	schemaService   *schemas.SchemaService
-	historyProvider TransactionHistoryProvider
-	defaultTimeout  time.Duration
+	ruleService    *RuleService
+	schemaService  *schemas.SchemaService
+	historyRepo    transactions.TransactionHistoryRepository
+	defaultTimeout time.Duration
 }
 
 // NewEngine creates a new rule engine
-func NewEngine(db *pgxpool.Pool, redis *redis.Client, historyProvider TransactionHistoryProvider, ruleEvaluationTimeout time.Duration) *Engine {
-	if historyProvider == nil {
-		// Default to PostgresHistoryRepository if not provided
-		historyProvider = transactions.NewPostgresHistoryRepository(db)
-	}
-
+func NewEngine(db *pgxpool.Pool, redis *redis.Client, ruleEvaluationTimeout time.Duration) *Engine {
 	// Create rule repository and service with dependency injection
 	ruleRepo := rules.NewPostgresRepository(db, redis)
 	ruleService := NewRuleService(ruleRepo)
@@ -41,11 +31,14 @@ func NewEngine(db *pgxpool.Pool, redis *redis.Client, historyProvider Transactio
 	schemaRepo := schemas.NewPostgresRepository(db)
 	schemaService := schemas.NewSchemaService(schemaRepo, redis)
 
+	// Create history repository for velocity helpers
+	historyRepo := transactions.NewPostgresHistoryRepository(db)
+
 	return &Engine{
-		ruleService:     ruleService,
-		schemaService:   schemaService,
-		historyProvider: historyProvider,
-		defaultTimeout:  ruleEvaluationTimeout,
+		ruleService:    ruleService,
+		schemaService:  schemaService,
+		historyRepo:    historyRepo,
+		defaultTimeout: ruleEvaluationTimeout,
 	}
 }
 
@@ -127,11 +120,11 @@ func (e *Engine) evaluateRule(ctx context.Context, event models.Event, rule mode
 		log.Printf("Unsupported rule type: %s (only 'custom' is supported)", rule.Type)
 		return false
 	}
-	return e.evaluateCustomRule(event, rule)
+	return e.evaluateCustomRule(ctx, event, rule)
 }
 
 // evaluateCustomRule evaluates custom expression against event using schema
-func (e *Engine) evaluateCustomRule(event models.Event, rule models.Rule) bool {
+func (e *Engine) evaluateCustomRule(ctx context.Context, event models.Event, rule models.Rule) bool {
 	expression, ok := rule.Conditions["custom_expression"].(string)
 	if !ok {
 		log.Printf("Custom rule missing or invalid custom_expression condition")
@@ -149,6 +142,6 @@ func (e *Engine) evaluateCustomRule(event models.Event, rule models.Rule) bool {
 		return false
 	}
 
-	// Use schema-based expression evaluation
-	return schemas.EvaluateExpressionWithSchema(expression, event, schema)
+	// Use schema-based expression evaluation with history repository for velocity helpers
+	return schemas.EvaluateExpressionWithSchema(ctx, expression, event, schema, e.historyRepo)
 }

@@ -27,11 +27,36 @@ export default defineConfig({
             return `assets/${assetInfo.name}`
           }
           return 'assets/[name]-[hash][extname]'
+        },
+        manualChunks: (id) => {
+          // Split node_modules into vendor chunks
+          if (id.includes('node_modules')) {
+            // Vuetify is large, split it into its own chunk
+            if (id.includes('vuetify')) {
+              return 'vendor-vuetify'
+            }
+            // Font Awesome icons
+            if (id.includes('@fortawesome')) {
+              return 'vendor-icons'
+            }
+            // Vue core libraries
+            if (id.includes('vue') || id.includes('pinia') || id.includes('vue-router')) {
+              return 'vendor-vue'
+            }
+            // Other utilities (prismjs, etc.)
+            if (id.includes('prismjs')) {
+              return 'vendor-utils'
+            }
+            // All other node_modules
+            return 'vendor'
+          }
         }
       }
     },
     // Ensure font files are copied as-is without processing
-    assetsInlineLimit: 0
+    assetsInlineLimit: 0,
+    // Increase chunk size warning limit since we're splitting properly
+    chunkSizeWarningLimit: 1000
   },
   server: {
     fs: {

@@ -10,6 +10,8 @@ import (
 type TransactionHistoryRepository interface {
 	// CountByAccountInTimeWindow counts transactions for an account within a time window
 	CountByAccountInTimeWindow(ctx context.Context, account string, timeWindowSeconds int) (int, error)
+	// SumAmountByAccountInTimeWindow sums transaction amounts for an account within a time window
+	SumAmountByAccountInTimeWindow(ctx context.Context, account string, timeWindowSeconds int) (float64, error)
 }
 
 // PostgresHistoryRepository is the PostgreSQL implementation
@@ -37,4 +39,21 @@ func (r *PostgresHistoryRepository) CountByAccountInTimeWindow(ctx context.Conte
 	}
 
 	return count, nil
+}
+
+func (r *PostgresHistoryRepository) SumAmountByAccountInTimeWindow(ctx context.Context, account string, timeWindowSeconds int) (float64, error) {
+	query := `
+		SELECT COALESCE(SUM(amount), 0) 
+		FROM transactions 
+		WHERE from_account = $1 
+		AND created_at > NOW() - INTERVAL '1 second' * $2
+	`
+
+	var sum float64
+	err := r.db.QueryRow(ctx, query, account, timeWindowSeconds).Scan(&sum)
+	if err != nil {
+		return 0.0, err
+	}
+
+	return sum, nil
 }
