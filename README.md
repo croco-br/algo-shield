@@ -559,52 +559,130 @@ POST /api/v1/schemas/{id}/parse
 Authorization: Bearer <token>
 ```
 
-## 🔧 Rule Types
+## 🔧 Custom Expression Rules
 
-### Amount Rule
-Checks transaction amount against threshold:
+AlgoShield uses a flexible custom expression-based rule system. All rules use the `custom` type and evaluate expressions using [expr-lang](https://github.com/expr-lang/expr) against event schemas.
+
+### Basic Rule Structure
+
 ```json
 {
-  "type": "amount",
+  "name": "High Value Transaction",
+  "description": "Flag transactions over $10,000",
+  "type": "custom",
+  "action": "review",
+  "score": 30,
+  "priority": 500,
+  "enabled": true,
+  "schema_id": "uuid-of-event-schema",
   "conditions": {
-    "amount_threshold": 10000
+    "custom_expression": "amount > 10000"
   }
 }
 ```
 
-### Velocity Rule
-Checks transaction frequency:
-```json
-{
-  "type": "velocity",
-  "conditions": {
-    "transaction_count": 10,
-    "time_window_seconds": 3600
-  }
-}
+### Expression Examples
+
+**Amount Threshold:**
+```javascript
+amount > 10000
 ```
 
-### Blocklist Rule
-Blocks specific accounts:
-```json
-{
-  "type": "blocklist",
-  "conditions": {
-    "blocklisted_accounts": ["ACC123", "ACC456"]
-  }
-}
+**Multiple Conditions:**
+```javascript
+amount > 5000 and currency != "USD"
 ```
 
-### Pattern Rule
-Matches transaction patterns:
-```json
-{
-  "type": "pattern",
-  "conditions": {
-    "pattern": "international_transfer"
-  }
-}
+**String Matching:**
+```javascript
+user.country in ["RU", "CN", "KP"]
 ```
+
+**Boolean Checks:**
+```javascript
+metadata.is_suspicious == true
+```
+
+**Complex Logic:**
+```javascript
+(amount > 10000 and currency == "USD") or (amount > 5000 and user.country == "RU")
+```
+
+### Helper Functions
+
+#### Polygon Checks
+
+Check if a geographic point is inside a polygon:
+
+```javascript
+pointInPolygon(location.lat, location.lon, [[37.7749, -122.4194], [37.7849, -122.4094], [37.7649, -122.4294]])
+```
+
+The polygon is defined as a 2D array of `[latitude, longitude]` coordinate pairs. The function uses the ray casting algorithm to determine if a point is inside the polygon.
+
+#### Velocity Checks
+
+Check transaction velocity (count or sum) within a time window:
+
+```javascript
+// Count transactions in the last hour (3600 seconds)
+velocityCount(from_account, 3600) > 10
+
+// Sum transaction amounts in the last hour
+velocitySum(from_account, 3600) > 10000
+```
+
+**Note:** Velocity checks query transaction history from the database. The `from_account` field should match the account identifier in your event schema.
+
+### Recreating Legacy Rule Types
+
+The following examples show how to recreate common rule patterns using custom expressions:
+
+#### Amount Rule (Threshold Check)
+```javascript
+// Old: type: "amount", conditions: { "amount_threshold": 10000 }
+// New:
+amount > 10000
+```
+
+#### Velocity Rule (Transaction Count)
+```javascript
+// Old: type: "velocity", conditions: { "transaction_count": 10, "time_window_seconds": 3600 }
+// New:
+velocityCount(from_account, 3600) > 10
+```
+
+#### Velocity Rule (Amount Sum)
+```javascript
+// Old: type: "velocity", conditions: { "amount_threshold": 10000, "time_window_seconds": 3600 }
+// New:
+velocitySum(from_account, 3600) > 10000
+```
+
+#### Blocklist Rule
+```javascript
+// Old: type: "blocklist", conditions: { "blocklisted_accounts": ["ACC123", "ACC456"] }
+// New:
+from_account in ["ACC123", "ACC456"]
+```
+
+#### Geography Rule (Polygon Check)
+```javascript
+// Old: type: "geography", conditions: { "polygon": [[lat1, lon1], [lat2, lon2], ...] }
+// New:
+pointInPolygon(location.lat, location.lon, [[lat1, lon1], [lat2, lon2], [lat3, lon3]])
+```
+
+### Expression Syntax
+
+Expressions support:
+- **Comparisons**: `==`, `!=`, `>`, `<`, `>=`, `<=`
+- **Logical Operators**: `and`, `or`, `not`
+- **Array Operations**: `in`, `contains`
+- **Nested Fields**: Use dot notation (e.g., `user.country`, `metadata.ip_address`)
+- **Helper Functions**: `pointInPolygon()`, `velocityCount()`, `velocitySum()`
+
+For complete expression syntax, see the [expr-lang documentation](https://github.com/expr-lang/expr).
 
 ## 📊 Rule Actions
 
