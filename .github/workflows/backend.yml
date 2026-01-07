@@ -1,0 +1,285 @@
+name: Backend CI (API + Worker)
+
+on:
+  push:
+    branches: [main, develop]
+    paths:
+      - 'src/api/**'
+      - 'src/workers/**'
+      - 'src/pkg/**'
+      - 'go.mod'
+      - 'go.sum'
+      - 'Dockerfile.api'
+      - 'Dockerfile.worker'
+      - '.github/workflows/backend.yml'
+  pull_request:
+    branches: [main, develop]
+    paths:
+      - 'src/api/**'
+      - 'src/workers/**'
+      - 'src/pkg/**'
+      - 'go.mod'
+      - 'go.sum'
+      - 'Dockerfile.api'
+      - 'Dockerfile.worker'
+      - '.github/workflows/backend.yml'
+
+env:
+  GO_VERSION: '1.25.4'
+  DOCKER_BUILDKIT: 1
+
+jobs:
+  lint:
+    name: Lint Go Code
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+
+      - name: Cache Go modules
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cache/go-build
+            ~/go/pkg/mod
+          key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
+          restore-keys: |
+            ${{ runner.os }}-go-
+
+      - name: Install golangci-lint
+        uses: golangci/golangci-lint-action@v6
+        with:
+          version: latest
+
+      - name: Run golangci-lint
+        uses: golangci/golangci-lint-action@v6
+        with:
+          args: --timeout=5m ./src/...
+
+  test-api:
+    name: Test API
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: test
+          POSTGRES_PASSWORD: test
+          POSTGRES_DB: algoshield_test
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5432:5432
+      redis:
+        image: redis:7-alpine
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 6379:6379
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+
+      - name: Cache Go modules
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cache/go-build
+            ~/go/pkg/mod
+          key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
+          restore-keys: |
+            ${{ runner.os }}-go-
+
+      - name: Download dependencies
+        run: go mod download
+
+      - name: Install gotestsum
+        run: go install gotest.tools/gotestsum@latest
+
+      - name: Run API tests
+        run: |
+          gotestsum --format testdox -- -race -parallel 4 -coverprofile=coverage-api.out ./src/api/...
+        env:
+          DATABASE_URL: postgres://test:test@localhost:5432/algoshield_test?sslmode=disable
+          REDIS_URL: redis://localhost:6379
+
+      - name: Upload API coverage
+        uses: codecov/codecov-action@v4
+        if: always()
+        with:
+          file: ./coverage-api.out
+          flags: api
+          name: api-coverage
+
+  test-worker:
+    name: Test Worker
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: test
+          POSTGRES_PASSWORD: test
+          POSTGRES_DB: algoshield_test
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5432:5432
+      redis:
+        image: redis:7-alpine
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 6379:6379
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+
+      - name: Cache Go modules
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cache/go-build
+            ~/go/pkg/mod
+          key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
+          restore-keys: |
+            ${{ runner.os }}-go-
+
+      - name: Download dependencies
+        run: go mod download
+
+      - name: Install gotestsum
+        run: go install gotest.tools/gotestsum@latest
+
+      - name: Run Worker tests
+        run: |
+          gotestsum --format testdox -- -race -parallel 4 -coverprofile=coverage-worker.out ./src/workers/...
+        env:
+          DATABASE_URL: postgres://test:test@localhost:5432/algoshield_test?sslmode=disable
+          REDIS_URL: redis://localhost:6379
+
+      - name: Upload Worker coverage
+        uses: codecov/codecov-action@v4
+        if: always()
+        with:
+          file: ./coverage-worker.out
+          flags: worker
+          name: worker-coverage
+
+  build-api:
+    name: Build API Docker Image
+    runs-on: ubuntu-latest
+    needs: [lint, test-api]
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build API image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: ./Dockerfile.api
+          push: false
+          tags: algoshield-api:test
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  build-worker:
+    name: Build Worker Docker Image
+    runs-on: ubuntu-latest
+    needs: [lint, test-worker]
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build Worker image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: ./Dockerfile.worker
+          push: false
+          tags: algoshield-worker:test
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  security:
+    name: Security Scan (Backend)
+    runs-on: ubuntu-latest
+    needs: [lint]
+    if: github.event_name == 'push' || github.event_name == 'pull_request'
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+
+      - name: Run Gosec Security Scanner
+        uses: securego/gosec@master
+        with:
+          args: '-no-fail -fmt json -out gosec-report.json ./src/...'
+        continue-on-error: true
+
+      - name: Run Semgrep
+        uses: returntocorp/semgrep-action@v1
+        with:
+          config: >-
+            p/security-audit
+            p/golang
+        continue-on-error: true
+
+      - name: Run Trivy vulnerability scanner
+        uses: aquasecurity/trivy-action@master
+        with:
+          scan-type: 'fs'
+          scan-ref: '.'
+          format: 'sarif'
+          output: 'trivy-results.sarif'
+          severity: 'CRITICAL,HIGH'
+        continue-on-error: true
+
+      - name: Run Gitleaks
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        continue-on-error: true
+
