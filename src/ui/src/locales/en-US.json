@@ -244,7 +244,16 @@
           "invalidExpression": "Invalid expression",
           "emptyExpression": "Generated expression is empty. Please check your conditions.",
           "invalidPoint": "Point {index}: Invalid point format",
-          "enterValue": "Enter value"
+          "enterValue": "Enter value",
+          "polygonPoints": "Polygon must have at least 3 points",
+          "pointInvalidFormat": "Point {index}: Invalid point format",
+          "pointLatitudeRange": "Point {index}: Latitude must be between -90 and 90 (got {value})",
+          "pointLongitudeRange": "Point {index}: Longitude must be between -180 and 180 (got {value})",
+          "conditionFieldRequired": "Condition {index}: Field is required",
+          "conditionOperatorRequired": "Condition {index}: Operator is required",
+          "conditionValueRequired": "Condition {index}: Value is required",
+          "conditionFieldNotExist": "Condition {index}: Field \"{field}\" does not exist in the selected schema",
+          "conditionOperatorNotValid": "Condition {index}: Operator \"{operator}\" is not valid for field type \"{type}\""
         },
         "conditionBuilder": {
           "noConditions": "No conditions added yet. Click \"Add Condition\" to start building your rule.",

@@ -266,19 +266,19 @@ function validateConditions(): string | null {
       }
       const validPoints = props.polygonConfig.points.filter(p => p[0] !== 0 || p[1] !== 0)
       if (validPoints.length < 3) {
-        return 'Polygon must have at least 3 points'
+        return t('views.rules.modal.validation.polygonPoints')
       }
       // Validate latitude and longitude ranges
       for (let i = 0; i < validPoints.length; i++) {
         const point = validPoints[i]
         if (!point || point.length < 2) {
-          return `Point ${i + 1}: Invalid point format`
+          return t('views.rules.modal.validation.pointInvalidFormat', { index: i + 1 })
         }
         if (typeof point[0] !== 'number' || point[0] < -90 || point[0] > 90) {
-          return `Point ${i + 1}: Latitude must be between -90 and 90 (got ${point[0]})`
+          return t('views.rules.modal.validation.pointLatitudeRange', { index: i + 1, value: point[0] })
         }
         if (typeof point[1] !== 'number' || point[1] < -180 || point[1] > 180) {
-          return `Point ${i + 1}: Longitude must be between -180 and 180 (got ${point[1]})`
+          return t('views.rules.modal.validation.pointLongitudeRange', { index: i + 1, value: point[1] })
         }
       }
       const expression = props.polygonExpression
@@ -332,21 +332,21 @@ function validateConditions(): string | null {
       }
       
       if (!row.field) {
-        return `Condition ${i + 1}: Field is required`
+        return t('views.rules.modal.validation.conditionFieldRequired', { index: i + 1 })
       }
       
       if (!row.operator) {
-        return `Condition ${i + 1}: Operator is required`
+        return t('views.rules.modal.validation.conditionOperatorRequired', { index: i + 1 })
       }
       
       if (row.value === null || row.value === undefined || row.value === '') {
-        return `Condition ${i + 1}: Value is required`
+        return t('views.rules.modal.validation.conditionValueRequired', { index: i + 1 })
       }
 
       // Validate that the field exists in the schema
       const fieldExists = schemaFields.some((f: any) => f.path === row.field)
       if (!fieldExists) {
-        return `Condition ${i + 1}: Field "${row.field}" does not exist in the selected schema`
+        return t('views.rules.modal.validation.conditionFieldNotExist', { index: i + 1, field: row.field })
       }
 
       // Validate operator is appropriate for field type
@@ -354,7 +354,7 @@ function validateConditions(): string | null {
       if (field) {
         const validOperators = getOperatorOptions(row.field).map(o => o.value)
         if (!validOperators.includes(row.operator)) {
-          return `Condition ${i + 1}: Operator "${row.operator}" is not valid for field type "${field.type}"`
+          return t('views.rules.modal.validation.conditionOperatorNotValid', { index: i + 1, operator: row.operator, type: field.type })
         }
       }
     }
@@ -362,13 +362,13 @@ function validateConditions(): string | null {
     // Validate generated expression for manual mode
     const expression = props.generatedExpression
     if (!expression || expression.trim() === '') {
-      return 'Generated expression is empty. Please check your conditions.'
+      return t('views.rules.modal.validation.emptyExpression')
     }
     
     // Sanitize the expression
     const sanitizeResult = sanitizeExpression(expression)
     if (!sanitizeResult.valid) {
-      return sanitizeResult.error || 'Invalid expression'
+      return sanitizeResult.error || t('views.rules.modal.validation.invalidExpression')
     }
   }
 

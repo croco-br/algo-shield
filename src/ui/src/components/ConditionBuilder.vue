@@ -109,8 +109,11 @@
 </template>
 
 <script setup lang="ts">
+import { i18n } from '@/plugins/i18n'
 import BaseSelect from '@/components/BaseSelect.vue'
 import BaseInput from '@/components/BaseInput.vue'
+
+const t = i18n.global.t
 
 interface ConditionRow {
   id: string
@@ -202,8 +205,7 @@ function getValueInputType(fieldPath: string): 'number' | 'string' | 'boolean' |
 }
 
 function getValuePlaceholder(fieldPath: string): string {
-  const t = (window as any).$i18n?.global?.t
-  const defaultValue = t?.('views.rules.modal.validation.enterValue') || 'Enter value'
+  const defaultValue = t('views.rules.modal.validation.enterValue')
   
   if (!props.currentSchema || !fieldPath) {
     return defaultValue

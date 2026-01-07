@@ -247,6 +247,7 @@ import ConditionBuilder from '@/components/ConditionBuilder.vue'
 
 const router = useRouter()
 const authStore = useAuthStore()
+const t = i18n.global.t
 
 const tableColumns = [
   { key: 'schema', label: 'components.ruleTable.schema' },
@@ -1360,67 +1361,67 @@ async function handleSubmit() {
 function validateConditions(): string | null {
   // Validate that a schema is selected
   if (!editingRule.schema_id || !currentSchema.value) {
-    return 'Please select a schema first'
+    return t('views.rules.modal.validation.selectSchema')
   }
 
   const schemaFields = currentSchema.value.extracted_fields || []
   
   if (schemaFields.length === 0) {
-    return 'Selected schema has no fields. Please select a different schema.'
+    return t('views.rules.modal.validation.noFields')
   }
 
   // Validate based on expression mode
   if (expressionMode.value === 'builder') {
     if (builderType.value === 'polygon') {
       if (!polygonConfig.latField || !polygonConfig.lonField) {
-        return 'Please select latitude and longitude fields for polygon check'
+        return t('views.rules.modal.validation.selectLatLon')
       }
       const validPoints = polygonConfig.points.filter(p => p[0] !== 0 || p[1] !== 0)
       if (validPoints.length < 3) {
-        return 'Polygon must have at least 3 points'
+        return t('views.rules.modal.validation.polygonPoints')
       }
       // Validate latitude and longitude ranges
       for (let i = 0; i < validPoints.length; i++) {
         const point = validPoints[i]
         if (!point || point.length < 2) {
-          return `Point ${i + 1}: Invalid point format`
+          return t('views.rules.modal.validation.pointInvalidFormat', { index: i + 1 })
         }
         if (typeof point[0] !== 'number' || point[0] < -90 || point[0] > 90) {
-          return `Point ${i + 1}: Latitude must be between -90 and 90 (got ${point[0]})`
+          return t('views.rules.modal.validation.pointLatitudeRange', { index: i + 1, value: point[0] })
         }
         if (typeof point[1] !== 'number' || point[1] < -180 || point[1] > 180) {
-          return `Point ${i + 1}: Longitude must be between -180 and 180 (got ${point[1]})`
+          return t('views.rules.modal.validation.pointLongitudeRange', { index: i + 1, value: point[1] })
         }
       }
       const expression = polygonExpression.value
       if (!expression || expression.trim() === '') {
-        return 'Invalid polygon configuration'
+        return t('views.rules.modal.validation.invalidPolygon')
       }
       // Sanitize the polygon expression
       const sanitizeResult = sanitizeExpression(expression)
       if (!sanitizeResult.valid) {
-        return sanitizeResult.error || 'Invalid polygon expression'
+        return sanitizeResult.error || t('views.rules.modal.validation.invalidPolygonExpression')
       }
       // Builder mode validation complete - return early
       return null
     } else if (builderType.value === 'velocity') {
       if (!velocityConfig.groupField) {
-        return 'Please select a group field for velocity check'
+        return t('views.rules.modal.validation.selectGroupField')
       }
       if (!velocityConfig.threshold || velocityConfig.threshold <= 0) {
-        return 'Please enter a valid threshold value'
+        return t('views.rules.modal.validation.validThreshold')
       }
       if (!velocityConfig.timeValue || velocityConfig.timeValue <= 0) {
-        return 'Please enter a valid time value'
+        return t('views.rules.modal.validation.validTimeValue')
       }
       const expression = velocityExpression.value
       if (!expression || expression.trim() === '') {
-        return 'Invalid velocity configuration'
+        return t('views.rules.modal.validation.invalidVelocity')
       }
       // Sanitize the velocity expression
       const sanitizeResult = sanitizeExpression(expression)
       if (!sanitizeResult.valid) {
-        return sanitizeResult.error || 'Invalid velocity expression'
+        return sanitizeResult.error || t('views.rules.modal.validation.invalidVelocityExpression')
       }
       // Builder mode validation complete - return early
       return null
@@ -1428,7 +1429,7 @@ function validateConditions(): string | null {
   } else {
     // Manual mode: Validate condition rows
     if (conditionRows.value.length === 0) {
-      return 'At least one condition is required'
+      return t('views.rules.modal.validation.atLeastOneCondition')
     }
 
     // Validate each condition row
@@ -1440,21 +1441,21 @@ function validateConditions(): string | null {
       }
       
       if (!row.field) {
-        return `Condition ${i + 1}: Field is required`
+        return t('views.rules.modal.validation.conditionFieldRequired', { index: i + 1 })
       }
       
       if (!row.operator) {
-        return `Condition ${i + 1}: Operator is required`
+        return t('views.rules.modal.validation.conditionOperatorRequired', { index: i + 1 })
       }
       
       if (row.value === null || row.value === undefined || row.value === '') {
-        return `Condition ${i + 1}: Value is required`
+        return t('views.rules.modal.validation.conditionValueRequired', { index: i + 1 })
       }
 
       // Validate that the field exists in the schema
       const fieldExists = schemaFields.some(f => f.path === row.field)
       if (!fieldExists) {
-        return `Condition ${i + 1}: Field "${row.field}" does not exist in the selected schema`
+        return t('views.rules.modal.validation.conditionFieldNotExist', { index: i + 1, field: row.field })
       }
 
       // Validate operator is appropriate for field type
@@ -1462,7 +1463,7 @@ function validateConditions(): string | null {
       if (field) {
         const validOperators = getOperatorOptions(row.field).map(o => o.value)
         if (!validOperators.includes(row.operator)) {
-          return `Condition ${i + 1}: Operator "${row.operator}" is not valid for field type "${field.type}"`
+          return t('views.rules.modal.validation.conditionOperatorNotValid', { index: i + 1, operator: row.operator, type: field.type })
         }
       }
     }
@@ -1470,13 +1471,13 @@ function validateConditions(): string | null {
     // Validate generated expression for manual mode
     const expression = generatedExpression.value
     if (!expression || expression.trim() === '') {
-      return 'Generated expression is empty. Please check your conditions.'
+      return t('views.rules.modal.validation.emptyExpression')
     }
     
     // Sanitize the expression
     const sanitizeResult = sanitizeExpression(expression)
     if (!sanitizeResult.valid) {
-      return sanitizeResult.error || 'Invalid expression'
+      return sanitizeResult.error || t('views.rules.modal.validation.invalidExpression')
     }
   }
 

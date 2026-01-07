@@ -244,7 +244,16 @@
           "invalidExpression": "Expressão inválida",
           "emptyExpression": "Expressão gerada está vazia. Por favor, verifique suas condições.",
           "invalidPoint": "Ponto {index}: Formato de ponto inválido",
-          "enterValue": "Digite o valor"
+          "enterValue": "Digite o valor",
+          "polygonPoints": "Polígono deve ter pelo menos 3 pontos",
+          "pointInvalidFormat": "Ponto {index}: Formato de ponto inválido",
+          "pointLatitudeRange": "Ponto {index}: Latitude deve estar entre -90 e 90 (obtido {value})",
+          "pointLongitudeRange": "Ponto {index}: Longitude deve estar entre -180 e 180 (obtido {value})",
+          "conditionFieldRequired": "Condição {index}: Campo é obrigatório",
+          "conditionOperatorRequired": "Condição {index}: Operador é obrigatório",
+          "conditionValueRequired": "Condição {index}: Valor é obrigatório",
+          "conditionFieldNotExist": "Condição {index}: Campo \"{field}\" não existe no esquema selecionado",
+          "conditionOperatorNotValid": "Condição {index}: Operador \"{operator}\" não é válido para o tipo de campo \"{type}\""
         },
         "conditionBuilder": {
           "noConditions": "Nenhuma condição adicionada ainda. Clique em \"Adicionar Condição\" para começar a construir sua regra.",
