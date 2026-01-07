@@ -7,6 +7,7 @@ import * as components from 'vuetify/components'
 import * as directives from 'vuetify/directives'
 import { createI18n } from 'vue-i18n'
 import LoginView from './LoginView.vue'
+import ErrorMessage from '@/components/ErrorMessage.vue'
 
 // Mock the api module
 vi.mock('@/lib/api', () => ({
@@ -36,7 +37,7 @@ vi.mock('@/components/BaseInput.vue', () => ({
 vi.mock('@/components/ErrorMessage.vue', () => ({
   default: {
     name: 'ErrorMessage',
-    template: '<div class="error-message">{{ message }}</div>',
+    template: '<v-alert v-if="message" type="error" class="mb-4">{{ message }}</v-alert>',
     props: ['message', 'variant'],
     emits: ['dismiss'],
   },
@@ -128,8 +129,8 @@ describe('LoginView', () => {
       await wrapper.find('form').trigger('submit.prevent')
       await wrapper.vm.$nextTick()
 
-      // Check if error message is displayed in the DOM
-      expect(wrapper.find('.error-message').exists()).toBe(true)
+      // Check if error message component is displayed
+      expect(wrapper.findComponent(ErrorMessage).exists()).toBe(true)
     })
 
     it('shows error when password is too short', async () => {
