@@ -51,15 +51,11 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-go-
 
-      - name: Install golangci-lint
-        uses: golangci/golangci-lint-action@v6
+      - name: Run golangci-lint
+        uses: golangci/golangci-lint-action@v9
         with:
           version: latest
-
-      - name: Run golangci-lint
-        uses: golangci/golangci-lint-action@v6
-        with:
-          args: --timeout=5m ./src/...
+        continue-on-error: false
 
   test-api:
     name: Test API
