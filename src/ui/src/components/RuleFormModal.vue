@@ -310,6 +310,9 @@ function validateConditions(): string | null {
       }
       // Builder mode validation complete - return early
       return null
+    } else {
+      // Invalid builder type
+      return 'Invalid builder type. Please select polygon or velocity check.'
     }
   } else {
     // Manual mode: Validate condition rows
