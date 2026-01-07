@@ -125,6 +125,14 @@
       :rule-presets="rulePresets"
       :rule-actions="ruleActions"
       :saving="saving"
+      :expression-mode="expressionMode"
+      :builder-type="builderType"
+      :polygon-config="polygonConfig"
+      :velocity-config="velocityConfig"
+      :condition-rows="conditionRows"
+      :polygon-expression="polygonExpression"
+      :velocity-expression="velocityExpression"
+      :generated-expression="generatedExpression"
       @apply-preset="applyPreset"
       @submit="handleSubmit"
       @cancel="closeModal"
@@ -806,6 +814,203 @@ function parseVelocityExpression(expression: string): { metric: 'count' | 'sum',
   return null
 }
 
+// Parse manual expression into condition rows
+function parseManualExpression(expression: string): ConditionRow[] {
+  const rows: ConditionRow[] = []
+  
+  if (!expression || !expression.trim()) {
+    return [{
+      id: `condition-${++conditionRowIdCounter}`,
+      field: '',
+      operator: '',
+      value: null,
+      logicOperator: 'and',
+    }]
+  }
+  
+  // Helper function to parse a single condition
+  function parseCondition(conditionStr: string, logicOp: 'and' | 'or' = 'and'): ConditionRow | null {
+    const part = conditionStr.trim()
+    if (!part) return null
+    
+    // Pattern: field operator value
+    // Examples: amount > 10000, currency == "USD", metadata.is_suspicious == true
+    const simpleMatch = part.match(/^([a-zA-Z_][a-zA-Z0-9_.]*)\s*(==|!=|>|<|>=|<=)\s*(.+)$/)
+    if (simpleMatch && simpleMatch[1] && simpleMatch[2] && simpleMatch[3]) {
+      const field = simpleMatch[1].trim()
+      const operator = simpleMatch[2].trim()
+      let value = simpleMatch[3].trim()
+      
+      // Remove quotes from string values
+      if ((value.startsWith('"') && value.endsWith('"')) || (value.startsWith("'") && value.endsWith("'"))) {
+        value = value.slice(1, -1)
+      }
+      
+      // Handle boolean values - keep as string for the form
+      // The form will handle the conversion when needed
+      
+      return {
+        id: `condition-${++conditionRowIdCounter}`,
+        field: field,
+        operator: operator,
+        value: value,
+        logicOperator: logicOp,
+      }
+    }
+    
+    // Pattern: field in [value1, value2, ...]
+    // Example: origin in ["BLOCKED001", "BLOCKED002"]
+    const inMatch = part.match(/^([a-zA-Z_][a-zA-Z0-9_.]*)\s+in\s+\[(.+)\]$/)
+    if (inMatch && inMatch[1] && inMatch[2]) {
+      const field = inMatch[1].trim()
+      const valuesStr = inMatch[2].trim()
+      
+      // Parse array values
+      const values = valuesStr.split(',').map(v => {
+        let val = v.trim()
+        // Remove quotes
+        if ((val.startsWith('"') && val.endsWith('"')) || (val.startsWith("'") && val.endsWith("'"))) {
+          val = val.slice(1, -1)
+        }
+        return val
+      }).filter(v => v)
+      
+      return {
+        id: `condition-${++conditionRowIdCounter}`,
+        field: field,
+        operator: 'in',
+        value: values.join(', '),
+        logicOperator: logicOp,
+      }
+    }
+    
+    // Pattern: "value" in field (for array contains)
+    // Example: "high-value" in tags
+    const containsMatch = part.match(/^"([^"]+)"\s+in\s+([a-zA-Z_][a-zA-Z0-9_.]*)$/)
+    if (containsMatch && containsMatch[1] && containsMatch[2]) {
+      const value = containsMatch[1]
+      const field = containsMatch[2].trim()
+      
+      return {
+        id: `condition-${++conditionRowIdCounter}`,
+        field: field,
+        operator: 'contains',
+        value: value,
+        logicOperator: logicOp,
+      }
+    }
+    
+    // Pattern: not condition
+    // Example: not is_verified
+    const notMatch = part.match(/^not\s+(.+)$/i)
+    if (notMatch && notMatch[1]) {
+      const innerCondition = parseCondition(notMatch[1].trim(), logicOp)
+      if (innerCondition) {
+        // For 'not', we'll use != operator with boolean false or handle it differently
+        // This is a simplified approach
+        if (innerCondition.operator === '==') {
+          innerCondition.operator = '!='
+        }
+        return innerCondition
+      }
+    }
+    
+    return null
+  }
+  
+  // Split expression by 'and' and 'or', handling parentheses
+  // This is a simplified parser - for very complex nested expressions, it may not parse perfectly
+  let expr = expression.trim()
+  
+  // Handle expressions with parentheses by splitting on top-level operators
+  // We'll use a simple approach: split on ' and ' and ' or ' that are not inside parentheses
+  const tokens: Array<{ text: string, operator?: 'and' | 'or' }> = []
+  let current = ''
+  let depth = 0
+  
+  for (let i = 0; i < expr.length; i++) {
+    const char = expr[i]
+    
+    if (char === '(') {
+      depth++
+      current += char
+    } else if (char === ')') {
+      depth--
+      current += char
+    } else if (depth === 0 && i < expr.length - 1) {
+      // Check for ' and ' or ' or ' at top level
+      const remaining = expr.substring(i)
+      if (remaining.toLowerCase().startsWith(' and ')) {
+        if (current.trim()) {
+          tokens.push({ text: current.trim() })
+        }
+        tokens.push({ text: 'and', operator: 'and' })
+        current = ''
+        i += 4 // Skip ' and '
+        continue
+      } else if (remaining.toLowerCase().startsWith(' or ')) {
+        if (current.trim()) {
+          tokens.push({ text: current.trim() })
+        }
+        tokens.push({ text: 'or', operator: 'or' })
+        current = ''
+        i += 3 // Skip ' or '
+        continue
+      }
+      current += char
+    } else {
+      current += char
+    }
+  }
+  
+  if (current.trim()) {
+    tokens.push({ text: current.trim() })
+  }
+  
+  // Process tokens
+  let currentLogicOp: 'and' | 'or' = 'and'
+  
+  for (const token of tokens) {
+    if (token.operator) {
+      currentLogicOp = token.operator
+      continue
+    }
+    
+    // Remove outer parentheses if present
+    let conditionText = token.text.trim()
+    while (conditionText.startsWith('(') && conditionText.endsWith(')')) {
+      conditionText = conditionText.slice(1, -1).trim()
+    }
+    
+    const condition = parseCondition(conditionText, currentLogicOp)
+    if (condition) {
+      rows.push(condition)
+    } else {
+      // If we can't parse it, create a row with the raw expression
+      rows.push({
+        id: `condition-${++conditionRowIdCounter}`,
+        field: '',
+        operator: '',
+        value: conditionText,
+        logicOperator: currentLogicOp,
+      })
+    }
+  }
+  
+  // Set logic operator for first row (default to 'and')
+  if (rows.length > 0 && rows[0]) {
+    rows[0].logicOperator = 'and'
+  }
+  
+  return rows.length > 0 ? rows : [{
+    id: `condition-${++conditionRowIdCounter}`,
+    field: '',
+    operator: '',
+    value: null,
+    logicOperator: 'and',
+  }]
+}
+
 // Parse polygon expression: pointInPolygon(latField, lonField, [[lat1, lon1], [lat2, lon2], ...])
 function parsePolygonExpression(expression: string): { latField: string, lonField: string, points: Array<[number, number]> } | null {
   const match = expression.match(/pointInPolygon\s*\(\s*([^,]+)\s*,\s*([^,]+)\s*,\s*\[(.*?)\]\s*\)/)
@@ -1022,19 +1227,87 @@ function openEditModal(rule: any) {
   editingRule.schema_id = rule.schema_id
   
   // Preserve existing conditions, but ensure custom_expression exists
-  if (rule.conditions && rule.conditions.custom_expression) {
-    editingRule.conditions = { custom_expression: rule.conditions.custom_expression }
-    // Try to parse existing expression into condition rows
-    // For now, start with empty rows - user can rebuild or we can add parsing later
-    conditionRows.value = [{
-      id: `condition-${++conditionRowIdCounter}`,
-      field: '',
-      operator: '',
-      value: null,
-      logicOperator: 'and',
-    }]
+  const expression = rule.conditions?.custom_expression || ''
+  
+  if (expression) {
+    editingRule.conditions = { custom_expression: expression }
+    
+    // Try to parse as velocity expression first
+    const velocityParsed = parseVelocityExpression(expression)
+    if (velocityParsed) {
+      expressionMode.value = 'builder'
+      builderType.value = 'velocity'
+      velocityConfig.metric = velocityParsed.metric
+      velocityConfig.groupField = velocityParsed.groupField
+      const timeConfig = convertSecondsToTimeValue(velocityParsed.timeWindowSeconds)
+      velocityConfig.timeValue = timeConfig.value
+      velocityConfig.timeUnit = timeConfig.unit
+      velocityConfig.threshold = velocityParsed.threshold
+      conditionRows.value = []
+      showModal.value = true
+      return
+    }
+    
+    // Try to parse as polygon expression
+    const polygonConfigParsed = parsePolygonExpression(expression)
+    if (polygonConfigParsed) {
+      expressionMode.value = 'builder'
+      builderType.value = 'polygon'
+      
+      // Find lat/lon fields in schema by substring match
+      const currentSchema = editingRule.schema_id 
+        ? schemas.value.find(s => s.id === editingRule.schema_id) 
+        : null
+      
+      if (currentSchema && currentSchema.extracted_fields) {
+        const fields = currentSchema.extracted_fields
+        const latFieldLower = polygonConfigParsed.latField.toLowerCase()
+        const lonFieldLower = polygonConfigParsed.lonField.toLowerCase()
+        
+        // Find latitude field (check for 'lat' substring)
+        const latFieldMatch = fields.find(f => 
+          f.path.toLowerCase().includes('lat') || latFieldLower.includes(f.path.toLowerCase())
+        )
+        if (latFieldMatch) {
+          polygonConfig.latField = latFieldMatch.path
+        } else {
+          polygonConfig.latField = polygonConfigParsed.latField
+        }
+        
+        // Find longitude field (check for 'lon' or 'lng' substring)
+        const lonFieldMatch = fields.find(f => 
+          f.path.toLowerCase().includes('lon') || 
+          f.path.toLowerCase().includes('lng') || 
+          lonFieldLower.includes(f.path.toLowerCase())
+        )
+        if (lonFieldMatch) {
+          polygonConfig.lonField = lonFieldMatch.path
+        } else {
+          polygonConfig.lonField = polygonConfigParsed.lonField
+        }
+      } else {
+        // Fallback to parsed values if no schema
+        polygonConfig.latField = polygonConfigParsed.latField
+        polygonConfig.lonField = polygonConfigParsed.lonField
+      }
+      
+      // Ensure we have at least 3 points, pad with [0,0] if needed
+      while (polygonConfigParsed.points.length < 3) {
+        polygonConfigParsed.points.push([0, 0])
+      }
+      polygonConfig.points = polygonConfigParsed.points
+      conditionRows.value = []
+      showModal.value = true
+      return
+    }
+    
+    // For other expressions, parse into condition rows for manual editing
+    expressionMode.value = 'manual'
+    conditionRows.value = parseManualExpression(expression)
   } else {
     editingRule.conditions = getDefaultConditions()
+    expressionMode.value = 'builder'
+    builderType.value = 'polygon'
     conditionRows.value = [{
       id: `condition-${++conditionRowIdCounter}`,
       field: '',
@@ -1052,13 +1325,6 @@ function closeModal() {
 }
 
 async function handleSubmit() {
-  // Additional validation for conditions
-  const conditionError = validateConditions()
-  if (conditionError) {
-    error.value = conditionError
-    return
-  }
-
   // Build expression from current mode
   if (expressionMode.value === 'builder') {
     if (builderType.value === 'polygon') {
