@@ -5,6 +5,7 @@ package transactions_test
 import (
 	"context"
 	"encoding/json"
+	"strconv"
 	"testing"
 	"time"
 
@@ -101,7 +102,7 @@ func TestIntegration_TransactionsRepository_ListTransactions_WithLimit_RespectsL
 		_, err := testDB.Postgres.Exec(ctx, `
 			INSERT INTO transactions (id, external_id, amount, currency, origin, destination, type, status, processing_time, matched_rules, metadata, created_at)
 			VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
-		`, uuid.New(), "ext-"+string(rune(i)), 100.0, "USD", "acc1", "acc2", "transfer", "approved", 100, matchedRulesJSON, metadataJSON, time.Now())
+		`, uuid.New(), "ext-"+strconv.Itoa(i), 100.0, "USD", "acc1", "acc2", "transfer", "approved", 100, matchedRulesJSON, metadataJSON, time.Now())
 		require.NoError(t, err)
 	}
 
