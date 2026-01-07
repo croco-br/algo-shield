@@ -306,6 +306,11 @@ jobs:
         with:
           go-version: '1.25.4'
       
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      
       - name: Cache Go modules
         uses: actions/cache@v3
         with:
@@ -314,10 +319,22 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-go-
       
-      - name: Download dependencies
+      - name: Cache Node modules
+        uses: actions/cache@v3
+        with:
+          path: ~/.npm
+          key: ${{ runner.os }}-node-${{ hashFiles('**/package-lock.json') }}
+          restore-keys: |
+            ${{ runner.os }}-node-
+      
+      - name: Download Go dependencies
         run: go mod download
       
-      - name: Run tests
+      - name: Install Node dependencies
+        working-directory: ./src/ui
+        run: npm ci
+      
+      - name: Run API unit tests
         env:
           POSTGRES_HOST: localhost
           POSTGRES_PORT: 5432
@@ -329,11 +346,25 @@ jobs:
         run: go test -v -race -coverprofile=coverage.txt -covermode=atomic ./...
         continue-on-error: false
       
-      - name: Upload coverage
+      - name: Run UI unit tests
+        working-directory: ./src/ui
+        run: npm run test:coverage
+        continue-on-error: false
+      
+      - name: Upload API coverage
         uses: codecov/codecov-action@v3
         if: always()
         with:
           files: ./coverage.txt
+          flags: api
+          fail_ci_if_error: false
+      
+      - name: Upload UI coverage
+        uses: codecov/codecov-action@v3
+        if: always()
+        with:
+          directory: ./src/ui/coverage/
+          flags: ui
           fail_ci_if_error: false
 
   # Final Summary

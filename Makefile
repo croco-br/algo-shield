@@ -1,4 +1,4 @@
-.PHONY: help install up down logs test bench clean clean-volumes reset-db fix ui api api-bg api-stop worker infra-up infra-down lint build build-fast
+.PHONY: help install up down logs test test-api test-ui bench clean clean-volumes reset-db fix ui api api-bg api-stop worker infra-up infra-down lint build build-fast
 
 # Enable BuildKit for faster builds with better caching
 export DOCKER_BUILDKIT=1
@@ -57,10 +57,21 @@ lint: ## Run linters (golangci-lint)
 	@golangci-lint run ./src/...
 	@echo "${GREEN}✓ Lint completed!${RESET}"
 
-test: ## Run all tests in parallel with race detector
-	@echo "${YELLOW}Running all tests with race detector...${RESET}"
-	@go test -race -v -parallel 4 ./src/...
-	@echo "${GREEN}✓ Tests completed!${RESET}"
+test: test-api test-ui ## Run all tests (API + UI)
+	@echo "${GREEN}✓ All tests completed!${RESET}"
+
+test-api: gotestsum ## Run API tests with race detector
+	@echo "${YELLOW}Running API tests with race detector...${RESET}"
+	@gotestsum --format testdox -- -race -parallel 4 ./src/...
+	@echo "${GREEN}✓ API tests completed!${RESET}"
+
+test-ui: ## Run UI tests with vitest
+	@echo "${YELLOW}Running UI tests...${RESET}"
+	@cd src/ui && npm test
+	@echo "${GREEN}✓ UI tests completed!${RESET}"
+
+gotestsum: ## Install gotestsum if not present
+	@which gotestsum >/dev/null 2>&1 || (echo "${YELLOW}gotestsum not found. Installing...${RESET}" && go install gotest.tools/gotestsum@latest)
 
 bench: ## Run rules engine benchmark
 	@echo "${YELLOW}Running rules engine benchmark...${RESET}"

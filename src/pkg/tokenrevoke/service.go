@@ -10,9 +10,16 @@ import (
 	"github.com/redis/go-redis/v9"
 )
 
+// RedisClient defines the interface for Redis operations needed by token revocation
+type RedisClient interface {
+	SetEx(ctx context.Context, key string, value interface{}, expiration time.Duration) *redis.StatusCmd
+	Exists(ctx context.Context, keys ...string) *redis.IntCmd
+	Ping(ctx context.Context) *redis.StatusCmd
+}
+
 // Service handles JWT token revocation using Redis blacklist
 type Service struct {
-	redis *redis.Client
+	redis RedisClient
 }
 
 // NewService creates a new token revocation service

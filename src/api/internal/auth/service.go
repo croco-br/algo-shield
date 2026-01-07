@@ -10,7 +10,6 @@ import (
 	"github.com/algo-shield/algo-shield/src/pkg/config"
 	apierrors "github.com/algo-shield/algo-shield/src/pkg/errors"
 	"github.com/algo-shield/algo-shield/src/pkg/models"
-	"github.com/algo-shield/algo-shield/src/pkg/tokenrevoke"
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/google/uuid"
 	"golang.org/x/crypto/bcrypt"
@@ -25,16 +24,24 @@ type UserService interface {
 	UpdateLastLogin(ctx context.Context, userID uuid.UUID, lastLoginAt *time.Time) error
 }
 
+// TokenRevokeService defines the interface for token revocation operations
+type TokenRevokeService interface {
+	RevokeToken(ctx context.Context, token string, expiresAt time.Time) error
+	IsTokenRevoked(ctx context.Context, token string) (bool, error)
+	RevokeAllUserTokens(ctx context.Context, userID string, tokenExpiry time.Duration) error
+	IsUserTokensRevoked(ctx context.Context, userID string) (bool, error)
+}
+
 type Service struct {
 	userService        UserService
 	jwtSecret          string
 	jwtExpiry          time.Duration
-	tokenRevokeService *tokenrevoke.Service
+	tokenRevokeService TokenRevokeService
 }
 
 // NewService creates a new auth service with dependency injection
 // Follows Dependency Inversion Principle - receives interface, not concrete type
-func NewService(cfg *config.Config, userService UserService, tokenRevokeService *tokenrevoke.Service) *Service {
+func NewService(cfg *config.Config, userService UserService, tokenRevokeService TokenRevokeService) *Service {
 	return &Service{
 		userService:        userService,
 		jwtSecret:          cfg.Auth.JWTSecret,

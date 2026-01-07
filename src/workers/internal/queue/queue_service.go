@@ -17,14 +17,19 @@ var (
 	ErrInvalidData = errors.New("invalid queue data")
 )
 
+// RedisPopper defines interface for Redis BRPOP operation
+type RedisPopper interface {
+	BRPop(ctx context.Context, timeout time.Duration, keys ...string) *redis.StringSliceCmd
+}
+
 // QueueService handles transaction queue operations
 type QueueService struct {
-	redis      *redis.Client
+	redis      RedisPopper
 	popTimeout time.Duration
 }
 
 // NewQueueService creates a new queue service
-func NewQueueService(redis *redis.Client, popTimeout time.Duration) *QueueService {
+func NewQueueService(redis RedisPopper, popTimeout time.Duration) *QueueService {
 	return &QueueService{
 		redis:      redis,
 		popTimeout: popTimeout,

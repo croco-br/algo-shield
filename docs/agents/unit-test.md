@@ -33,11 +33,42 @@
 
    * Tests must be order‑independent and parallel‑safe.
 
+6. **Follow AAA pattern implicitly**
+
+   * Tests must follow **Arrange → Act → Assert** structure.
+   * **NEVER add comments** marking each section (`// Arrange`, `// Act`, `// Assert`).
+   * The structure should be self‑evident through blank lines and code organization.
+
+7. **Idiomatic separation of concerns**
+
+   * Tests should validate units that have clear, single responsibilities.
+   * If a unit is hard to test, it likely violates separation of concerns.
+   * Production code must be designed for testability (dependency injection, interfaces, pure functions).
+
 ---
 
-## 2. Go – Unit Testing Guidelines
+## 2. Coverage Requirements
 
-### 2.1 Mandatory Libraries
+**Minimum coverage threshold: 80%**
+
+* All new code must maintain or improve overall coverage
+* Coverage is measured automatically in CI via `go test -coverprofile`
+* Coverage reports are uploaded to Codecov for tracking
+* AI agents must verify coverage before completing tasks:
+
+```bash
+go test -coverprofile=coverage.txt -covermode=atomic ./...
+go tool cover -func=coverage.txt | grep total
+```
+
+* If coverage drops below 80%, agent must add tests or ask for clarification
+* Focus on meaningful coverage: test logic, not just lines
+
+---
+
+## 3. Go – Unit Testing Guidelines
+
+### 3.1 Mandatory Libraries
 
 Use **only** the following libraries unless explicitly instructed otherwise:
 
@@ -66,29 +97,29 @@ Avoid:
 
 ---
 
-### 2.2 Test Structure (Go)
+### 3.2 Test Structure (Go)
 
-Follow **Arrange → Act → Assert** explicitly.
+Follow **Arrange → Act → Assert** pattern **without comments**.
+
+Use blank lines to visually separate the three sections.
 
 ```go
 func Test_Service_DoSomething_WhenCondition_ThenExpectedResult(t *testing.T) {
-    // Arrange
     ctrl := gomock.NewController(t)
     defer ctrl.Finish()
 
     repo := NewMockRepository(ctrl)
     repo.EXPECT().FindByID("123").Return(Entity{ID: "123"}, nil)
-
     svc := NewService(repo)
 
-    // Act
     result, err := svc.DoSomething("123")
 
-    // Assert
     require.NoError(t, err)
     assert.Equal(t, "expected", result.Value)
 }
 ```
+
+**Critical**: Never add comments like `// Arrange`, `// Act`, `// Assert`. The structure must be self‑evident.
 
 Naming pattern:
 
@@ -96,34 +127,117 @@ Naming pattern:
 Test_<Unit>_<Scenario>_<ExpectedOutcome>
 ```
 
+**Idiomatic Go testing**:
+
+* Keep setup minimal and focused
+* Use table‑driven tests for multiple scenarios
+* Avoid test helpers that obscure test logic
+
 ---
 
-### 2.3 Mocking Rules (Go)
+### 3.3 Idiomatic Separation of Concerns (Go)
+
+Well‑designed Go code should follow these principles:
+
+1. **Single Responsibility**
+
+   * Each type/function does one thing well
+   * Services orchestrate, repositories persist, handlers adapt
+
+2. **Dependency Injection via constructors**
+
+   ```go
+   // Good: dependencies are explicit
+   type Service struct {
+       repo Repository
+       clock Clock
+   }
+
+   func NewService(repo Repository, clock Clock) *Service {
+       return &Service{repo: repo, clock: clock}
+   }
+   ```
+
+   ```go
+   // Bad: hidden dependencies, hard to test
+   func NewService() *Service {
+       return &Service{
+           repo: NewPostgresRepo(), // ❌ concrete dependency
+           clock: time.Now,         // ❌ global state
+       }
+   }
+   ```
+
+3. **Interface segregation**
+
+   * Define small interfaces at the point of use
+   * Consumers define interfaces, not providers
+
+   ```go
+   // In service package
+   type Repository interface {
+       FindByID(id string) (Entity, error)
+   }
+   ```
+
+4. **Pure functions when possible**
+
+   * Prefer stateless functions for business logic
+   * Easier to test, easier to reason about
+
+   ```go
+   func CalculateDiscount(price float64, tier string) float64 {
+       // No dependencies, no state, pure logic
+   }
+   ```
+
+---
+
+### 3.4 Mocking Rules (Go)
 
 1. **Mock only interfaces**, never concrete implementations
 2. **Mock at architectural boundaries**
 
-   * Repositories
-   * External services
-   * Time, UUID, randomness
+   * Repositories (data access)
+   * External services (HTTP, gRPC, message queues)
+   * Non‑deterministic sources (time, UUID, randomness)
+
 3. **Do not mock value objects or pure functions**
-4. Prefer **constructor injection** to enable mocking
+
+   * If it's deterministic and has no I/O, test it directly
+
+4. **One mock per architectural layer**
+
+   * Don't mock both the repository AND the database client
+   * Mock at the highest reasonable abstraction
 
 Correct:
 
 ```go
-func NewService(repo Repository) *Service
+// Service depends on interface
+type Service struct {
+    repo Repository
+}
+
+func NewService(repo Repository) *Service {
+    return &Service{repo: repo}
+}
 ```
 
 Incorrect:
 
 ```go
-func NewService() *Service // hides dependencies
+// Service creates its own dependencies
+func NewService() *Service {
+    return &Service{
+        repo: postgres.NewRepository(), // ❌ hard-coded
+    }
+}
 ```
 
 ---
 
-### 2.4 Performance Constraints (Go)
+### 3.5 Performance Constraints (Go)
 
 * Avoid `time.Sleep`
 * Avoid real crypto, IO, or JSON encoding unless essential
@@ -150,7 +264,7 @@ func Test_Validator(t *testing.T) {
 
 ---
 
-### 2.5 Flaky Test Detection (Go)
+### 3.6 Flaky Test Detection (Go)
 
 AI agents **must ensure**:
 
@@ -169,9 +283,226 @@ Any failure under repetition or race detection indicates a **bug in the test or 
 
 ---
 
-## 3. Vue + TypeScript – Unit Testing Guidelines
+### 3.7 Context and Async (Go)
 
-### 3.1 Mandatory Libraries
+**Context handling:**
+
+* Always pass `context.Context` as first parameter in tests
+* Use `context.Background()` or `context.TODO()` for test contexts
+* Test context cancellation and timeout behavior explicitly
+
+```go
+func Test_Service_WithContext_WhenCancelled_ThenReturnsError(t *testing.T) {
+    ctrl := gomock.NewController(t)
+    defer ctrl.Finish()
+
+    ctx, cancel := context.WithCancel(context.Background())
+    cancel() // Cancel immediately
+
+    svc := NewService()
+
+    err := svc.DoWork(ctx)
+
+    assert.ErrorIs(t, err, context.Canceled)
+}
+```
+
+**Goroutines and concurrency:**
+
+* Use `sync.WaitGroup` or channels to synchronize goroutines in tests
+* Test race conditions with `go test -race`
+* Avoid `time.Sleep` for synchronization; use explicit signals
+
+```go
+func Test_Worker_ProcessesConcurrently(t *testing.T) {
+    var wg sync.WaitGroup
+    results := make(chan int, 10)
+
+    wg.Add(10)
+    for i := 0; i < 10; i++ {
+        go func(n int) {
+            defer wg.Done()
+            results <- Process(n)
+        }(i)
+    }
+
+    wg.Wait()
+    close(results)
+
+    assert.Len(t, results, 10)
+}
+```
+
+---
+
+### 3.8 Test Files and Organization (Go)
+
+**File location:**
+
+* Test files live in the same directory as the code under test
+* Name pattern: `<filename>_test.go`
+* Example: `service.go` → `service_test.go`
+
+**Package naming:**
+
+* Use same package name (`package foo`) to test unexported functions
+* Use external package name (`package foo_test`) to test public API only
+* Prefer internal package for unit tests (access to internals)
+* Use external package for integration-style tests
+
+**Mock files:**
+
+* Generated mocks: `mock_<interface>_test.go` (gitignored if regenerated in CI)
+* Manual mocks: `mock_<interface>.go` in test helpers package
+* Keep mocks close to tests that use them
+
+**Example structure:**
+
+```
+internal/auth/
+├── service.go
+├── service_test.go
+├── mock_repository_test.go      # Generated by mockgen
+└── mock_user_service_test.go    # Generated by mockgen
+```
+
+---
+
+### 3.9 Test Data and Fixtures (Go)
+
+**Inline test data:**
+
+* Prefer inline data for small, simple cases
+* Use table-driven tests for multiple scenarios
+
+**Golden files (avoid unless necessary):**
+
+* Use only for large, complex output (JSON, XML, etc.)
+* Store in `testdata/` directory (Go convention)
+* Update with `-update` flag pattern
+
+**Builder/factory pattern:**
+
+* Create test builders for complex domain objects
+* Keep builders in test files or separate `testing` package
+
+```go
+func TestUserBuilder() *User {
+    return &User{
+        ID:    "test-123",
+        Email: "test@example.com",
+        Role:  "user",
+    }
+}
+
+func (u *User) WithRole(role string) *User {
+    u.Role = role
+    return u
+}
+
+// Usage
+user := TestUserBuilder().WithRole("admin")
+```
+
+---
+
+### 3.10 Cleanup and Resource Management (Go)
+
+**Use `t.Cleanup()` for automatic cleanup:**
+
+```go
+func Test_WithCleanup(t *testing.T) {
+    file, err := os.CreateTemp("", "test")
+    require.NoError(t, err)
+
+    t.Cleanup(func() {
+        os.Remove(file.Name())
+    })
+
+    // Test code here
+}
+```
+
+**Benefits:**
+
+* Runs even if test fails or panics
+* Cleaner than `defer` in table-driven tests
+* Stacks multiple cleanup functions in LIFO order
+
+---
+
+### 3.11 Assertions and Error Messages (Go)
+
+**Descriptive assertions:**
+
+```go
+// Good: context helps debugging
+assert.Equal(t, expected, actual, "user ID should match after creation")
+
+// Bad: no context
+assert.Equal(t, expected, actual)
+```
+
+**When to use `assert` vs `require`:**
+
+* Use `assert` for non-critical checks (test continues)
+* Use `require` when failure makes rest of test invalid (test stops)
+
+```go
+func Test_Example(t *testing.T) {
+    user, err := repo.FindByID("123")
+    require.NoError(t, err, "user must exist for test to proceed")
+
+    assert.Equal(t, "John", user.Name, "name should match")
+    assert.True(t, user.Active, "user should be active")
+}
+```
+
+---
+
+### 3.12 Mocking Time, Randomness, and Non-Determinism (Go)
+
+**Time:**
+
+* Define a `Clock` interface and inject it
+* Mock in tests
+
+```go
+type Clock interface {
+    Now() time.Time
+}
+
+type realClock struct{}
+func (realClock) Now() time.Time { return time.Now() }
+
+type fixedClock struct{ t time.Time }
+func (c fixedClock) Now() time.Time { return c.t }
+
+// In tests
+fixedTime := time.Date(2025, 1, 1, 0, 0, 0, 0, time.UTC)
+clock := fixedClock{t: fixedTime}
+```
+
+**UUIDs and random sources:**
+
+* Use interface for ID generation
+* Inject predictable generator in tests
+
+```go
+type IDGenerator interface {
+    Generate() string
+}
+
+// In tests
+type fakeIDGen struct{ id string }
+func (f fakeIDGen) Generate() string { return f.id }
+```
+
+---
+
+## 4. Vue + TypeScript – Unit Testing Guidelines
+
+### 4.1 Mandatory Libraries
 
 Use the following stack (optimized for speed and reliability):
 
@@ -198,7 +529,11 @@ Avoid:
 
 ---
 
-### 3.2 Test Structure (Vue)
+### 4.2 Test Structure (Vue)
+
+Follow **Arrange → Act → Assert** pattern **without comments**.
+
+Use blank lines to visually separate the three sections.
 
 ```ts
 import { mount } from '@vue/test-utils'
@@ -211,10 +546,14 @@ describe('MyComponent', () => {
       props: { title: 'Hello' }
     })
 
-    expect(wrapper.text()).toContain('Hello')
+    const text = wrapper.text()
+
+    expect(text).toContain('Hello')
   })
 })
 ```
+
+**Critical**: Never add comments like `// Arrange`, `// Act`, `// Assert`. The structure must be self‑evident.
 
 Naming pattern:
 
@@ -224,22 +563,113 @@ Naming pattern:
 
 Test names must describe **behavior**, not implementation.
 
+**Idiomatic TypeScript testing**:
+
+* Keep test setup minimal and declarative
+* Extract complex setup into factory functions (not in beforeEach)
+* Avoid obscuring what is being tested
+
 ---
 
-### 3.3 Mocking Rules (Vue + TS)
+### 4.3 Idiomatic Separation of Concerns (Vue + TypeScript)
 
-1. Mock **external dependencies only**
+Well‑designed Vue/TypeScript code should follow these principles:
+
+1. **Component Single Responsibility**
+
+   * Components handle presentation and user interaction
+   * Business logic lives in composables or services
+   * State management in stores (Pinia/Vuex)
+
+   ```ts
+   // Good: component delegates to composable
+   <script setup lang="ts">
+   import { useUserAuthentication } from '@/composables/useUserAuthentication'
+
+   const { login, isLoading, error } = useUserAuthentication()
+   </script>
+   ```
+
+   ```ts
+   // Bad: business logic in component
+   <script setup lang="ts">
+   const login = async () => {
+     const token = await fetch('/api/auth') // ❌ direct HTTP
+     localStorage.setItem('token', token)   // ❌ side effects
+     validateToken(token)                   // ❌ business logic
+   }
+   </script>
+   ```
+
+2. **Composables for reusable logic**
+
+   * Extract stateful logic into composables
+   * Composables should be testable independently
+
+   ```ts
+   // composables/useUserAuthentication.ts
+   export function useUserAuthentication() {
+     const { login: apiLogin } = useAuthApi()
+     const isLoading = ref(false)
+
+     const login = async (credentials: Credentials) => {
+       isLoading.value = true
+       try {
+         return await apiLogin(credentials)
+       } finally {
+         isLoading.value = false
+       }
+     }
+
+     return { login, isLoading }
+   }
+   ```
+
+3. **Services for API/external communication**
+
+   * Isolate HTTP clients and external dependencies
+   * Services return plain data, no Vue reactivity
+
+   ```ts
+   // services/authApi.ts
+   export class AuthApi {
+     constructor(private client: HttpClient) {}
+
+     async login(credentials: Credentials): Promise<AuthResponse> {
+       return this.client.post('/auth/login', credentials)
+     }
+   }
+   ```
+
+4. **Pure utility functions**
+
+   * Stateless transformations and calculations
+   * No dependencies, fully testable
+
+   ```ts
+   // utils/formatters.ts
+   export function formatCurrency(amount: number, locale: string): string {
+     // Pure function, easy to test
+   }
+   ```
+
+---
+
+### 4.4 Mocking Rules (Vue + TS)
+
+1. **Mock external dependencies only**
 
    * HTTP clients
-   * Stores
-   * Browser APIs
+   * Stores (when testing components)
+   * Browser APIs (localStorage, fetch, etc.)
 
-2. Do **not** mock:
+2. **Do not mock**
 
-   * Vue reactivity
+   * Vue reactivity system
    * Component internal methods unless unavoidable
+   * Computed properties (test them through outputs)
 
-3. Preferred mocking patterns:
+3. **Preferred mocking patterns**
 
 ```ts
 vi.mock('@/services/api', () => ({
@@ -251,7 +681,7 @@ vi.mock('@/services/api', () => ({
 const spy = vi.spyOn(console, 'error').mockImplementation(() => {})
 ```
 
-4. Reset mocks between tests:
+4. **Reset mocks between tests**
 
 ```ts
 afterEach(() => {
@@ -259,9 +689,14 @@ afterEach(() => {
 })
 ```
 
+5. **One mock per architectural layer**
+
+   * Don't mock both the composable AND the service it uses
+   * Mock at the boundary (API client, not the composable wrapper)
+
 ---
 
-### 3.4 Performance Constraints (Vue)
+### 4.5 Performance Constraints (Vue)
 
 * Prefer `mount` only when needed
 * Use `shallowMount` for logic-only tests
@@ -274,7 +709,7 @@ Target:
 
 ---
 
-### 3.5 Flaky Test Detection (Vue)
+### 4.6 Flaky Test Detection (Vue)
 
 AI agents must validate:
 
@@ -296,33 +731,542 @@ vi.runAllTimers()
 
 ---
 
-## 4. Cross‑Cutting Rules for AI Agents
+### 4.7 Async and Promises (Vue + TS)
 
-AI agents **must not**:
+**Testing async code:**
 
-* Introduce sleeps, retries, or waits to “fix” flaky tests
-* Silence errors without assertion
-* Mock more than one architectural layer per test
+* Always use `async/await` in test functions
+* Use `flushPromises()` from `@vue/test-utils` to wait for pending promises
 
-AI agents **must**:
+```ts
+import { flushPromises } from '@vue/test-utils'
 
-* Prefer pure functions and dependency injection
-* Flag tests that are slow, flaky, or overly coupled
-* Suggest refactoring production code if testability is poor
+it('loads user data', async () => {
+  const wrapper = mount(UserProfile, {
+    props: { userId: '123' }
+  })
+
+  await flushPromises()
+
+  expect(wrapper.text()).toContain('John Doe')
+})
+```
+
+**Testing composables with async:**
+
+```ts
+it('handles async state', async () => {
+  const { result, isLoading } = useAsyncData()
+
+  expect(isLoading.value).toBe(true)
+
+  await flushPromises()
+
+  expect(isLoading.value).toBe(false)
+  expect(result.value).toBeDefined()
+})
+```
+
+**Vue nextTick:**
+
+* Use `await nextTick()` after reactive state changes
+* Ensures DOM updates before assertions
+
+```ts
+it('updates DOM after state change', async () => {
+  const wrapper = mount(Counter)
+
+  await wrapper.find('button').trigger('click')
+  await nextTick()
+
+  expect(wrapper.find('.count').text()).toBe('1')
+})
+```
 
 ---
 
-## 5. Definition of a Good Unit Test
+### 4.8 Test Files and Organization (Vue + TS)
+
+**File location:**
+
+* Test files live next to components: `Component.vue` → `Component.spec.ts`
+* Composables: `useAuth.ts` → `useAuth.spec.ts`
+* Services: `api.ts` → `api.spec.ts`
+
+**Example structure:**
+
+```
+src/
+├── components/
+│   ├── Header.vue
+│   └── Header.spec.ts
+├── composables/
+│   ├── useAuth.ts
+│   └── useAuth.spec.ts
+└── services/
+    ├── api.ts
+    └── api.spec.ts
+```
+
+**Naming convention:**
+
+* Use `.spec.ts` suffix (vitest convention)
+* Mirror source file name exactly
+
+---
+
+### 4.9 Mocking Stores, Router, and Plugins (Vue + TS)
+
+**Mocking Pinia stores:**
+
+```ts
+import { setActivePinia, createPinia } from 'pinia'
+import { useAuthStore } from '@/stores/auth'
+
+beforeEach(() => {
+  setActivePinia(createPinia())
+})
+
+it('uses auth store', () => {
+  const authStore = useAuthStore()
+  authStore.user = { id: '123', name: 'Test' }
+
+  const wrapper = mount(UserProfile)
+
+  expect(wrapper.text()).toContain('Test')
+})
+```
+
+**Mocking vue-router:**
+
+```ts
+import { mount } from '@vue/test-utils'
+import { createRouter, createMemoryHistory } from 'vue-router'
+
+const router = createRouter({
+  history: createMemoryHistory(),
+  routes: [{ path: '/user/:id', component: UserProfile }]
+})
+
+it('renders user from route params', async () => {
+  await router.push('/user/123')
+  await router.isReady()
+
+  const wrapper = mount(UserProfile, {
+    global: {
+      plugins: [router]
+    }
+  })
+
+  expect(wrapper.text()).toContain('User 123')
+})
+```
+
+**Mocking global plugins:**
+
+```ts
+const wrapper = mount(Component, {
+  global: {
+    mocks: {
+      $t: (key: string) => key // Mock i18n
+    }
+  }
+})
+```
+
+---
+
+### 4.10 Assertions and DOM Queries (Vue + TS)
+
+**Prefer semantic queries:**
+
+```ts
+// Good: semantic
+wrapper.find('[data-testid="submit-button"]')
+wrapper.find('button[type="submit"]')
+
+// Bad: implementation details
+wrapper.find('.btn-primary')
+wrapper.findAll('div')[2]
+```
+
+**Use `get()` vs `find()`:**
+
+* Use `get()` when element must exist (throws if not found)
+* Use `find()` when testing absence
+
+```ts
+// Element must exist
+const button = wrapper.get('button')
+
+// Test element doesn't exist
+expect(wrapper.find('.error').exists()).toBe(false)
+```
+
+**Descriptive assertions:**
+
+```ts
+// Good
+expect(wrapper.text()).toContain('Welcome')
+expect(wrapper.find('input').element.value).toBe('test@example.com')
+
+// With message
+expect(userCount).toBe(5, 'should display all 5 users')
+```
+
+---
+
+## 5. Error Scenarios and Edge Cases
+
+**AI agents must test both happy path and error scenarios without distinction.**
+
+### 5.1 Error Path Coverage
+
+Every function that can fail must have tests for:
+
+* Expected errors (validation, not found, etc.)
+* Unexpected errors (network, database, etc.)
+* Edge cases (empty input, null, boundary values)
+
+**Go example:**
+
+```go
+func Test_Service_FindUser_WhenNotFound_ThenReturnsError(t *testing.T) {
+    ctrl := gomock.NewController(t)
+    defer ctrl.Finish()
+
+    repo := NewMockRepository(ctrl)
+    repo.EXPECT().FindByID("999").Return(nil, ErrNotFound)
+
+    svc := NewService(repo)
+
+    user, err := svc.FindUser("999")
+
+    assert.Nil(t, user)
+    assert.ErrorIs(t, err, ErrNotFound)
+}
+```
+
+**Vue example:**
+
+```ts
+it('displays error when login fails', async () => {
+  vi.mocked(authApi.login).mockRejectedValue(new Error('Invalid credentials'))
+
+  const wrapper = mount(LoginForm)
+  await wrapper.find('form').trigger('submit')
+  await flushPromises()
+
+  expect(wrapper.find('.error').text()).toBe('Invalid credentials')
+})
+```
+
+### 5.2 Edge Cases
+
+Test boundary conditions explicitly:
+
+* Empty arrays/objects
+* Null/undefined values
+* Zero, negative numbers
+* Very large inputs
+* Special characters in strings
+
+---
+
+## 6. Cross‑Cutting Rules for AI Agents
+
+### 6.1 When Code is Not Testable
+
+**If code is hard to test due to poor design, AI agents MUST refactor it.**
+
+* Do not work around bad design with complex test setup
+* Refactor production code to be testable:
+  * Extract dependencies into interfaces
+  * Use dependency injection
+  * Separate concerns (business logic from I/O)
+* **Scope of refactoring:**
+  * Generally limit changes to the vertical slice being tested
+  * If refactoring requires changes beyond the slice, ask user before proceeding
+* Document refactoring rationale in commit messages
+
+**Red flags requiring refactoring:**
+
+* Function has 3+ dependencies to mock
+* Cannot test without filesystem, network, or database
+* Global state or singletons prevent isolation
+* Logic mixed with I/O operations
+
+---
+
+### 6.2 Test Prioritization
+
+**AI agents must test both happy path and error scenarios without distinction.**
+
+* Do not prioritize one over the other
+* Every function/method needs:
+  * Success cases (expected valid inputs)
+  * Failure cases (expected errors, validation)
+  * Edge cases (boundaries, nulls, empty values)
+
+**Order of implementation:**
+
+1. Write all test cases together (table-driven when possible)
+2. Cover success and failure paths equally
+3. Add edge cases based on function signature and business logic
+
+---
+
+### 6.3 Coverage Goals
+
+**Minimum threshold: 80% line coverage**
+
+* AI agents must verify coverage after writing tests
+* If coverage is below 80%, add more tests or ask for guidance
+* Coverage is a metric, not a goal:
+  * Focus on meaningful tests, not just lines covered
+  * 100% coverage with poor tests is worse than 80% with good tests
+
+**How to check:**
+
+```bash
+# Go
+go test -coverprofile=coverage.txt -covermode=atomic ./...
+go tool cover -func=coverage.txt | grep total
+
+# Vue (vitest)
+npm run test:coverage
+```
+
+---
+
+### 6.4 Handling Broken Tests
+
+**If AI agents encounter broken tests, they MUST fix them based on current project state.**
+
+* Do not skip or ignore broken tests
+* Understand why test is failing:
+  * Code changed but test didn't update?
+  * Test was flaky?
+  * Requirements changed?
+* Fix test to match current implementation and requirements
+* If test is no longer relevant, remove it (with justification)
+
+**Process:**
+
+1. Run test to understand failure
+2. Read current production code
+3. Update test to align with current behavior
+4. Verify test passes and is deterministic
+
+---
+
+### 6.5 Git Integration and Test Validation
+
+**This project uses git hooks to enforce test quality.**
+
+* Pre-commit hook runs:
+  * `go fmt` and linting
+  * Unit tests (`go test -short`)
+  * Auto-stages formatted files and go.mod/go.sum
+
+* Pre-push hook runs:
+  * Full test suite with race detection
+  * Coverage report
+
+**AI agents must:**
+
+* Ensure all tests pass locally before creating commits
+* Tests are automatically validated by hooks
+* Do not bypass hooks (`--no-verify`) unless explicitly instructed
+* If hooks fail, fix issues before proceeding
+
+---
+
+### 6.6 CI/CD Integration
+
+**Continuous Integration validates all tests automatically.**
+
+* CI pipeline runs on every push and PR:
+  1. Lint
+  2. Build
+  3. Security scan (non-blocking)
+  4. Test with coverage (`go test -race -coverprofile`)
+
+* Tests must pass in CI for PR approval
+* Coverage reports uploaded to Codecov automatically
+
+**AI agents should:**
+
+* Write tests that work in CI environment (no local dependencies)
+* Avoid tests that depend on specific machine configuration
+* Ensure tests are truly deterministic (pass in any environment)
+
+---
+
+### 6.7 Mandatory Rules
+
+AI agents **must not**:
+
+* Add comments marking AAA sections (`// Arrange`, `// Act`, `// Assert`)
+* Introduce sleeps, retries, or waits to "fix" flaky tests
+* Silence errors without assertion
+* Mock more than one architectural layer per test
+* Write tests for code that violates single responsibility
+* Skip refactoring code that is hard to test
+* Prioritize happy path over error scenarios
+
+AI agents **must**:
+
+* Use blank lines to visually separate AAA sections
+* Prefer pure functions and dependency injection
+* Refactor production code when testability is poor (within scope)
+* Test both success and failure paths equally
+* Maintain minimum 80% coverage
+* Fix broken tests to match current project state
+* Ensure tests pass with git hooks and in CI
+* Add descriptive error messages to assertions
+* Ensure each unit under test has a single, clear responsibility
+* Validate that dependencies are injected, not hard‑coded
+
+---
+
+### 6.8 Generated Code and Mocks
+
+**Generated mocks (Go):**
+
+* Use `mockgen` to generate mocks from interfaces
+* Name pattern: `mock_<interface>_test.go`
+* Include `_test.go` suffix so they're only compiled for tests
+* Regenerate mocks when interfaces change
+
+**Example mockgen command:**
+
+```bash
+mockgen -source=repository.go -destination=mock_repository_test.go -package=auth
+```
+
+**Generated code (protobuf, OpenAPI, etc.):**
+
+* Do NOT write unit tests for generated code
+* Test the code that USES generated code
+* Focus on integration points and business logic
+* Exception: If you modify generated code manually, test those modifications
+
+**Commit strategy:**
+
+* Commit generated mocks to version control (included in this project)
+* Ensures consistent test environment across developers
+* CI regenerates to detect drift
+
+---
+
+### 6.9 Test Helpers - When to Use Them
+
+**Test helpers are appropriate when:**
+
+* Setting up complex domain objects used across multiple tests
+* Creating reusable test fixtures (builders, factories)
+* Abstracting repetitive setup that doesn't obscure test intent
+
+**Test helpers should be avoided when:**
+
+* They hide what is actually being tested
+* They contain assertions (helpers should set up, not assert)
+* They make tests harder to understand in isolation
+* They introduce their own logic that needs testing
+
+**Good test helper (Go):**
+
+```go
+func createTestUser(t *testing.T, opts ...func(*User)) *User {
+    t.Helper() // Marks this as a helper for better error reporting
+
+    user := &User{
+        ID:    "test-id",
+        Email: "test@example.com",
+        Role:  "user",
+    }
+
+    for _, opt := range opts {
+        opt(user)
+    }
+
+    return user
+}
+
+// Usage
+user := createTestUser(t, func(u *User) { u.Role = "admin" })
+```
+
+**Good test helper (Vue):**
+
+```ts
+function createMockAuthStore(overrides = {}) {
+  return {
+    user: null,
+    isAuthenticated: false,
+    login: vi.fn(),
+    logout: vi.fn(),
+    ...overrides
+  }
+}
+
+// Usage
+const authStore = createMockAuthStore({ isAuthenticated: true })
+```
+
+**Bad test helper (obscures logic):**
+
+```go
+// Bad: hides what's being tested
+func testServiceBehavior(t *testing.T, input string) {
+    svc := setupService()
+    result := svc.Process(input)
+    assert.Equal(t, "expected", result) // ❌ Hidden assertion
+}
+```
+
+**Key principle:** Test helpers should make tests more readable, not less. If a helper requires documentation to understand, it's too complex.
+
+---
+
+## 7. Definition of a Good Unit Test
 
 A unit test is considered **valid** if:
 
-* It runs in isolation
-* It is deterministic across multiple runs
-* It completes in milliseconds
-* It clearly communicates intent
+* It runs in isolation (no shared state, no order dependency)
+* It is deterministic across multiple runs (`-count=50` for Go, `--repeat=20` for vitest)
+* It completes in milliseconds (< 10ms for Go, < 5ms for Vue)
+* It clearly communicates intent through naming and structure
+* It follows AAA pattern **without comments** (blank lines only)
+* It tests a unit with a single, clear responsibility
+* It mocks only at architectural boundaries
 * It fails for exactly one reason
+* It tests both happy path and error scenarios
+* It includes descriptive assertion messages
+* It contributes to maintaining 80% coverage
+* It passes in CI environment (no local dependencies)
+* It passes race detection (`go test -race` for Go)
 
 If any of these conditions are violated, the test must be rewritten.
+
+**Red flags that indicate poor separation of concerns**:
+
+* Test requires mocking 3+ dependencies
+* Setup section is longer than the assertion section
+* Multiple unrelated behaviors tested in one function
+* Cannot test without complex setup or global state
+* Test name contains "and", "or", "also"
+* Test has complex conditional logic
+* Test modifies global state
+
+**When you see these red flags:**
+
+1. Refactor production code (within vertical slice scope)
+2. Extract dependencies into interfaces
+3. Use dependency injection
+4. Separate business logic from I/O
+5. Ask user if refactoring requires changes beyond current slice
 
 ---
 
