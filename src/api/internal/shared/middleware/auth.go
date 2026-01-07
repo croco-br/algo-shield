@@ -4,6 +4,7 @@ import (
 	"strings"
 
 	"github.com/algo-shield/algo-shield/src/api/internal/auth"
+	apierrors "github.com/algo-shield/algo-shield/src/pkg/errors"
 	"github.com/algo-shield/algo-shield/src/pkg/models"
 	"github.com/gofiber/fiber/v2"
 )
@@ -12,25 +13,24 @@ func AuthMiddleware(authHandler *auth.Handler) fiber.Handler {
 	return func(c *fiber.Ctx) error {
 		authHeader := c.Get("Authorization")
 		if authHeader == "" {
-			return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
-				"error": "Authorization header required",
-			})
+			return apierrors.SendError(c, apierrors.NewAPIError(apierrors.ErrUnauthorized, "Authorization header required"))
 		}
 
 		// Extract token from "Bearer <token>"
 		parts := strings.Split(authHeader, " ")
 		if len(parts) != 2 || parts[0] != "Bearer" {
-			return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
-				"error": "Invalid authorization header format",
-			})
+			return apierrors.SendError(c, apierrors.NewAPIError(apierrors.ErrUnauthorized, "Invalid authorization header format"))
 		}
 
 		token := parts[1]
 		user, err := authHandler.ValidateToken(token)
 		if err != nil {
-			return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
-				"error": "Invalid or expired token",
-			})
+			// Check if it's an APIError with specific error code
+			if apiErr, ok := err.(*apierrors.APIError); ok {
+				return apierrors.SendError(c, apiErr)
+			}
+			// Fallback to generic unauthorized error
+			return apierrors.SendError(c, apierrors.TokenInvalid())
 		}
 
 		// Store user in context
@@ -45,9 +45,7 @@ func RequireRole(roleName string) fiber.Handler {
 	return func(c *fiber.Ctx) error {
 		user, ok := c.Locals("user").(*models.User)
 		if !ok {
-			return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
-				"error": "User not found in context",
-			})
+			return apierrors.SendError(c, apierrors.NewAPIError(apierrors.ErrUnauthorized, "User not found in context"))
 		}
 
 		// Check if user has the required role
@@ -60,9 +58,7 @@ func RequireRole(roleName string) fiber.Handler {
 		}
 
 		if !hasRole {
-			return c.Status(fiber.StatusForbidden).JSON(fiber.Map{
-				"error": "Insufficient permissions",
-			})
+			return apierrors.SendError(c, apierrors.InsufficientPermissions())
 		}
 
 		return c.Next()
@@ -73,9 +69,7 @@ func RequireAnyRole(roleNames ...string) fiber.Handler {
 	return func(c *fiber.Ctx) error {
 		user, ok := c.Locals("user").(*models.User)
 		if !ok {
-			return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
-				"error": "User not found in context",
-			})
+			return apierrors.SendError(c, apierrors.NewAPIError(apierrors.ErrUnauthorized, "User not found in context"))
 		}
 
 		// Check if user has any of the required roles
@@ -93,9 +87,7 @@ func RequireAnyRole(roleNames ...string) fiber.Handler {
 		}
 
 		if !hasRole {
-			return c.Status(fiber.StatusForbidden).JSON(fiber.Map{
-				"error": "Insufficient permissions",
-			})
+			return apierrors.SendError(c, apierrors.InsufficientPermissions())
 		}
 
 		return c.Next()

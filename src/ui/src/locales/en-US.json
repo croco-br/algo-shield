@@ -253,6 +253,8 @@
         "addCondition": "Add Condition",
         "polygon": "Polygon",
         "velocity": "Velocity",
+        "polygonBuilder": "Polygon Builder",
+        "velocityBuilder": "Velocity Builder",
         "validation": {
           "selectSchema": "Please select a schema first",
           "noFields": "Selected schema has no fields. Please select a different schema.",

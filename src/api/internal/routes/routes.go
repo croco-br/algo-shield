@@ -16,6 +16,7 @@ import (
 	"github.com/algo-shield/algo-shield/src/api/internal/user"
 	"github.com/algo-shield/algo-shield/src/pkg/config"
 	rulespkg "github.com/algo-shield/algo-shield/src/pkg/rules"
+	"github.com/algo-shield/algo-shield/src/pkg/tokenrevoke"
 	"github.com/gofiber/fiber/v2"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/redis/go-redis/v9"
@@ -42,7 +43,8 @@ func Setup(app *fiber.App, db *pgxpool.Pool, redis *redis.Client, cfg *config.Co
 	roleService := roles.NewService(roleRepo)
 	groupService := groups.NewService(groupRepo)
 	userService := user.NewService(userRepo, roleRepo, userTxManager, roleService, groupService)
-	authService := auth.NewService(cfg, userService)
+	tokenRevokeService := tokenrevoke.NewService(redis)
+	authService := auth.NewService(cfg, userService, tokenRevokeService)
 	permissionsService := permissions.NewService(permissionsUserRepo, roleService, groupService)
 	transactionService := transactions.NewService(transactionRepo, redis)
 	brandingService := branding.NewService(brandingRepo)

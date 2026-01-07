@@ -5,6 +5,8 @@ import (
 
 	"github.com/algo-shield/algo-shield/src/api/internal"
 	"github.com/algo-shield/algo-shield/src/api/internal/shared/validation"
+	apierrors "github.com/algo-shield/algo-shield/src/pkg/errors"
+	"github.com/algo-shield/algo-shield/src/pkg/models"
 	"github.com/gofiber/fiber/v2"
 	"github.com/google/uuid"
 )
@@ -25,9 +27,7 @@ func (h *Handler) ListUsers(c *fiber.Ctx) error {
 	defer cancel()
 	users, err := h.service.ListUsers(ctx)
 	if err != nil {
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-			"error": "Failed to fetch users",
-		})
+		return apierrors.SendError(c, apierrors.InternalError("Failed to fetch users"))
 	}
 
 	return c.JSON(fiber.Map{
@@ -40,53 +40,54 @@ func (h *Handler) GetUser(c *fiber.Ctx) error {
 	userIDParam := c.Params("id")
 	userID, err := uuid.Parse(userIDParam)
 	if err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"error": "Invalid user ID",
-		})
+		return apierrors.SendError(c, apierrors.BadRequest("Invalid user ID"))
 	}
 
 	ctx, cancel := context.WithTimeout(c.Context(), internal.DEFAULT_TIMEOUT)
 	defer cancel()
 	user, err := h.service.GetUserByID(ctx, userID)
 	if err != nil {
-		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{
-			"error": "User not found",
-		})
+		return apierrors.SendError(c, apierrors.NotFound("User"))
 	}
 
 	return c.JSON(user)
 }
 
-// UpdateUserActive updates user active status
+// UpdateUserActive updates user active status with admin protection
 func (h *Handler) UpdateUserActive(c *fiber.Ctx) error {
-	userIDParam := c.Params("id")
-	userID, err := uuid.Parse(userIDParam)
+	// Get current user from context
+	currentUser, ok := c.Locals("user").(*models.User)
+	if !ok {
+		return apierrors.SendError(c, apierrors.NewAPIError(apierrors.ErrUnauthorized, "User not found in context"))
+	}
+
+	// Parse target user ID
+	targetUserIDParam := c.Params("id")
+	targetUserID, err := uuid.Parse(targetUserIDParam)
 	if err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"error": "Invalid user ID",
-		})
+		return apierrors.SendError(c, apierrors.BadRequest("Invalid user ID"))
 	}
 
 	var req UpdateUserActiveRequest
 	if err := c.BodyParser(&req); err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"error": "Invalid request body",
-		})
+		return apierrors.SendError(c, apierrors.BadRequest("Invalid request body"))
 	}
 
 	// Validate request
 	if err := validation.ValidateStruct(req); err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"error": err.Error(),
-		})
+		return apierrors.SendError(c, apierrors.ValidationError(err.Error()))
 	}
 
 	ctx, cancel := context.WithTimeout(c.Context(), internal.DEFAULT_TIMEOUT)
 	defer cancel()
-	if err := h.service.UpdateUserActive(ctx, userID, req.Active); err != nil {
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-			"error": "Failed to update user",
-		})
+
+	// Call service with admin protection
+	if err := h.service.UpdateUserActive(ctx, currentUser.ID, targetUserID, req.Active); err != nil {
+		// Check if it's an APIError
+		if apiErr, ok := err.(*apierrors.APIError); ok {
+			return apierrors.SendError(c, apiErr)
+		}
+		return apierrors.SendError(c, apierrors.InternalError("Failed to update user"))
 	}
 
 	return c.JSON(fiber.Map{

@@ -15,6 +15,8 @@ type UserRepository interface {
 	GetUserByID(ctx context.Context, userID uuid.UUID) (*models.User, error)
 	ListUsers(ctx context.Context) ([]models.User, error)
 	UpdateUserActive(ctx context.Context, userID uuid.UUID, active bool) error
+	CountActiveAdmins(ctx context.Context, excludeUserID *uuid.UUID) (int, error)
+	HasAdminRole(ctx context.Context, userID uuid.UUID) (bool, error)
 }
 
 // PostgresUserRepository is the PostgreSQL implementation of UserRepository
@@ -104,4 +106,71 @@ func (r *PostgresUserRepository) UpdateUserActive(ctx context.Context, userID uu
 	query := `UPDATE users SET active = $1, updated_at = $2 WHERE id = $3`
 	_, err := r.db.Exec(ctx, query, active, time.Now(), userID)
 	return err
+}
+
+// CountActiveAdmins counts the number of active users with admin role
+// excludeUserID can be used to exclude a specific user from the count
+func (r *PostgresUserRepository) CountActiveAdmins(ctx context.Context, excludeUserID *uuid.UUID) (int, error) {
+	var query string
+	var args []interface{}
+
+	if excludeUserID != nil {
+		query = `
+			SELECT COUNT(DISTINCT u.id)
+			FROM users u
+			INNER JOIN user_roles ur ON u.id = ur.user_id
+			INNER JOIN roles r ON ur.role_id = r.id
+			LEFT JOIN user_groups ug ON u.id = ug.user_id
+			LEFT JOIN group_roles gr ON ug.group_id = gr.group_id
+			LEFT JOIN roles r2 ON gr.role_id = r2.id
+			WHERE u.active = true 
+			  AND u.id != $1
+			  AND (r.name = 'admin' OR r2.name = 'admin')
+		`
+		args = []interface{}{*excludeUserID}
+	} else {
+		query = `
+			SELECT COUNT(DISTINCT u.id)
+			FROM users u
+			INNER JOIN user_roles ur ON u.id = ur.user_id
+			INNER JOIN roles r ON ur.role_id = r.id
+			LEFT JOIN user_groups ug ON u.id = ug.user_id
+			LEFT JOIN group_roles gr ON ug.group_id = gr.group_id
+			LEFT JOIN roles r2 ON gr.role_id = r2.id
+			WHERE u.active = true 
+			  AND (r.name = 'admin' OR r2.name = 'admin')
+		`
+	}
+
+	var count int
+	err := r.db.QueryRow(ctx, query, args...).Scan(&count)
+	if err != nil {
+		return 0, err
+	}
+
+	return count, nil
+}
+
+// HasAdminRole checks if a user has the admin role (directly or through groups)
+func (r *PostgresUserRepository) HasAdminRole(ctx context.Context, userID uuid.UUID) (bool, error) {
+	query := `
+		SELECT EXISTS(
+			SELECT 1 FROM user_roles ur
+			INNER JOIN roles r ON ur.role_id = r.id
+			WHERE ur.user_id = $1 AND r.name = 'admin'
+			UNION
+			SELECT 1 FROM user_groups ug
+			INNER JOIN group_roles gr ON ug.group_id = gr.group_id
+			INNER JOIN roles r ON gr.role_id = r.id
+			WHERE ug.user_id = $1 AND r.name = 'admin'
+		)
+	`
+
+	var hasRole bool
+	err := r.db.QueryRow(ctx, query, userID).Scan(&hasRole)
+	if err != nil {
+		return false, err
+	}
+
+	return hasRole, nil
 }

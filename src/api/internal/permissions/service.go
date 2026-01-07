@@ -5,6 +5,7 @@ import (
 
 	"github.com/algo-shield/algo-shield/src/api/internal/groups"
 	"github.com/algo-shield/algo-shield/src/api/internal/roles"
+	apierrors "github.com/algo-shield/algo-shield/src/pkg/errors"
 	"github.com/algo-shield/algo-shield/src/pkg/models"
 	"github.com/google/uuid"
 )
@@ -53,8 +54,39 @@ func (s *Service) ListUsers(ctx context.Context) ([]models.User, error) {
 	return users, nil
 }
 
-func (s *Service) UpdateUserActive(ctx context.Context, userID uuid.UUID, active bool) error {
-	return s.userRepo.UpdateUserActive(ctx, userID, active)
+// UpdateUserActive updates a user's active status with admin protection
+// Prevents admin from deactivating themselves or the last active admin
+func (s *Service) UpdateUserActive(ctx context.Context, currentUserID, targetUserID uuid.UUID, active bool) error {
+	// If activating, no need for protection checks
+	if active {
+		return s.userRepo.UpdateUserActive(ctx, targetUserID, active)
+	}
+
+	// Protection 1: Prevent admin from deactivating themselves
+	if currentUserID == targetUserID {
+		return apierrors.CannotDeactivateSelf()
+	}
+
+	// Protection 2: Check if target user is an admin
+	isTargetAdmin, err := s.userRepo.HasAdminRole(ctx, targetUserID)
+	if err != nil {
+		return apierrors.InternalError("Failed to check user role")
+	}
+
+	// If target is admin, check if they are the last active admin
+	if isTargetAdmin {
+		activeAdminCount, err := s.userRepo.CountActiveAdmins(ctx, &targetUserID)
+		if err != nil {
+			return apierrors.InternalError("Failed to count active administrators")
+		}
+
+		if activeAdminCount == 0 {
+			return apierrors.CannotDeactivateLastAdmin()
+		}
+	}
+
+	// Validation passed, update user status
+	return s.userRepo.UpdateUserActive(ctx, targetUserID, active)
 }
 
 // loadUserRolesAndGroups aggregates roles and groups for a user.
