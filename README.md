@@ -5,11 +5,10 @@
 ## 🎯 Key Features
 
 - **⚡ Ultra-Fast Processing**: Process transactions in <50ms with highly optimized Go workers
-- **🔧 Custom Rules Engine**: Configure custom fraud detection rules with an intuitive UI
-- **🔄 Hot-Reload Rules**: Update rules in real-time without restarting services
+- **🔧 Custom Expression Rules Engine**: Flexible rule system using [expr-lang](https://github.com/expr-lang/expr) for powerful fraud detection expressions
+- **🔄 Hot-Reload Rules & Schemas**: Update rules and event schemas in real-time without restarting services
 - **📋 Event Schema Management**: Define and manage event schemas with automatic field extraction from sample JSON
-- **📊 Risk Scoring**: Flexible scoring system supporting OK/NOK or numeric scores
-- **🧪 Synthetic Data Generation**: Generate test data to validate rules before production
+- **📊 Risk Scoring**: Flexible scoring system with rule-based risk accumulation
 - **🎯 Dual Processing Modes**: Support for pre-transaction (fraud prevention) and post-transaction (AML) analysis
 - **🚀 High Scalability**: Horizontally scalable worker architecture
 - **📈 Real-time Analysis**: Process events through Redis queues with minimal latency
@@ -17,6 +16,7 @@
 - **👥 User Management**: Complete user, role, and group management system
 - **🛡️ Permission System**: Fine-grained permissions for rule editing and administrative tasks
 - **🎨 Branding Configuration**: White-label customization with configurable colors, logos, and app name
+- **📚 OpenSpec Documentation**: Spec-driven development with change proposals and capability documentation
 
 ## 🏗️ Architecture
 
@@ -38,9 +38,9 @@ AlgoShield is built with a modern microservices architecture:
 
 ### Components
 
-- **API Service**: RESTful API built with Fiber (Go) for high-performance HTTP handling with JWT authentication
-- **Worker Service**: Transaction processing engine with custom rules evaluation, schema management, and hot-reload support
-- **UI**: Vue.js 3-based modern web interface with Vuetify (Material Design) components, Pinia state management, and Tailwind CSS for rule management, schema management, and user administration
+- **API Service**: RESTful API built with Fiber (Go) for high-performance HTTP handling with JWT authentication, validation, and dependency injection
+- **Worker Service**: Transaction processing engine with custom expression-based rules evaluation, schema management, and hot-reload support
+- **UI**: Vue.js 3-based modern web interface with Vuetify (Material Design) components, Pinia state management, Tailwind CSS, standardized base components, and Font Awesome icons for rule management, schema management, and user administration
 - **PostgreSQL**: Primary data store for transactions, rules, event schemas, users, roles, and groups
 - **Redis**: Message queue for async processing, rules caching, and schema invalidation pub/sub
 
@@ -571,7 +571,6 @@ AlgoShield uses a flexible custom expression-based rule system. All rules use th
   "description": "Flag transactions over $10,000",
   "type": "custom",
   "action": "review",
-  "score": 30,
   "priority": 500,
   "enabled": true,
   "schema_id": "uuid-of-event-schema",
@@ -687,9 +686,8 @@ For complete expression syntax, see the [expr-lang documentation](https://github
 ## 📊 Rule Actions
 
 - **allow**: Explicitly allow the transaction
-- **block**: Block the transaction immediately
-- **review**: Flag for manual review
-- **score**: Add risk score without blocking
+- **block**: Block the transaction immediately (highest priority)
+- **review**: Flag for manual review (medium priority)
 
 ## 🎯 Risk Levels
 

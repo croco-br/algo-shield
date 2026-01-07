@@ -18,14 +18,18 @@ AlgoShield is an open-source, high-performance fraud detection and anti-money la
 - **Validation**: go-playground/validator v10
 - **Observability**: OpenTelemetry (metrics and tracing)
 - **Concurrency**: golang.org/x/sync (worker pools)
+- **Expression Engine**: expr-lang/expr v1.17.7 (custom rule expressions)
 
 ### Frontend (Vue.js 3)
 - **Framework**: Vue 3.5+ with Composition API
 - **Language**: TypeScript 5.9
 - **State Management**: Pinia 3.0
 - **Routing**: Vue Router 4.6
+- **UI Components**: Vuetify 3.7 (Material Design)
+- **Icons**: Font Awesome 6.5 (free solid icons)
+- **Syntax Highlighting**: Prism.js 1.30
 - **Styling**: Tailwind CSS 4.1 (with PostCSS)
-- **Build Tool**: Vite 7.2
+- **Build Tool**: Vite 7.2 (with chunk optimization)
 - **Dev Tools**: Vue DevTools, vue-tsc
 
 ### Infrastructure
@@ -55,6 +59,10 @@ AlgoShield is an open-source, high-performance fraud detection and anti-money la
 - Organize by feature, not by type
 - Use Pinia stores for shared state
 - Tailwind utility classes for styling (avoid custom CSS when possible)
+- Standardize base components for consistency across the application
+- Use standardized validation fields and form components
+- Remove unused code and components regularly
+- Use fundamental abstractions to simplify complex logic
 
 ### Architecture Patterns
 
@@ -67,11 +75,13 @@ UI (Vue.js) → API (Fiber) → Worker (Rules Engine)
 
 **Key Patterns:**
 - **API Service**: RESTful API with JWT middleware, handles HTTP requests, authentication, and user management
-- **Worker Service**: Asynchronous transaction processing with rules evaluation, subscribes to Redis queues
-- **Hot-Reload**: Rules cached in Redis with configurable reload interval (default: 10s)
+- **Worker Service**: Asynchronous transaction processing with custom expression-based rules evaluation, subscribes to Redis queues
+- **Hot-Reload**: Rules and schemas cached in Redis with configurable reload interval (default: 10s) and pub/sub invalidation
 - **Connection Pooling**: Reusable PostgreSQL and Redis connections
 - **Async Processing**: Redis pub/sub for transaction queue management
 - **RBAC**: Role-based access control with users, roles, groups, and permissions
+- **Event Schemas**: Schema-based event structure definition with automatic field extraction from sample JSON
+- **Custom Expressions**: expr-lang based rule expressions with helper functions (velocityCount, velocitySum, pointInPolygon)
 
 #### Design Principles
 - Ultra-low latency: Target <50ms transaction processing
@@ -118,13 +128,17 @@ UI (Vue.js) → API (Fiber) → Worker (Rules Engine)
 
 ### Fraud Detection & AML
 - **Transaction Analysis**: Real-time evaluation of financial transactions
-- **Risk Scoring**: Cumulative scores (0-100) with risk levels (Low: 0-49, Medium: 50-79, High: 80-100)
-- **Rule Types**:
-  - **Amount Rules**: Threshold-based checks (e.g., transactions over $10k)
-  - **Velocity Rules**: Frequency-based checks (e.g., 10 transactions in 1 hour)
-  - **Blocklist Rules**: Account-based blocks
-  - **Pattern Rules**: Transaction pattern matching (e.g., international transfers)
-- **Rule Actions**: `allow`, `block`, `review`, `score`
+- **Risk Scoring**: Cumulative scores based on matched rules with risk levels (Low: 0-49, Medium: 50-79, High: 80-100)
+- **Rule System**: Custom expression-based rules using [expr-lang](https://github.com/expr-lang/expr)
+  - **Custom Expressions**: All rules use `custom` type with `custom_expression` condition
+  - **Schema-Based**: Rules are associated with event schemas for type safety and field validation
+  - **Helper Functions**: Built-in functions for velocity checks (`velocityCount`, `velocitySum`) and geography (`pointInPolygon`)
+  - **Expression Syntax**: Supports comparisons, logical operators, array operations, and nested field access
+- **Event Schemas**: Define transaction event structure with automatic field extraction from sample JSON
+  - Schemas enable automatic field discovery and validation
+  - Rules must reference a schema for proper evaluation
+  - Schema changes trigger cache invalidation via Redis pub/sub
+- **Rule Actions**: `allow`, `block`, `review` (score action removed, scoring is implicit)
 - **Processing Modes**: Pre-transaction (fraud prevention) and post-transaction (AML compliance)
 
 ### Performance Requirements
@@ -163,17 +177,23 @@ UI (Vue.js) → API (Fiber) → Worker (Rules Engine)
 ## External Dependencies
 
 ### Required Services
-- **PostgreSQL**: Primary database for transactions, rules, users, roles, groups
+- **PostgreSQL**: Primary database for transactions, rules, event schemas, users, roles, groups
   - Connection pooling via pgx
   - Migration scripts in `scripts/migrations/`
 - **Redis**: Message queue and caching layer
-  - Pub/sub for transaction queue
-  - Rules caching with TTL
+  - Pub/sub for transaction queue and schema invalidation
+  - Rules and schema caching with TTL
 - **Docker**: Required for local development and deployment
 
 ### Optional Services
 - **Observability**: OpenTelemetry support for metrics and tracing
 - **TLS**: Optional TLS configuration for API (disabled by default)
+
+### Documentation System
+- **OpenSpec**: Spec-driven development framework for change proposals and capability documentation
+  - Located in `openspec/` directory
+  - Supports change proposals, design documents, and capability specs
+  - See `openspec/AGENTS.md` for AI agent instructions
 
 ## Project Evolution & Decisions
 
@@ -306,10 +326,12 @@ This section documents key architectural decisions and evolution history to prov
    - Implement proper dependency injection
    - Ensure interfaces follow ISP (not too large)
    - Avoid unnecessary complexity (like the proxy that was removed)
+   - Use fundamental abstractions to simplify complex logic
+   - Refactor magic numbers to named constants
 
 2. **Validation**: Always add validation to handlers - it's mandatory
 
-3. **Environment Variables**: Always update `.env.example` when adding new environment variables
+3. **Environment Variables**: Always update `.env.example` when adding new environment variables. Improve environment variable management by grouping related variables and providing clear documentation.
 
 4. **Testing**: Use race condition flags (`-race`) when running tests to detect concurrency issues
 
@@ -318,3 +340,25 @@ This section documents key architectural decisions and evolution history to prov
 6. **Migrations**: Current migration process needs improvement - consider suggesting migration libraries when working with database changes
 
 7. **Avoid Unnecessary Complexity**: Don't add features (like proxies) without clear necessity
+
+8. **Frontend Component Standards**:
+   - Standardize base components for consistency (BaseButton, BaseInput, BaseTable, BaseBadge, etc.)
+   - Use standardized validation fields across forms
+   - Remove unused code and components regularly
+   - Padronize (standardize) components in front-end for maintainability
+
+9. **Build Optimization**:
+   - Use build chunks for better code splitting and faster builds
+   - Optimize build time by building only changed services when possible
+   - Use Docker BuildKit for faster builds with better caching
+
+10. **Code Quality**:
+    - Remove unused files and code regularly
+    - Fix concurrent issues and race conditions immediately
+    - Fix layout bugs introduced during migrations
+    - Keep codebase clean and maintainable
+
+11. **Documentation**:
+    - Use OpenSpec for spec-driven development
+    - Update README.md when adding significant features
+    - Document architectural decisions in project.md
