@@ -130,7 +130,7 @@ UI (Vue.js) → API (Fiber) → Worker (Rules Engine)
 - **Transaction Analysis**: Real-time evaluation of financial transactions
 - **Risk Scoring**: Cumulative scores based on matched rules with risk levels (Low: 0-49, Medium: 50-79, High: 80-100)
 - **Rule System**: Custom expression-based rules using [expr-lang](https://github.com/expr-lang/expr)
-  - **Custom Expressions**: All rules use `custom` type with `custom_expression` condition
+  - **Custom Expressions**: All rules use `custom_expression` condition
   - **Schema-Based**: Rules are associated with event schemas for type safety and field validation
   - **Helper Functions**: Built-in functions for velocity checks (`velocityCount`, `velocitySum`) and geography (`pointInPolygon`)
   - **Expression Syntax**: Supports comparisons, logical operators, array operations, and nested field access

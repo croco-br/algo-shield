@@ -64,7 +64,7 @@ func (r *PostgresRepository) LoadRules(ctx context.Context) ([]models.Rule, erro
 
 	// Load from database
 	query := `
-		SELECT id, name, description, type, action, priority, enabled, conditions, schema_id, created_at, updated_at
+		SELECT id, name, description, action, priority, enabled, conditions, schema_id, created_at, updated_at
 		FROM rules
 		WHERE enabled = true
 		ORDER BY priority ASC
@@ -82,7 +82,7 @@ func (r *PostgresRepository) LoadRules(ctx context.Context) ([]models.Rule, erro
 		var conditionsJSON []byte
 
 		err := rows.Scan(
-			&rule.ID, &rule.Name, &rule.Description, &rule.Type, &rule.Action,
+			&rule.ID, &rule.Name, &rule.Description, &rule.Action,
 			&rule.Priority, &rule.Enabled, &conditionsJSON,
 			&rule.SchemaID, &rule.CreatedAt, &rule.UpdatedAt,
 		)
@@ -118,12 +118,12 @@ func (r *PostgresRepository) CreateRule(ctx context.Context, rule *models.Rule) 
 	}
 
 	query := `
-		INSERT INTO rules (id, name, description, type, action, priority, enabled, conditions, schema_id, created_at, updated_at)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+		INSERT INTO rules (id, name, description, action, priority, enabled, conditions, schema_id, created_at, updated_at)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
 	`
 
 	_, err = r.db.Exec(ctx, query,
-		rule.ID, rule.Name, rule.Description, rule.Type, rule.Action,
+		rule.ID, rule.Name, rule.Description, rule.Action,
 		rule.Priority, rule.Enabled, conditionsJSON,
 		rule.SchemaID, rule.CreatedAt, rule.UpdatedAt,
 	)
@@ -142,13 +142,13 @@ func (r *PostgresRepository) GetRule(ctx context.Context, id uuid.UUID) (*models
 	var conditionsJSON []byte
 
 	query := `
-		SELECT id, name, description, type, action, priority, enabled, conditions, schema_id, created_at, updated_at
+		SELECT id, name, description, action, priority, enabled, conditions, schema_id, created_at, updated_at
 		FROM rules
 		WHERE id = $1
 	`
 
 	err := r.db.QueryRow(ctx, query, id).Scan(
-		&rule.ID, &rule.Name, &rule.Description, &rule.Type, &rule.Action,
+		&rule.ID, &rule.Name, &rule.Description, &rule.Action,
 		&rule.Priority, &rule.Enabled, &conditionsJSON,
 		&rule.SchemaID, &rule.CreatedAt, &rule.UpdatedAt,
 	)
@@ -170,7 +170,7 @@ func (r *PostgresRepository) GetRule(ctx context.Context, id uuid.UUID) (*models
 // ListRules retrieves all rules
 func (r *PostgresRepository) ListRules(ctx context.Context) ([]models.Rule, error) {
 	query := `
-		SELECT id, name, description, type, action, priority, enabled, conditions, schema_id, created_at, updated_at
+		SELECT id, name, description, action, priority, enabled, conditions, schema_id, created_at, updated_at
 		FROM rules
 		ORDER BY priority ASC
 	`
@@ -187,7 +187,7 @@ func (r *PostgresRepository) ListRules(ctx context.Context) ([]models.Rule, erro
 		var conditionsJSON []byte
 
 		err := rows.Scan(
-			&rule.ID, &rule.Name, &rule.Description, &rule.Type, &rule.Action,
+			&rule.ID, &rule.Name, &rule.Description, &rule.Action,
 			&rule.Priority, &rule.Enabled, &conditionsJSON,
 			&rule.SchemaID, &rule.CreatedAt, &rule.UpdatedAt,
 		)
@@ -213,13 +213,13 @@ func (r *PostgresRepository) UpdateRule(ctx context.Context, rule *models.Rule) 
 
 	query := `
 		UPDATE rules
-		SET name = $2, description = $3, type = $4, action = $5, 
-		    priority = $6, enabled = $7, conditions = $8, schema_id = $9, updated_at = $10
+		SET name = $2, description = $3, action = $4, 
+		    priority = $5, enabled = $6, conditions = $7, schema_id = $8, updated_at = $9
 		WHERE id = $1
 	`
 
 	result, err := r.db.Exec(ctx, query,
-		rule.ID, rule.Name, rule.Description, rule.Type, rule.Action,
+		rule.ID, rule.Name, rule.Description, rule.Action,
 		rule.Priority, rule.Enabled, conditionsJSON, rule.SchemaID, rule.UpdatedAt,
 	)
 

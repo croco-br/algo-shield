@@ -6,12 +6,6 @@ import (
 	"github.com/google/uuid"
 )
 
-type RuleType string
-
-const (
-	RuleTypeCustom RuleType = "custom"
-)
-
 type RuleAction string
 
 const (
@@ -24,7 +18,6 @@ type Rule struct {
 	ID          uuid.UUID      `json:"id"`
 	Name        string         `json:"name" validate:"required,min=1,max=255"`
 	Description string         `json:"description" validate:"max=1000"`
-	Type        RuleType       `json:"type" validate:"required,oneof=custom"`
 	Action      RuleAction     `json:"action" validate:"required,oneof=allow block review"`
 	Priority    int            `json:"priority" validate:"gte=0,lte=100"`
 	Enabled     bool           `json:"enabled"`

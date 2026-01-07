@@ -40,10 +40,6 @@
         <div class="text-body-2 text-grey-darken-1">{{ row.description }}</div>
       </template>
 
-      <template #cell-type="{ value }">
-        <span class="text-body-2 font-weight-medium text-grey-darken-2">{{ value }}</span>
-      </template>
-
       <template #cell-action="{ row }">
         <BaseBadge :variant="getActionBadgeVariant(row.action)" rounded>
           {{ row.action }}
@@ -246,7 +242,6 @@ const authStore = useAuthStore()
 const tableColumns = [
   { key: 'schema', label: 'Schema' },
   { key: 'name', label: 'Name' },
-  { key: 'type', label: 'Type' },
   { key: 'action', label: 'Action' },
   { key: 'priority', label: 'Priority' },
   { key: 'status', label: 'Status' },
@@ -307,7 +302,6 @@ interface RuleForm {
   id?: string
   name: string
   description: string
-  type: string
   action: string
   priority: number
   enabled: boolean
@@ -340,7 +334,6 @@ interface ConditionRow {
 const editingRule = reactive<RuleForm>({
   name: '',
   description: '',
-  type: '',
   action: '',
   priority: 50,
   enabled: true,
@@ -646,11 +639,6 @@ function removePolygonPoint(index: number) {
   }
 }
 
-// Only custom rule type is supported (schema-based expressions)
-const ruleTypes = [
-  { value: 'custom', label: 'Custom Expression' },
-]
-
 // Rule actions must match backend validation: allow|block|review
 const ruleActions = [
   { value: 'allow', label: 'Allow' },
@@ -665,7 +653,6 @@ interface RulePreset {
   icon: string
   name: string
   description: string
-  type: string
   action: string
   conditions: Record<string, any>
 }
@@ -677,7 +664,6 @@ const rulePresets: RulePreset[] = [
     icon: 'fa-dollar-sign',
     name: 'High Value Transaction',
     description: 'Flag events with high value amounts',
-    type: 'custom',
     action: 'review',
     conditions: { custom_expression: 'amount > 10000' },
   },
@@ -687,7 +673,6 @@ const rulePresets: RulePreset[] = [
     icon: 'fa-exclamation-triangle',
     name: 'Suspicious Flag Check',
     description: 'Check for suspicious flag in event metadata',
-    type: 'custom',
     action: 'review',
     conditions: { custom_expression: 'metadata.is_suspicious == true' },
   },
@@ -697,7 +682,6 @@ const rulePresets: RulePreset[] = [
     icon: 'fa-globe',
     name: 'Polygon Restriction',
     description: 'Flag events within a geographic polygon area',
-    type: 'custom',
     action: 'review',
     conditions: { custom_expression: 'pointInPolygon(location.lat, location.lon, [[37.7749, -122.4194], [37.7849, -122.4094], [37.7649, -122.4294]])' },
   },
@@ -707,7 +691,6 @@ const rulePresets: RulePreset[] = [
     icon: 'fa-tachometer-alt',
     name: 'High Transaction Frequency',
     description: 'Flag events with high transaction frequency',
-    type: 'custom',
     action: 'review',
     conditions: { custom_expression: 'velocityCount(field, 3600) > 10' },
   },
@@ -717,7 +700,6 @@ const rulePresets: RulePreset[] = [
     icon: 'fa-chart-line',
     name: 'High Amount Velocity',
     description: 'Flag fields with high cumulative amounts in time window',
-    type: 'custom',
     action: 'review',
     conditions: { custom_expression: 'velocitySum(field, 3600) > 10000' },
   },
@@ -774,21 +756,9 @@ function sanitizeExpression(expression: string): { valid: boolean; error?: strin
 
 
 // Get default conditions (only custom expressions supported)
-function getDefaultConditions(type: string): Record<string, any> {
+function getDefaultConditions(): Record<string, any> {
   return { custom_expression: '' }
 }
-
-
-// Watch for type changes and reset conditions
-watch(
-  () => editingRule.type,
-  (newType, oldType) => {
-    if (newType && newType !== oldType && !isEditing.value) {
-      // Only reset conditions for new rules or when type actually changes
-      editingRule.conditions = getDefaultConditions(newType)
-    }
-  }
-)
 
 // Watch for schema_id changes and update selectedSchema
 watch(
@@ -886,7 +856,6 @@ function applyPreset(preset: RulePreset) {
   // Override all current field values
   editingRule.name = preset.name
   editingRule.description = preset.description
-  editingRule.type = preset.type
   editingRule.action = preset.action
   
   const expression = preset.conditions.custom_expression || ''
@@ -1012,11 +981,10 @@ function openCreateModal() {
   delete editingRule.id
   editingRule.name = ''
   editingRule.description = ''
-  editingRule.type = 'custom'
   editingRule.action = 'review'
   editingRule.priority = 50
   editingRule.enabled = true
-  editingRule.conditions = getDefaultConditions('custom')
+  editingRule.conditions = getDefaultConditions()
   editingRule.schema_id = schemas.value.length > 0 ? schemas.value[0]?.id : undefined
   
   // Reset expression mode and builders (default to manual mode)
@@ -1048,7 +1016,6 @@ function openEditModal(rule: any) {
   editingRule.id = rule.id
   editingRule.name = rule.name
   editingRule.description = rule.description
-  editingRule.type = 'custom' // Always custom in schema-based system
   editingRule.action = rule.action
   editingRule.priority = rule.priority
   editingRule.enabled = rule.enabled
@@ -1067,7 +1034,7 @@ function openEditModal(rule: any) {
       logicOperator: 'and',
     }]
   } else {
-    editingRule.conditions = getDefaultConditions('custom')
+    editingRule.conditions = getDefaultConditions()
     conditionRows.value = [{
       id: `condition-${++conditionRowIdCounter}`,
       field: '',

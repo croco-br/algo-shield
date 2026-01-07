@@ -96,12 +96,8 @@ func (e *Engine) Evaluate(ctx context.Context, event models.Event) (*models.Tran
 }
 
 // evaluateRule evaluates a single rule against an event
-// Only custom rules are supported (schema-based expressions)
+// All rules use custom expressions (schema-based)
 func (e *Engine) evaluateRule(ctx context.Context, event models.Event, rule models.Rule) bool {
-	if rule.Type != models.RuleTypeCustom {
-		log.Printf("Unsupported rule type: %s (only 'custom' is supported)", rule.Type)
-		return false
-	}
 	return e.evaluateCustomRule(ctx, event, rule)
 }
 

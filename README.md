@@ -561,7 +561,7 @@ Authorization: Bearer <token>
 
 ## 🔧 Custom Expression Rules
 
-AlgoShield uses a flexible custom expression-based rule system. All rules use the `custom` type and evaluate expressions using [expr-lang](https://github.com/expr-lang/expr) against event schemas.
+AlgoShield uses a flexible custom expression-based rule system. All rules evaluate expressions using [expr-lang](https://github.com/expr-lang/expr) against event schemas.
 
 ### Basic Rule Structure
 
@@ -569,7 +569,6 @@ AlgoShield uses a flexible custom expression-based rule system. All rules use th
 {
   "name": "High Value Transaction",
   "description": "Flag transactions over $10,000",
-  "type": "custom",
   "action": "review",
   "priority": 500,
   "enabled": true,
