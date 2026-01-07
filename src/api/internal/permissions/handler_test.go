@@ -7,6 +7,7 @@ import (
 	"net/http/httptest"
 	"testing"
 
+	apierrors "github.com/algo-shield/algo-shield/src/pkg/errors"
 	"github.com/algo-shield/algo-shield/src/pkg/models"
 	"github.com/gofiber/fiber/v2"
 	"github.com/google/uuid"
@@ -151,7 +152,8 @@ func Test_Handler_UpdateUserActive_WhenValidRequest_ThenUpdatesUser(t *testing.T
 		c.Locals("user", currentUser)
 		return handler.UpdateUserActive(c)
 	})
-	reqBody := UpdateUserActiveRequest{Active: false}
+	active := false
+	reqBody := UpdateUserActiveRequest{Active: &active}
 	body, _ := json.Marshal(reqBody)
 	req := httptest.NewRequest("PUT", "/users/"+targetUserID.String()+"/active", bytes.NewReader(body))
 	req.Header.Set("Content-Type", "application/json")
@@ -171,7 +173,8 @@ func Test_Handler_UpdateUserActive_WhenUserNotInContext_ThenReturnsUnauthorized(
 	app := fiber.New()
 	app.Put("/users/:id/active", handler.UpdateUserActive)
 	targetUserID := uuid.New()
-	reqBody := UpdateUserActiveRequest{Active: false}
+	active := false
+	reqBody := UpdateUserActiveRequest{Active: &active}
 	body, _ := json.Marshal(reqBody)
 	req := httptest.NewRequest("PUT", "/users/"+targetUserID.String()+"/active", bytes.NewReader(body))
 	req.Header.Set("Content-Type", "application/json")
@@ -196,7 +199,8 @@ func Test_Handler_UpdateUserActive_WhenInvalidUserID_ThenReturnsBadRequest(t *te
 		return handler.UpdateUserActive(c)
 	})
 
-	reqBody := UpdateUserActiveRequest{Active: false}
+	active := false
+	reqBody := UpdateUserActiveRequest{Active: &active}
 	body, _ := json.Marshal(reqBody)
 	req := httptest.NewRequest("PUT", "/users/invalid-uuid/active", bytes.NewReader(body))
 	req.Header.Set("Content-Type", "application/json")
@@ -229,4 +233,121 @@ func Test_Handler_UpdateUserActive_WhenInvalidJSON_ThenReturnsBadRequest(t *test
 	require.NoError(t, err)
 
 	assert.Equal(t, fiber.StatusBadRequest, resp.StatusCode)
+}
+
+func Test_Handler_UpdateUserActive_WhenValidationFails_ThenReturnsBadRequest(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	mockService := NewMockPermissionsService(ctrl)
+	handler := NewHandler(mockService)
+
+	app := fiber.New()
+	app.Put("/users/:id/active", func(c *fiber.Ctx) error {
+		currentUser := &models.User{ID: uuid.New()}
+		c.Locals("user", currentUser)
+		return handler.UpdateUserActive(c)
+	})
+
+	targetUserID := uuid.New()
+	reqBody := map[string]interface{}{"active": "not-a-boolean"}
+	body, _ := json.Marshal(reqBody)
+	req := httptest.NewRequest("PUT", "/users/"+targetUserID.String()+"/active", bytes.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+
+	resp, err := app.Test(req)
+	require.NoError(t, err)
+
+	assert.Equal(t, fiber.StatusBadRequest, resp.StatusCode)
+}
+
+func Test_Handler_UpdateUserActive_WhenActiveFieldMissing_ThenReturnsBadRequest(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	mockService := NewMockPermissionsService(ctrl)
+	handler := NewHandler(mockService)
+
+	app := fiber.New()
+	app.Put("/users/:id/active", func(c *fiber.Ctx) error {
+		currentUser := &models.User{ID: uuid.New()}
+		c.Locals("user", currentUser)
+		return handler.UpdateUserActive(c)
+	})
+
+	targetUserID := uuid.New()
+	reqBody := map[string]interface{}{}
+	body, _ := json.Marshal(reqBody)
+	req := httptest.NewRequest("PUT", "/users/"+targetUserID.String()+"/active", bytes.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+
+	resp, err := app.Test(req)
+	require.NoError(t, err)
+
+	assert.Equal(t, fiber.StatusBadRequest, resp.StatusCode)
+}
+
+func Test_Handler_UpdateUserActive_WhenServiceReturnsAPIError_ThenReturnsAPIError(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	mockService := NewMockPermissionsService(ctrl)
+	handler := NewHandler(mockService)
+
+	app := fiber.New()
+	app.Put("/users/:id/active", func(c *fiber.Ctx) error {
+		currentUser := &models.User{ID: uuid.New()}
+		c.Locals("user", currentUser)
+		return handler.UpdateUserActive(c)
+	})
+
+	targetUserID := uuid.New()
+	active := false
+	reqBody := UpdateUserActiveRequest{Active: &active}
+	body, _ := json.Marshal(reqBody)
+
+	apiErr := apierrors.NewAPIError(apierrors.ErrNotFound, "User not found")
+	mockService.EXPECT().
+		UpdateUserActive(gomock.Any(), gomock.Any(), targetUserID, false).
+		Return(apiErr)
+
+	req := httptest.NewRequest("PUT", "/users/"+targetUserID.String()+"/active", bytes.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+
+	resp, err := app.Test(req)
+	require.NoError(t, err)
+
+	assert.Equal(t, fiber.StatusNotFound, resp.StatusCode)
+}
+
+func Test_Handler_UpdateUserActive_WhenServiceReturnsGenericError_ThenReturnsInternalError(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	mockService := NewMockPermissionsService(ctrl)
+	handler := NewHandler(mockService)
+
+	app := fiber.New()
+	app.Put("/users/:id/active", func(c *fiber.Ctx) error {
+		currentUser := &models.User{ID: uuid.New()}
+		c.Locals("user", currentUser)
+		return handler.UpdateUserActive(c)
+	})
+
+	targetUserID := uuid.New()
+	active := false
+	reqBody := UpdateUserActiveRequest{Active: &active}
+	body, _ := json.Marshal(reqBody)
+
+	mockService.EXPECT().
+		UpdateUserActive(gomock.Any(), gomock.Any(), targetUserID, false).
+		Return(errors.New("database error"))
+
+	req := httptest.NewRequest("PUT", "/users/"+targetUserID.String()+"/active", bytes.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+
+	resp, err := app.Test(req)
+	require.NoError(t, err)
+
+	assert.Equal(t, fiber.StatusInternalServerError, resp.StatusCode)
 }

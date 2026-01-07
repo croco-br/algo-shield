@@ -347,6 +347,7 @@ func Test_Handler_ValidateToken_WhenValidToken_ThenReturnsUser(t *testing.T) {
 	defer ctrl.Finish()
 
 	mockService := NewMockAuthService(ctrl)
+	mockUserService := NewMockUserService(ctrl)
 	expectedUser := &models.User{
 		ID:    uuid.New(),
 		Email: "test@example.com",
@@ -355,8 +356,9 @@ func Test_Handler_ValidateToken_WhenValidToken_ThenReturnsUser(t *testing.T) {
 	mockService.EXPECT().
 		ValidateToken("valid-token").
 		Return(expectedUser, nil)
+	handler := NewHandler(mockService, mockUserService)
 
-	user, err := mockService.ValidateToken("valid-token")
+	user, err := handler.ValidateToken("valid-token")
 
 	require.NoError(t, err)
 	assert.Equal(t, expectedUser, user)
@@ -367,11 +369,13 @@ func Test_Handler_ValidateToken_WhenInvalidToken_ThenReturnsError(t *testing.T) 
 	defer ctrl.Finish()
 
 	mockService := NewMockAuthService(ctrl)
+	mockUserService := NewMockUserService(ctrl)
 	mockService.EXPECT().
 		ValidateToken("invalid-token").
 		Return(nil, apierrors.TokenInvalid())
+	handler := NewHandler(mockService, mockUserService)
 
-	user, err := mockService.ValidateToken("invalid-token")
+	user, err := handler.ValidateToken("invalid-token")
 
 	require.Error(t, err)
 	assert.Nil(t, user)

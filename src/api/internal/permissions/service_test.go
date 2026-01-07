@@ -310,3 +310,185 @@ func Test_Service_ListUsers_WhenUsersExist_ThenReturnsUsersWithRolesAndGroups(t 
 	assert.Equal(t, roles2, result[1].Roles)
 	assert.Equal(t, groups2, result[1].Groups)
 }
+
+func Test_Service_ListUsers_WhenRepositoryFails_ThenReturnsError(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	mockUserRepo := NewMockUserRepository(ctrl)
+	mockRoleService := NewMockService(ctrl)
+	mockGroupService := NewMockGroupService(ctrl)
+	service := NewService(mockUserRepo, mockRoleService, mockGroupService)
+
+	ctx := context.Background()
+	mockUserRepo.EXPECT().ListUsers(ctx).Return(nil, errors.New("database error"))
+
+	result, err := service.ListUsers(ctx)
+
+	require.Error(t, err)
+	assert.Nil(t, result)
+}
+
+func Test_Service_ListUsers_WhenLoadRolesFails_ThenReturnsError(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	mockUserRepo := NewMockUserRepository(ctrl)
+	mockRoleService := NewMockService(ctrl)
+	mockGroupService := NewMockGroupService(ctrl)
+	service := NewService(mockUserRepo, mockRoleService, mockGroupService)
+
+	ctx := context.Background()
+	userID := uuid.New()
+	users := []models.User{
+		{ID: userID, Email: "user@example.com", Name: "User", Active: true},
+	}
+
+	mockUserRepo.EXPECT().ListUsers(ctx).Return(users, nil)
+	mockRoleService.EXPECT().LoadUserRoles(ctx, userID).Return(nil, errors.New("database error"))
+
+	result, err := service.ListUsers(ctx)
+
+	require.Error(t, err)
+	assert.Nil(t, result)
+}
+
+func Test_Service_ListUsers_WhenLoadGroupsFails_ThenReturnsError(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	mockUserRepo := NewMockUserRepository(ctrl)
+	mockRoleService := NewMockService(ctrl)
+	mockGroupService := NewMockGroupService(ctrl)
+	service := NewService(mockUserRepo, mockRoleService, mockGroupService)
+
+	ctx := context.Background()
+	userID := uuid.New()
+	users := []models.User{
+		{ID: userID, Email: "user@example.com", Name: "User", Active: true},
+	}
+	roles := []models.Role{{ID: uuid.New(), Name: "user", Description: "User"}}
+
+	mockUserRepo.EXPECT().ListUsers(ctx).Return(users, nil)
+	mockRoleService.EXPECT().LoadUserRoles(ctx, userID).Return(roles, nil)
+	mockGroupService.EXPECT().LoadUserGroups(ctx, userID).Return(nil, errors.New("database error"))
+
+	result, err := service.ListUsers(ctx)
+
+	require.Error(t, err)
+	assert.Nil(t, result)
+}
+
+func Test_Service_GetUserByID_WhenLoadRolesFails_ThenReturnsError(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	mockUserRepo := NewMockUserRepository(ctrl)
+	mockRoleService := NewMockService(ctrl)
+	mockGroupService := NewMockGroupService(ctrl)
+	service := NewService(mockUserRepo, mockRoleService, mockGroupService)
+
+	ctx := context.Background()
+	userID := uuid.New()
+	user := &models.User{ID: userID, Email: "test@example.com", Name: "Test User"}
+
+	mockUserRepo.EXPECT().GetUserByID(ctx, userID).Return(user, nil)
+	mockRoleService.EXPECT().LoadUserRoles(ctx, userID).Return(nil, errors.New("database error"))
+
+	result, err := service.GetUserByID(ctx, userID)
+
+	require.Error(t, err)
+	assert.Nil(t, result)
+}
+
+func Test_Service_GetUserByID_WhenLoadGroupsFails_ThenReturnsError(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	mockUserRepo := NewMockUserRepository(ctrl)
+	mockRoleService := NewMockService(ctrl)
+	mockGroupService := NewMockGroupService(ctrl)
+	service := NewService(mockUserRepo, mockRoleService, mockGroupService)
+
+	ctx := context.Background()
+	userID := uuid.New()
+	user := &models.User{ID: userID, Email: "test@example.com", Name: "Test User"}
+	roles := []models.Role{{ID: uuid.New(), Name: "user", Description: "User"}}
+
+	mockUserRepo.EXPECT().GetUserByID(ctx, userID).Return(user, nil)
+	mockRoleService.EXPECT().LoadUserRoles(ctx, userID).Return(roles, nil)
+	mockGroupService.EXPECT().LoadUserGroups(ctx, userID).Return(nil, errors.New("database error"))
+
+	result, err := service.GetUserByID(ctx, userID)
+
+	require.Error(t, err)
+	assert.Nil(t, result)
+}
+
+func Test_Service_UpdateUserActive_WhenHasAdminRoleFails_ThenReturnsError(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	mockUserRepo := NewMockUserRepository(ctrl)
+	mockRoleService := NewMockService(ctrl)
+	mockGroupService := NewMockGroupService(ctrl)
+	service := NewService(mockUserRepo, mockRoleService, mockGroupService)
+
+	ctx := context.Background()
+	currentUserID := uuid.New()
+	targetUserID := uuid.New()
+
+	mockUserRepo.EXPECT().HasAdminRole(ctx, targetUserID).Return(false, errors.New("database error"))
+
+	err := service.UpdateUserActive(ctx, currentUserID, targetUserID, false)
+
+	require.Error(t, err)
+	apiErr, ok := err.(*apierrors.APIError)
+	require.True(t, ok)
+	assert.Equal(t, apierrors.ErrInternalError, apiErr.Code)
+}
+
+func Test_Service_UpdateUserActive_WhenCountActiveAdminsFails_ThenReturnsError(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	mockUserRepo := NewMockUserRepository(ctrl)
+	mockRoleService := NewMockService(ctrl)
+	mockGroupService := NewMockGroupService(ctrl)
+	service := NewService(mockUserRepo, mockRoleService, mockGroupService)
+
+	ctx := context.Background()
+	currentUserID := uuid.New()
+	targetUserID := uuid.New()
+
+	mockUserRepo.EXPECT().HasAdminRole(ctx, targetUserID).Return(true, nil)
+	mockUserRepo.EXPECT().CountActiveAdmins(ctx, &targetUserID).Return(0, errors.New("database error"))
+
+	err := service.UpdateUserActive(ctx, currentUserID, targetUserID, false)
+
+	require.Error(t, err)
+	apiErr, ok := err.(*apierrors.APIError)
+	require.True(t, ok)
+	assert.Equal(t, apierrors.ErrInternalError, apiErr.Code)
+}
+
+func Test_Service_UpdateUserActive_WhenUpdateUserActiveFails_ThenReturnsError(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	mockUserRepo := NewMockUserRepository(ctrl)
+	mockRoleService := NewMockService(ctrl)
+	mockGroupService := NewMockGroupService(ctrl)
+	service := NewService(mockUserRepo, mockRoleService, mockGroupService)
+
+	ctx := context.Background()
+	currentUserID := uuid.New()
+	targetUserID := uuid.New()
+
+	mockUserRepo.EXPECT().HasAdminRole(ctx, targetUserID).Return(false, nil)
+	mockUserRepo.EXPECT().UpdateUserActive(ctx, targetUserID, false).Return(errors.New("database error"))
+
+	err := service.UpdateUserActive(ctx, currentUserID, targetUserID, false)
+
+	require.Error(t, err)
+}

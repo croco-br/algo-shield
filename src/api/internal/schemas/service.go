@@ -21,6 +21,17 @@ var (
 	ErrInvalidSampleJSON = errors.New("sample_json must be a valid JSON object")
 )
 
+// ServiceInterface defines the interface for schema business logic
+type ServiceInterface interface {
+	Create(ctx context.Context, req *CreateSchemaRequest) (*EventSchema, error)
+	GetByID(ctx context.Context, id uuid.UUID) (*EventSchema, error)
+	List(ctx context.Context) ([]EventSchema, error)
+	Update(ctx context.Context, id uuid.UUID, req *UpdateSchemaRequest) (*EventSchema, error)
+	Delete(ctx context.Context, id uuid.UUID) error
+	GetRulesReferencingSchema(ctx context.Context, id uuid.UUID) ([]string, error)
+	ParseSampleJSON(ctx context.Context, id uuid.UUID) (*EventSchema, error)
+}
+
 // Service provides business logic for schema operations
 type Service struct {
 	repo Repository

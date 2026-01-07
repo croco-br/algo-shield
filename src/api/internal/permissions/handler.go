@@ -82,7 +82,8 @@ func (h *Handler) UpdateUserActive(c *fiber.Ctx) error {
 	defer cancel()
 
 	// Call service with admin protection
-	if err := h.service.UpdateUserActive(ctx, currentUser.ID, targetUserID, req.Active); err != nil {
+	// req.Active is guaranteed to be non-nil after validation
+	if err := h.service.UpdateUserActive(ctx, currentUser.ID, targetUserID, *req.Active); err != nil {
 		// Check if it's an APIError
 		if apiErr, ok := err.(*apierrors.APIError); ok {
 			return apierrors.SendError(c, apiErr)
