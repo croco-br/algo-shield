@@ -96,11 +96,15 @@ func TestIntegration_PermissionsUserRepository_CountActiveAdmins_ReturnsCount(t 
 	repo := permissions.NewPostgresUserRepository(testDB.Postgres)
 	ctx := context.Background()
 
-	adminRoleID := uuid.New()
 	_, err := testDB.Postgres.Exec(ctx, `
 		INSERT INTO roles (id, name, description, created_at, updated_at)
-		VALUES ($1, $2, $3, $4, $5)
-	`, adminRoleID, "admin", "Admin role", time.Now(), time.Now())
+		VALUES (gen_random_uuid(), $1, $2, $3, $4)
+		ON CONFLICT (name) DO NOTHING
+	`, "admin", "Admin role", time.Now(), time.Now())
+	require.NoError(t, err)
+
+	var adminRoleID uuid.UUID
+	err = testDB.Postgres.QueryRow(ctx, `SELECT id FROM roles WHERE name = $1`, "admin").Scan(&adminRoleID)
 	require.NoError(t, err)
 
 	userID1 := uuid.New()
@@ -129,11 +133,15 @@ func TestIntegration_PermissionsUserRepository_CountActiveAdmins_ExcludeUser_Exc
 	repo := permissions.NewPostgresUserRepository(testDB.Postgres)
 	ctx := context.Background()
 
-	adminRoleID := uuid.New()
 	_, err := testDB.Postgres.Exec(ctx, `
 		INSERT INTO roles (id, name, description, created_at, updated_at)
-		VALUES ($1, $2, $3, $4, $5)
-	`, adminRoleID, "admin", "Admin role", time.Now(), time.Now())
+		VALUES (gen_random_uuid(), $1, $2, $3, $4)
+		ON CONFLICT (name) DO NOTHING
+	`, "admin", "Admin role", time.Now(), time.Now())
+	require.NoError(t, err)
+
+	var adminRoleID uuid.UUID
+	err = testDB.Postgres.QueryRow(ctx, `SELECT id FROM roles WHERE name = $1`, "admin").Scan(&adminRoleID)
 	require.NoError(t, err)
 
 	userID1 := uuid.New()
@@ -162,11 +170,15 @@ func TestIntegration_PermissionsUserRepository_HasAdminRole_DirectRole_ReturnsTr
 	repo := permissions.NewPostgresUserRepository(testDB.Postgres)
 	ctx := context.Background()
 
-	adminRoleID := uuid.New()
 	_, err := testDB.Postgres.Exec(ctx, `
 		INSERT INTO roles (id, name, description, created_at, updated_at)
-		VALUES ($1, $2, $3, $4, $5)
-	`, adminRoleID, "admin", "Admin role", time.Now(), time.Now())
+		VALUES (gen_random_uuid(), $1, $2, $3, $4)
+		ON CONFLICT (name) DO NOTHING
+	`, "admin", "Admin role", time.Now(), time.Now())
+	require.NoError(t, err)
+
+	var adminRoleID uuid.UUID
+	err = testDB.Postgres.QueryRow(ctx, `SELECT id FROM roles WHERE name = $1`, "admin").Scan(&adminRoleID)
 	require.NoError(t, err)
 
 	userID := uuid.New()
@@ -193,11 +205,15 @@ func TestIntegration_PermissionsUserRepository_HasAdminRole_GroupRole_ReturnsTru
 	repo := permissions.NewPostgresUserRepository(testDB.Postgres)
 	ctx := context.Background()
 
-	adminRoleID := uuid.New()
 	_, err := testDB.Postgres.Exec(ctx, `
 		INSERT INTO roles (id, name, description, created_at, updated_at)
-		VALUES ($1, $2, $3, $4, $5)
-	`, adminRoleID, "admin", "Admin role", time.Now(), time.Now())
+		VALUES (gen_random_uuid(), $1, $2, $3, $4)
+		ON CONFLICT (name) DO NOTHING
+	`, "admin", "Admin role", time.Now(), time.Now())
+	require.NoError(t, err)
+
+	var adminRoleID uuid.UUID
+	err = testDB.Postgres.QueryRow(ctx, `SELECT id FROM roles WHERE name = $1`, "admin").Scan(&adminRoleID)
 	require.NoError(t, err)
 
 	groupID := uuid.New()
@@ -248,4 +264,119 @@ func TestIntegration_PermissionsUserRepository_HasAdminRole_NoRole_ReturnsFalse(
 
 	require.NoError(t, err)
 	assert.False(t, hasRole)
+}
+
+func TestIntegration_PermissionsUserRepository_UpdateUserActive_ActivatesUser(t *testing.T) {
+	testDB := testutil.SetupTestDB(t)
+	repo := permissions.NewPostgresUserRepository(testDB.Postgres)
+	ctx := context.Background()
+
+	userID := uuid.New()
+	_, err := testDB.Postgres.Exec(ctx, `
+		INSERT INTO users (id, email, name, auth_type, active, created_at, updated_at)
+		VALUES ($1, $2, $3, $4, $5, $6, $7)
+	`, userID, "test@example.com", "Test User", "local", false, time.Now(), time.Now())
+	require.NoError(t, err)
+
+	err = repo.UpdateUserActive(ctx, userID, true)
+
+	require.NoError(t, err)
+
+	var active bool
+	err = testDB.Postgres.QueryRow(ctx, `
+		SELECT active FROM users WHERE id = $1
+	`, userID).Scan(&active)
+	require.NoError(t, err)
+	assert.True(t, active)
+}
+
+func TestIntegration_PermissionsUserRepository_CountActiveAdmins_WithGroupAdmins_ReturnsCount(t *testing.T) {
+	testDB := testutil.SetupTestDB(t)
+	repo := permissions.NewPostgresUserRepository(testDB.Postgres)
+	ctx := context.Background()
+
+	_, err := testDB.Postgres.Exec(ctx, `
+		INSERT INTO roles (id, name, description, created_at, updated_at)
+		VALUES (gen_random_uuid(), $1, $2, $3, $4)
+		ON CONFLICT (name) DO NOTHING
+	`, "admin", "Admin role", time.Now(), time.Now())
+	require.NoError(t, err)
+
+	var adminRoleID uuid.UUID
+	err = testDB.Postgres.QueryRow(ctx, `SELECT id FROM roles WHERE name = $1`, "admin").Scan(&adminRoleID)
+	require.NoError(t, err)
+
+	groupID := uuid.New()
+	_, err = testDB.Postgres.Exec(ctx, `
+		INSERT INTO groups (id, name, description, created_at, updated_at)
+		VALUES ($1, $2, $3, $4, $5)
+	`, groupID, "admin_group", "Admin group", time.Now(), time.Now())
+	require.NoError(t, err)
+
+	_, err = testDB.Postgres.Exec(ctx, `
+		INSERT INTO group_roles (group_id, role_id, assigned_at)
+		VALUES ($1, $2, $3)
+	`, groupID, adminRoleID, time.Now())
+	require.NoError(t, err)
+
+	userID := uuid.New()
+	_, err = testDB.Postgres.Exec(ctx, `
+		INSERT INTO users (id, email, name, auth_type, active, created_at, updated_at)
+		VALUES ($1, $2, $3, $4, $5, $6, $7)
+	`, userID, "admin@example.com", "Admin User", "local", true, time.Now(), time.Now())
+	require.NoError(t, err)
+
+	_, err = testDB.Postgres.Exec(ctx, `
+		INSERT INTO user_groups (user_id, group_id, assigned_at)
+		VALUES ($1, $2, $3)
+	`, userID, groupID, time.Now())
+	require.NoError(t, err)
+
+	_, err = testDB.Postgres.Exec(ctx, `
+		INSERT INTO user_roles (user_id, role_id, assigned_at)
+		VALUES ($1, $2, $3)
+	`, userID, adminRoleID, time.Now())
+	require.NoError(t, err)
+
+	count, err := repo.CountActiveAdmins(ctx, nil)
+
+	require.NoError(t, err)
+	assert.GreaterOrEqual(t, count, 1)
+}
+
+func TestIntegration_PermissionsUserRepository_CountActiveAdmins_ExcludesInactiveAdmins(t *testing.T) {
+	testDB := testutil.SetupTestDB(t)
+	repo := permissions.NewPostgresUserRepository(testDB.Postgres)
+	ctx := context.Background()
+
+	_, err := testDB.Postgres.Exec(ctx, `
+		INSERT INTO roles (id, name, description, created_at, updated_at)
+		VALUES (gen_random_uuid(), $1, $2, $3, $4)
+		ON CONFLICT (name) DO NOTHING
+	`, "admin", "Admin role", time.Now(), time.Now())
+	require.NoError(t, err)
+
+	var adminRoleID uuid.UUID
+	err = testDB.Postgres.QueryRow(ctx, `SELECT id FROM roles WHERE name = $1`, "admin").Scan(&adminRoleID)
+	require.NoError(t, err)
+
+	userID1 := uuid.New()
+	userID2 := uuid.New()
+	_, err = testDB.Postgres.Exec(ctx, `
+		INSERT INTO users (id, email, name, auth_type, active, created_at, updated_at)
+		VALUES ($1, $2, $3, $4, $5, $6, $7), ($8, $9, $10, $11, $12, $13, $14)
+	`, userID1, "admin1@example.com", "Active Admin", "local", true, time.Now(), time.Now(),
+		userID2, "admin2@example.com", "Inactive Admin", "local", false, time.Now(), time.Now())
+	require.NoError(t, err)
+
+	_, err = testDB.Postgres.Exec(ctx, `
+		INSERT INTO user_roles (user_id, role_id, assigned_at)
+		VALUES ($1, $2, $3), ($4, $2, $5)
+	`, userID1, adminRoleID, time.Now(), userID2, time.Now())
+	require.NoError(t, err)
+
+	count, err := repo.CountActiveAdmins(ctx, nil)
+
+	require.NoError(t, err)
+	assert.GreaterOrEqual(t, count, 1)
 }

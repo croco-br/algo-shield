@@ -278,3 +278,187 @@ func TestIntegration_RolesRepository_AssignRoleToUser_WithTransaction_AssignsRol
 	require.NoError(t, err)
 	assert.Equal(t, 1, count)
 }
+
+func TestIntegration_RolesRepository_GetRoleIDByName_NotFound_ReturnsNilUUID(t *testing.T) {
+	testDB := testutil.SetupTestDB(t)
+	repo := roles.NewPostgresRepository(testDB.Postgres)
+	ctx := context.Background()
+
+	tx, err := testDB.Postgres.Begin(ctx)
+	require.NoError(t, err)
+	defer tx.Rollback(ctx)
+
+	result, err := repo.GetRoleIDByName(ctx, tx, "non_existent_role")
+
+	assert.Error(t, err)
+	assert.Equal(t, uuid.Nil, result)
+}
+
+func TestIntegration_RolesRepository_AssignRoleToUser_Duplicate_NoError(t *testing.T) {
+	testDB := testutil.SetupTestDB(t)
+	repo := roles.NewPostgresRepository(testDB.Postgres)
+	ctx := context.Background()
+
+	userID := uuid.New()
+	roleID := uuid.New()
+
+	_, err := testDB.Postgres.Exec(ctx, `
+		INSERT INTO users (id, email, name, auth_type, active, created_at, updated_at)
+		VALUES ($1, $2, $3, $4, $5, $6, $7)
+	`, userID, "test@example.com", "Test User", "local", true, time.Now(), time.Now())
+	require.NoError(t, err)
+
+	_, err = testDB.Postgres.Exec(ctx, `
+		INSERT INTO roles (id, name, description, created_at, updated_at)
+		VALUES ($1, $2, $3, $4, $5)
+	`, roleID, "tx_role", "Transaction role", time.Now(), time.Now())
+	require.NoError(t, err)
+
+	tx, err := testDB.Postgres.Begin(ctx)
+	require.NoError(t, err)
+	defer tx.Rollback(ctx)
+
+	err = repo.AssignRoleToUser(ctx, tx, userID, roleID)
+	require.NoError(t, err)
+
+	err = repo.AssignRoleToUser(ctx, tx, userID, roleID)
+
+	require.NoError(t, err)
+
+	var count int
+	err = tx.QueryRow(ctx, `
+		SELECT COUNT(*) FROM user_roles WHERE user_id = $1 AND role_id = $2
+	`, userID, roleID).Scan(&count)
+	require.NoError(t, err)
+	assert.Equal(t, 1, count)
+}
+
+func TestIntegration_RolesRepository_RemoveRole_NonExistent_NoError(t *testing.T) {
+	testDB := testutil.SetupTestDB(t)
+	repo := roles.NewPostgresRepository(testDB.Postgres)
+	ctx := context.Background()
+
+	userID := uuid.New()
+	roleID := uuid.New()
+
+	_, err := testDB.Postgres.Exec(ctx, `
+		INSERT INTO users (id, email, name, auth_type, active, created_at, updated_at)
+		VALUES ($1, $2, $3, $4, $5, $6, $7)
+	`, userID, "test@example.com", "Test User", "local", true, time.Now(), time.Now())
+	require.NoError(t, err)
+
+	_, err = testDB.Postgres.Exec(ctx, `
+		INSERT INTO roles (id, name, description, created_at, updated_at)
+		VALUES ($1, $2, $3, $4, $5)
+	`, roleID, "test_role", "Test role", time.Now(), time.Now())
+	require.NoError(t, err)
+
+	err = repo.RemoveRole(ctx, userID, roleID)
+
+	require.NoError(t, err)
+}
+
+func TestIntegration_RolesRepository_LoadUserRoles_WithGroupRoles_ReturnsAllRoles(t *testing.T) {
+	testDB := testutil.SetupTestDB(t)
+	repo := roles.NewPostgresRepository(testDB.Postgres)
+	ctx := context.Background()
+
+	userID := uuid.New()
+	roleID1 := uuid.New()
+	roleID2 := uuid.New()
+	groupID := uuid.New()
+
+	_, err := testDB.Postgres.Exec(ctx, `
+		INSERT INTO users (id, email, name, auth_type, active, created_at, updated_at)
+		VALUES ($1, $2, $3, $4, $5, $6, $7)
+	`, userID, "test@example.com", "Test User", "local", true, time.Now(), time.Now())
+	require.NoError(t, err)
+
+	_, err = testDB.Postgres.Exec(ctx, `
+		INSERT INTO roles (id, name, description, created_at, updated_at)
+		VALUES ($1, $2, $3, $4, $5), ($6, $7, $8, $9, $10)
+	`, roleID1, "direct_role", "Direct role", time.Now(), time.Now(),
+		roleID2, "group_role", "Group role", time.Now(), time.Now())
+	require.NoError(t, err)
+
+	_, err = testDB.Postgres.Exec(ctx, `
+		INSERT INTO groups (id, name, description, created_at, updated_at)
+		VALUES ($1, $2, $3, $4, $5)
+	`, groupID, "test_group", "Test group", time.Now(), time.Now())
+	require.NoError(t, err)
+
+	_, err = testDB.Postgres.Exec(ctx, `
+		INSERT INTO user_roles (user_id, role_id, assigned_at)
+		VALUES ($1, $2, $3)
+	`, userID, roleID1, time.Now())
+	require.NoError(t, err)
+
+	_, err = testDB.Postgres.Exec(ctx, `
+		INSERT INTO user_groups (user_id, group_id, assigned_at)
+		VALUES ($1, $2, $3)
+	`, userID, groupID, time.Now())
+	require.NoError(t, err)
+
+	_, err = testDB.Postgres.Exec(ctx, `
+		INSERT INTO group_roles (group_id, role_id, assigned_at)
+		VALUES ($1, $2, $3)
+	`, groupID, roleID2, time.Now())
+	require.NoError(t, err)
+
+	result, err := repo.LoadUserRoles(ctx, userID)
+
+	require.NoError(t, err)
+	assert.Len(t, result, 2)
+}
+
+func TestIntegration_RolesRepository_LoadUserRoles_DuplicateRoles_ReturnsUnique(t *testing.T) {
+	testDB := testutil.SetupTestDB(t)
+	repo := roles.NewPostgresRepository(testDB.Postgres)
+	ctx := context.Background()
+
+	userID := uuid.New()
+	roleID := uuid.New()
+	groupID := uuid.New()
+
+	_, err := testDB.Postgres.Exec(ctx, `
+		INSERT INTO users (id, email, name, auth_type, active, created_at, updated_at)
+		VALUES ($1, $2, $3, $4, $5, $6, $7)
+	`, userID, "test@example.com", "Test User", "local", true, time.Now(), time.Now())
+	require.NoError(t, err)
+
+	_, err = testDB.Postgres.Exec(ctx, `
+		INSERT INTO roles (id, name, description, created_at, updated_at)
+		VALUES ($1, $2, $3, $4, $5)
+	`, roleID, "duplicate_role", "Duplicate role", time.Now(), time.Now())
+	require.NoError(t, err)
+
+	_, err = testDB.Postgres.Exec(ctx, `
+		INSERT INTO groups (id, name, description, created_at, updated_at)
+		VALUES ($1, $2, $3, $4, $5)
+	`, groupID, "test_group", "Test group", time.Now(), time.Now())
+	require.NoError(t, err)
+
+	_, err = testDB.Postgres.Exec(ctx, `
+		INSERT INTO user_roles (user_id, role_id, assigned_at)
+		VALUES ($1, $2, $3)
+	`, userID, roleID, time.Now())
+	require.NoError(t, err)
+
+	_, err = testDB.Postgres.Exec(ctx, `
+		INSERT INTO user_groups (user_id, group_id, assigned_at)
+		VALUES ($1, $2, $3)
+	`, userID, groupID, time.Now())
+	require.NoError(t, err)
+
+	_, err = testDB.Postgres.Exec(ctx, `
+		INSERT INTO group_roles (group_id, role_id, assigned_at)
+		VALUES ($1, $2, $3)
+	`, groupID, roleID, time.Now())
+	require.NoError(t, err)
+
+	result, err := repo.LoadUserRoles(ctx, userID)
+
+	require.NoError(t, err)
+	assert.Len(t, result, 1)
+	assert.Equal(t, roleID, result[0].ID)
+}

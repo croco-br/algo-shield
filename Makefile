@@ -1,4 +1,4 @@
-.PHONY: help install up down logs test test-api test-ui bench clean clean-volumes reset-db fix ui api api-bg api-stop worker infra-up infra-down lint build build-fast
+.PHONY: help install up down logs test test-api test-ui test-coverage test-coverage-unit test-coverage-integration test-coverage-html bench clean clean-volumes reset-db fix ui api api-bg api-stop worker infra-up infra-down lint build build-fast
 
 # Enable BuildKit for faster builds with better caching
 export DOCKER_BUILDKIT=1
@@ -70,6 +70,39 @@ test-ui: ## Run UI tests with vitest
 	@cd src/ui && npm test
 	@echo "${GREEN}✓ UI tests completed!${RESET}"
 
+test-coverage: test-coverage-unit test-coverage-integration gocovmerge ## Run all tests with combined coverage (unit + integration)
+	@echo "${YELLOW}Combining coverage reports...${RESET}"
+	@gocovmerge coverage-unit.out coverage-integration.out > coverage-combined.out
+	@echo "${YELLOW}Coverage summary:${RESET}"
+	@go tool cover -func=coverage-combined.out | tail -1
+	@echo "${GREEN}✓ Combined coverage report generated: coverage-combined.out${RESET}"
+
+test-coverage-unit: gotestsum ## Run unit tests with coverage
+	@echo "${YELLOW}Running unit tests with coverage...${RESET}"
+	@rm -f coverage-unit.out
+	@gotestsum --format testdox -- -race -parallel 4 -coverprofile=coverage-unit.out -covermode=atomic ./src/api/... ./src/workers/... ./src/pkg/...
+	@echo "${YELLOW}Unit tests coverage:${RESET}"
+	@go tool cover -func=coverage-unit.out | tail -1
+	@echo "${GREEN}✓ Unit tests coverage report generated: coverage-unit.out${RESET}"
+
+test-coverage-integration: gotestsum ## Run integration tests with coverage
+	@echo "${YELLOW}Running integration tests with coverage...${RESET}"
+	@echo "${YELLOW}Note: This requires Docker containers (postgres, redis)${RESET}"
+	@rm -f coverage-integration.out
+	@gotestsum --format testdox -- -tags=integration -race -parallel 2 -coverprofile=coverage-integration.out -covermode=atomic ./src/api/... ./src/workers/...
+	@echo "${YELLOW}Integration tests coverage:${RESET}"
+	@go tool cover -func=coverage-integration.out | tail -1
+	@echo "${GREEN}✓ Integration tests coverage report generated: coverage-integration.out${RESET}"
+
+test-coverage-html: test-coverage ## Generate HTML coverage report
+	@echo "${YELLOW}Generating HTML coverage report...${RESET}"
+	@go tool cover -html=coverage-combined.out -o coverage.html
+	@echo "${GREEN}✓ HTML coverage report generated: coverage.html${RESET}"
+	@echo "${BLUE}Open coverage.html in your browser to view the report${RESET}"
+
+gocovmerge: ## Install gocovmerge if not present
+	@which gocovmerge >/dev/null 2>&1 || (echo "${YELLOW}gocovmerge not found. Installing...${RESET}" && go install github.com/wadey/gocovmerge@latest)
+
 gotestsum: ## Install gotestsum if not present
 	@which gotestsum >/dev/null 2>&1 || (echo "${YELLOW}gotestsum not found. Installing...${RESET}" && go install gotest.tools/gotestsum@latest)
 
@@ -80,7 +113,7 @@ bench: ## Run rules engine benchmark
 
 clean: ## Remove build artifacts and Docker volumes
 	@echo "${YELLOW}Cleaning artifacts...${RESET}"
-	@rm -rf bin/ coverage.out coverage.html
+	@rm -rf bin/ coverage.out coverage.html coverage-unit.out coverage-integration.out coverage-combined.out
 	@rm -rf src/ui/node_modules src/ui/.next
 	@docker-compose down -v
 	@go clean -testcache -cache
