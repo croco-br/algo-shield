@@ -9,7 +9,7 @@
     >
       <!-- Header -->
       <div class="modal-header px-6 py-4 border-b border-neutral-200 flex items-center justify-between">
-        <h2 class="text-lg font-bold text-neutral-900">Escalate Transaction</h2>
+        <h2 class="text-lg font-bold text-neutral-900">{{ $t('components.riskEscalation.title') }}</h2>
         <BaseButton variant="ghost" size="sm" @click="close" prepend-icon="fa-xmark" />
       </div>
 
@@ -18,7 +18,7 @@
         <!-- Transaction ID -->
         <div>
           <label class="block text-sm font-semibold text-neutral-700 mb-2">
-            Transaction ID
+            {{ $t('components.riskEscalation.transactionId') }}
           </label>
           <input
             type="text"
@@ -31,7 +31,7 @@
         <!-- Escalation Level -->
         <div>
           <label class="block text-sm font-semibold text-neutral-700 mb-2">
-            Escalation Level
+            {{ $t('components.riskEscalation.escalationLevel') }}
             <span class="text-red-500">*</span>
           </label>
           <select
@@ -39,18 +39,18 @@
             required
             class="w-full px-4 py-2 border border-neutral-200 rounded-lg text-sm text-neutral-900 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent transition-all"
           >
-            <option value="">Select level</option>
-            <option value="tier1">Tier 1 - Senior Analyst</option>
-            <option value="tier2">Tier 2 - Manager</option>
-            <option value="tier3">Tier 3 - Director</option>
-            <option value="tier4">Tier 4 - Compliance Officer</option>
+            <option value="">{{ $t('components.riskEscalation.selectLevel') }}</option>
+            <option value="tier1">{{ $t('components.riskEscalation.tier1') }}</option>
+            <option value="tier2">{{ $t('components.riskEscalation.tier2') }}</option>
+            <option value="tier3">{{ $t('components.riskEscalation.tier3') }}</option>
+            <option value="tier4">{{ $t('components.riskEscalation.tier4') }}</option>
           </select>
         </div>
 
         <!-- Priority -->
         <div>
           <label class="block text-sm font-semibold text-neutral-700 mb-2">
-            Priority
+            {{ $t('components.riskEscalation.priority') }}
             <span class="text-red-500">*</span>
           </label>
           <div class="flex gap-2">
@@ -74,23 +74,23 @@
         <!-- Comments -->
         <div>
           <label class="block text-sm font-semibold text-neutral-700 mb-2">
-            Comments
+            {{ $t('components.riskEscalation.comments') }}
             <span class="text-red-500">*</span>
           </label>
           <textarea
             v-model="form.comments"
             required
             rows="4"
-            placeholder="Provide detailed reason for escalation..."
+            :placeholder="$t('components.riskEscalation.commentsPlaceholder')"
             class="w-full px-4 py-2 border border-neutral-200 rounded-lg text-sm text-neutral-900 placeholder-neutral-400 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent transition-all resize-none"
           ></textarea>
-          <p class="text-xs text-neutral-500 mt-1">Minimum 20 characters required</p>
+          <p class="text-xs text-neutral-500 mt-1">{{ $t('components.riskEscalation.commentsHint') }}</p>
         </div>
 
         <!-- Actions -->
         <div class="flex items-center gap-3 pt-2">
           <BaseButton variant="ghost" @click="close" class="flex-1">
-            Cancel
+            {{ $t('components.riskEscalation.cancel') }}
           </BaseButton>
           <BaseButton
             type="submit"
@@ -98,7 +98,7 @@
             prepend-icon="fa-paper-plane"
             class="flex-1"
           >
-            Submit
+            {{ $t('components.riskEscalation.submit') }}
           </BaseButton>
         </div>
       </form>
@@ -108,6 +108,7 @@
 
 <script setup lang="ts">
 import { ref, computed } from 'vue'
+import { i18n } from '@/plugins/i18n'
 import type { Transaction } from '@/types/transaction'
 import BaseButton from '@/components/BaseButton.vue'
 
@@ -129,11 +130,11 @@ const form = ref({
   comments: '',
 })
 
-const priorities = [
-  { value: 'low', label: 'Low', activeClass: 'bg-blue-100 text-blue-700' },
-  { value: 'medium', label: 'Medium', activeClass: 'bg-orange-100 text-orange-700' },
-  { value: 'high', label: 'High', activeClass: 'bg-red-100 text-red-700' },
-]
+const priorities = computed(() => [
+  { value: 'low', label: i18n.global.t('components.riskEscalation.low'), activeClass: 'bg-blue-100 text-blue-700' },
+  { value: 'medium', label: i18n.global.t('components.riskEscalation.medium'), activeClass: 'bg-orange-100 text-orange-700' },
+  { value: 'high', label: i18n.global.t('components.riskEscalation.high'), activeClass: 'bg-red-100 text-red-700' },
+])
 
 const isFormValid = computed(() => {
   return form.value.level && form.value.comments.length >= 20

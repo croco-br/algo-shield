@@ -14,6 +14,14 @@
     >
       <template
         v-for="column in columns"
+        :key="`header-${column.key}`"
+        #[`header.${column.key}`]
+      >
+        {{ column.label.includes('.') ? $t(column.label) : column.label }}
+      </template>
+
+      <template
+        v-for="column in columns"
         :key="`cell-${column.key}`"
         #[`item.${column.key}`]="{ item }"
       >
@@ -70,13 +78,17 @@ const props = withDefaults(defineProps<Props>(), {
 
 // Normalize columns to Vuetify headers format
 const normalizedHeaders = computed(() => {
-  return props.columns.map(column => ({
-    title: column.label,
-    key: column.key,
-    width: column.width,
-    align: 'start' as const,
-    sortable: false,
-  }))
+  return props.columns.map(column => {
+    // Check if label looks like a translation key
+    const isTranslationKey = column.label.includes('.')
+    return {
+      title: column.label,
+      key: column.key,
+      width: column.width,
+      align: 'start' as const,
+      sortable: false,
+    }
+  })
 })
 
 const getItemKey = (item: any): string | number => {

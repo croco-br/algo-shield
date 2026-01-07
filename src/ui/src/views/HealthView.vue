@@ -1,15 +1,15 @@
 <template>
   <v-container fluid class="pa-8">
     <div class="mb-10">
-      <h2 class="text-h4 font-weight-bold mb-2">System Health</h2>
-      <p class="text-body-1 text-grey-darken-1">Monitor system status and availability</p>
+      <h2 class="text-h4 font-weight-bold mb-2">{{ $t('views.health.title') }}</h2>
+      <p class="text-body-1 text-grey-darken-1">{{ $t('views.health.subtitle') }}</p>
     </div>
 
-    <LoadingSpinner v-if="loading" text="Loading health status..." :centered="false" />
+    <LoadingSpinner v-if="loading" :text="$t('views.health.loading')" :centered="false" />
 
     <ErrorMessage
       v-else-if="error"
-      title="Error loading health status"
+      :title="$t('views.health.title')"
       :message="error"
       retryable
       @retry="loadHealth"

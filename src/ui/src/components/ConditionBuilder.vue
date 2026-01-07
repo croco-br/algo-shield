@@ -2,7 +2,7 @@
   <div>
     <div v-if="conditionRows.length === 0" class="text-center pa-6 text-grey-darken-1">
       <v-icon icon="fa-info-circle" size="large" class="mb-2" />
-      <p class="text-body-2">No conditions added yet. Click "Add Condition" to start building your rule.</p>
+      <p class="text-body-2">{{ $t('views.rules.modal.conditionBuilder.noConditions') }}</p>
     </div>
 
     <div v-for="(row, index) in conditionRows" :key="row.id" class="mb-4 pa-3 bg-white rounded-lg border">
@@ -12,9 +12,9 @@
             <!-- Field Dropdown -->
             <BaseSelect
               v-model="row.field"
-              label="Field"
+              :label="$t('views.rules.modal.conditionBuilder.field')"
               :options="fieldOptions"
-              :rules="[(v: string) => !!v || 'Field is required']"
+              :rules="[(v: string) => !!v || $t('views.rules.modal.conditionBuilder.fieldRequired')]"
               class="flex-grow-1"
               style="min-width: 200px;"
             />
@@ -22,9 +22,9 @@
             <!-- Comparison Operator -->
             <BaseSelect
               v-model="row.operator"
-              label="Operator"
+              :label="$t('views.rules.modal.conditionBuilder.operator')"
               :options="getOperatorOptions(row.field)"
-              :rules="[(v: string) => !!v || 'Operator is required']"
+              :rules="[(v: string) => !!v || $t('views.rules.modal.conditionBuilder.operatorRequired')]"
               style="min-width: 150px;"
             />
 
@@ -34,33 +34,33 @@
                 v-if="getValueInputType(row.field) === 'number'"
                 v-model.number="row.value"
                 type="number"
-                label="Value"
-                :rules="[(v: any) => v !== null && v !== undefined && v !== '' || 'Value is required']"
+                :label="$t('views.rules.modal.conditionBuilder.value')"
+                :rules="[(v: any) => v !== null && v !== undefined && v !== '' || $t('views.rules.modal.conditionBuilder.valueRequired')]"
               />
               <div v-else-if="getValueInputType(row.field) === 'boolean'">
-                <label class="text-body-2 text-grey-darken-1 d-block mb-1">Value <span class="text-red">*</span></label>
+                <label class="text-body-2 text-grey-darken-1 d-block mb-1">{{ $t('views.rules.modal.conditionBuilder.value') }} <span class="text-red">*</span></label>
                 <v-select
                   v-model="row.value"
                   :items="[{ title: 'true', value: true }, { title: 'false', value: false }]"
                   variant="outlined"
                   density="compact"
-                  :rules="[(v: any) => v !== null && v !== undefined && v !== '' || 'Value is required']"
+                  :rules="[(v: any) => v !== null && v !== undefined && v !== '' || $t('views.rules.modal.conditionBuilder.valueRequired')]"
                 />
               </div>
               <BaseInput
                 v-else-if="getValueInputType(row.field) === 'array'"
                 v-model="row.value"
-                label="Value (comma-separated)"
-                placeholder='e.g., "US", "CA", "GB" or 1, 2, 3'
-                :rules="[(v: string) => !!v || 'Value is required']"
-                hint="Enter comma-separated values. Strings should be quoted."
+                :label="$t('views.rules.modal.conditionBuilder.valueCommaSeparated')"
+                :placeholder="$t('views.rules.modal.conditionBuilder.valuePlaceholder')"
+                :rules="[(v: string) => !!v || $t('views.rules.modal.conditionBuilder.valueRequired')]"
+                :hint="$t('views.rules.modal.conditionBuilder.valueHint')"
                 persistent-hint
               />
               <BaseInput
                 v-else
                 v-model="row.value"
-                label="Value"
-                :rules="[(v: string) => !!v || 'Value is required']"
+                :label="$t('views.rules.modal.conditionBuilder.value')"
+                :rules="[(v: string) => !!v || $t('views.rules.modal.conditionBuilder.valueRequired')]"
                 :placeholder="getValuePlaceholder(row.field)"
               />
             </div>
@@ -90,10 +90,10 @@
           class="mx-2"
         >
           <v-btn value="and" size="small">
-            AND
+            {{ $t('views.rules.modal.conditionBuilder.and') }}
           </v-btn>
           <v-btn value="or" size="small">
-            OR
+            {{ $t('views.rules.modal.conditionBuilder.or') }}
           </v-btn>
         </v-btn-toggle>
         <v-divider class="flex-grow-1" />
@@ -102,7 +102,7 @@
 
     <!-- Generated Expression Preview -->
     <div v-if="conditionRows.length > 0" class="mt-4 pa-3 bg-grey-darken-1 rounded">
-      <div class="text-caption text-white mb-1">Generated Expression:</div>
+      <div class="text-caption text-white mb-1">{{ $t('views.rules.generatedExpression') }}:</div>
       <code class="text-white">{{ generatedExpression }}</code>
     </div>
   </div>
@@ -202,13 +202,16 @@ function getValueInputType(fieldPath: string): 'number' | 'string' | 'boolean' |
 }
 
 function getValuePlaceholder(fieldPath: string): string {
+  const t = (window as any).$i18n?.global?.t
+  const defaultValue = t?.('views.rules.modal.validation.enterValue') || 'Enter value'
+  
   if (!props.currentSchema || !fieldPath) {
-    return 'Enter value'
+    return defaultValue
   }
   
   const field = props.currentSchema.extracted_fields?.find((f: any) => f.path === fieldPath)
   if (!field) {
-    return 'Enter value'
+    return defaultValue
   }
 
   const type = field.type
@@ -220,7 +223,7 @@ function getValuePlaceholder(fieldPath: string): string {
     return 'e.g., "US", "CA", "GB" or 1, 2, 3'
   }
   
-  return 'Enter value'
+  return defaultValue
 }
 </script>
 

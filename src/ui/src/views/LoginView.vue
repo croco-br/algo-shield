@@ -6,18 +6,18 @@
           <!-- Logo Section -->
           <div class="text-center mb-8">
             <div class="d-flex align-center justify-center gap-3 mb-3">
-              <img src="/gopher.png" alt="AlgoShield" class="w-10 h-10 object-contain" />
-              <h1 class="text-h5 font-weight-bold">AlgoShield</h1>
+              <img src="/gopher.png" :alt="$t('common.appName')" class="w-10 h-10 object-contain" />
+              <h1 class="text-h5 font-weight-bold">{{ $t('common.appName') }}</h1>
             </div>
             <p class="text-body-2 text-grey-darken-1">
-              Enterprise AML Platform
+              {{ $t('common.appTagline') }}
             </p>
           </div>
 
           <!-- Tabs -->
           <v-tabs v-model="activeTab" class="mb-6">
-            <v-tab value="login" @click="error = ''">Login</v-tab>
-            <v-tab value="register" @click="error = ''">Register</v-tab>
+            <v-tab value="login" @click="error = ''">{{ $t('auth.login') }}</v-tab>
+            <v-tab value="register" @click="error = ''">{{ $t('auth.register') }}</v-tab>
           </v-tabs>
 
           <ErrorMessage
@@ -35,8 +35,8 @@
                 <BaseInput
                   v-model="email"
                   type="email"
-                  label="Email"
-                  placeholder="user@example.com"
+                  :label="$t('auth.email')"
+                  :placeholder="$t('auth.emailPlaceholder')"
                   :disabled="loading"
                   required
                   class="mb-4"
@@ -45,8 +45,8 @@
                 <BaseInput
                   v-model="password"
                   type="password"
-                  label="Password"
-                  placeholder="••••••••"
+                  :label="$t('auth.password')"
+                  :placeholder="$t('auth.passwordPlaceholder')"
                   :disabled="loading"
                   :minlength="8"
                   required
@@ -61,7 +61,7 @@
                   size="lg"
                   class="mb-2"
                 >
-                  {{ loading ? 'Signing in...' : 'Sign In' }}
+                  {{ loading ? $t('auth.signingIn') : $t('auth.signIn') }}
                 </BaseButton>
               </v-form>
             </v-window-item>
@@ -72,8 +72,8 @@
                 <BaseInput
                   v-model="name"
                   type="text"
-                  label="Name"
-                  placeholder="Your Name"
+                  :label="$t('auth.name')"
+                  :placeholder="$t('auth.namePlaceholder')"
                   :disabled="loading"
                   required
                   class="mb-4"
@@ -82,8 +82,8 @@
                 <BaseInput
                   v-model="email"
                   type="email"
-                  label="Email"
-                  placeholder="user@example.com"
+                  :label="$t('auth.email')"
+                  :placeholder="$t('auth.emailPlaceholder')"
                   :disabled="loading"
                   required
                   class="mb-4"
@@ -92,12 +92,12 @@
                 <BaseInput
                   v-model="password"
                   type="password"
-                  label="Password"
-                  placeholder="••••••••"
+                  :label="$t('auth.password')"
+                  :placeholder="$t('auth.passwordPlaceholder')"
                   :disabled="loading"
                   :minlength="8"
                   required
-                  hint="Minimum 8 characters"
+                  :hint="$t('auth.passwordHint')"
                   persistent-hint
                   class="mb-6"
                 />
@@ -110,7 +110,7 @@
                   size="lg"
                   class="mb-2"
                 >
-                  {{ loading ? 'Creating account...' : 'Create Account' }}
+                  {{ loading ? $t('auth.creatingAccount') : $t('auth.createAccount') }}
                 </BaseButton>
               </v-form>
             </v-window-item>
@@ -124,6 +124,7 @@
 <script setup lang="ts">
 import { ref } from 'vue'
 import { useRouter } from 'vue-router'
+import { i18n } from '@/plugins/i18n'
 import { useAuthStore } from '@/stores/auth'
 import { api } from '@/lib/api'
 import BaseButton from '@/components/BaseButton.vue'
@@ -132,6 +133,7 @@ import ErrorMessage from '@/components/ErrorMessage.vue'
 
 const router = useRouter()
 const authStore = useAuthStore()
+const t = i18n.global.t
 
 const email = ref('')
 const password = ref('')
@@ -142,12 +144,12 @@ const error = ref('')
 
 async function handleLogin() {
   if (!email.value || !password.value) {
-    error.value = 'Please enter email and password'
+    error.value = t('auth.errors.emailPassword')
     return
   }
 
   if (password.value.length < 8) {
-    error.value = 'Password must be at least 8 characters'
+    error.value = t('auth.errors.passwordLength')
     return
   }
 
@@ -161,7 +163,7 @@ async function handleLogin() {
     })
 
     if (!response || !response.token) {
-      error.value = 'Invalid response from server'
+      error.value = t('auth.errors.invalidResponse')
       return
     }
 
@@ -169,16 +171,16 @@ async function handleLogin() {
     router.push('/')
   } catch (e: any) {
     console.error('Login error:', e)
-    const errorMsg = e.message || 'Login failed. Please try again.'
+    const errorMsg = e.message || t('auth.errors.loginFailed')
     
     if (errorMsg.includes('Invalid email or password') || errorMsg.includes('invalid email or password')) {
-      error.value = 'Email ou senha inválidos. Verifique suas credenciais e tente novamente.'
+      error.value = t('auth.errors.invalidCredentials')
     } else if (errorMsg.includes('not available') || errorMsg.includes('not found')) {
-      error.value = 'Servidor da API não está disponível. Verifique se o servidor está rodando.'
+      error.value = t('auth.errors.serverUnavailable')
     } else if (errorMsg.includes('timeout')) {
-      error.value = 'A requisição demorou muito para responder. Tente novamente.'
+      error.value = t('auth.errors.timeout')
     } else if (errorMsg.includes('Unable to connect')) {
-      error.value = 'Não foi possível conectar ao servidor. Verifique sua conexão e se o servidor está rodando.'
+      error.value = t('auth.errors.connectionError')
     } else {
       error.value = errorMsg
     }
@@ -189,12 +191,12 @@ async function handleLogin() {
 
 async function handleRegister() {
   if (!email.value || !password.value || !name.value) {
-    error.value = 'Please fill in all fields'
+    error.value = t('auth.errors.allFields')
     return
   }
 
   if (password.value.length < 8) {
-    error.value = 'Password must be at least 8 characters'
+    error.value = t('auth.errors.passwordLength')
     return
   }
 
@@ -209,7 +211,7 @@ async function handleRegister() {
     })
 
     if (!response || !response.token) {
-      error.value = 'Invalid response from server'
+      error.value = t('auth.errors.invalidResponse')
       return
     }
 
@@ -217,18 +219,18 @@ async function handleRegister() {
     router.push('/')
   } catch (e: any) {
     console.error('Registration error:', e)
-    const errorMsg = e.message || 'Registration failed. Please try again.'
+    const errorMsg = e.message || t('auth.errors.registrationFailed')
     
     if (errorMsg.includes('already exists') || errorMsg.includes('já existe')) {
-      error.value = 'Este email já está cadastrado. Use outro email ou faça login.'
+      error.value = t('auth.errors.emailExists')
     } else if (errorMsg.includes('validation failed') || errorMsg.includes('Validation failed')) {
-      error.value = 'Dados inválidos. Verifique os campos e tente novamente.'
+      error.value = t('auth.errors.validationFailed')
     } else if (errorMsg.includes('not available') || errorMsg.includes('not found')) {
-      error.value = 'Servidor da API não está disponível. Verifique se o servidor está rodando.'
+      error.value = t('auth.errors.serverUnavailable')
     } else if (errorMsg.includes('timeout')) {
-      error.value = 'A requisição demorou muito para responder. Tente novamente.'
+      error.value = t('auth.errors.timeout')
     } else if (errorMsg.includes('Unable to connect')) {
-      error.value = 'Não foi possível conectar ao servidor. Verifique sua conexão e se o servidor está rodando.'
+      error.value = t('auth.errors.connectionError')
     } else {
       error.value = errorMsg
     }

@@ -5,16 +5,16 @@
         <div class="mb-8">
           <div class="d-flex align-center gap-3 mb-2">
             <v-icon icon="fa-exchange-alt" size="large" color="primary" />
-            <h2 class="text-h4 font-weight-bold">Transactions</h2>
+            <h2 class="text-h4 font-weight-bold">{{ $t('views.dashboard.title') }}</h2>
           </div>
-          <p class="text-body-1 text-grey-darken-1">View and manage transaction records</p>
+          <p class="text-body-1 text-grey-darken-1">{{ $t('views.dashboard.subtitle') }}</p>
         </div>
 
-        <LoadingSpinner v-if="loading" text="Loading transactions..." :centered="false" />
+        <LoadingSpinner v-if="loading" :text="$t('views.dashboard.loading')" :centered="false" />
 
         <ErrorMessage
           v-else-if="error"
-          title="Error loading transactions"
+          :title="$t('views.dashboard.errorTitle')"
           :message="error"
           retryable
           @retry="loadTransactions"
@@ -25,21 +25,6 @@
           v-else
           :data="transactions"
           :pageSize="50"
-          @row-click="openTransactionDetail"
-        />
-
-        <!-- Transaction Detail Modal -->
-        <TransactionDetailModal
-          v-model="showDetailModal"
-          :transaction="selectedTransaction"
-          @open-escalation="openEscalationModal"
-        />
-
-        <!-- Risk Escalation Modal -->
-        <RiskEscalationModal
-          v-model="showEscalationModal"
-          :transaction="selectedTransaction"
-          @submit="handleEscalationSubmit"
         />
       </v-col>
     </v-row>
@@ -48,19 +33,17 @@
 
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
+import { i18n } from '@/plugins/i18n'
 import { api } from '@/lib/api'
 import type { Transaction } from '@/types/transaction'
 import TransactionTable from '@/components/TransactionTable.vue'
-import TransactionDetailModal from '@/components/TransactionDetailModal.vue'
-import RiskEscalationModal from '@/components/RiskEscalationModal.vue'
 import LoadingSpinner from '@/components/LoadingSpinner.vue'
 import ErrorMessage from '@/components/ErrorMessage.vue'
 
+const t = i18n.global.t
+
 const loading = ref(true)
 const error = ref('')
-const showDetailModal = ref(false)
-const showEscalationModal = ref(false)
-const selectedTransaction = ref<Transaction | null>(null)
 const transactions = ref<Transaction[]>([])
 
 const loadTransactions = async () => {
@@ -70,28 +53,11 @@ const loadTransactions = async () => {
     const response = await api.get<{ transactions: Transaction[] }>('/api/v1/transactions?limit=50&offset=0')
     transactions.value = response.transactions || []
   } catch (e: any) {
-    error.value = e.message || 'Failed to load transactions'
+    error.value = e.message || t('views.dashboard.errorRetry')
     console.error('Error loading transactions:', e)
   } finally {
     loading.value = false
   }
-}
-
-const openTransactionDetail = (transaction: Transaction) => {
-  selectedTransaction.value = transaction
-  showDetailModal.value = true
-}
-
-const openEscalationModal = () => {
-  showDetailModal.value = false
-  setTimeout(() => {
-    showEscalationModal.value = true
-  }, 200)
-}
-
-const handleEscalationSubmit = (data: any) => {
-  // Note: Escalation endpoint doesn't exist in backend yet
-  alert('Transaction escalation feature not yet implemented in backend')
 }
 
 onMounted(() => {

@@ -37,7 +37,7 @@
         :to="item.path"
         :active="isActive(item.path)"
         :prepend-icon="getIcon(item.icon)"
-        :title="isCollapsed ? '' : item.label"
+        :title="isCollapsed ? '' : $t(item.label)"
         :value="item.path"
         @click="isMobile && closeMobile()"
         class="mx-2 mb-1"
@@ -78,12 +78,12 @@ const route = useRoute()
 const authStore = useAuthStore()
 
 const allNavItems: NavItem[] = [
-  { label: 'Dashboard', path: '/dashboard', icon: 'fa-chart-line' },
-  { label: 'Transactions', path: '/transactions', icon: 'fa-exchange-alt' },
-  { label: 'Schemas', path: '/schemas', icon: 'fa-code' },
-  { label: 'Rules', path: '/rules', icon: 'fa-tasks' },
-  { label: 'Permissions', path: '/permissions', icon: 'fa-users-cog', adminOnly: true },
-  { label: 'Branding', path: '/branding', icon: 'fa-palette', adminOnly: true },
+  { label: 'sidebar.dashboard', path: '/dashboard', icon: 'fa-chart-line' },
+  { label: 'sidebar.transactions', path: '/transactions', icon: 'fa-exchange-alt' },
+  { label: 'sidebar.schemas', path: '/schemas', icon: 'fa-code' },
+  { label: 'sidebar.rules', path: '/rules', icon: 'fa-tasks' },
+  { label: 'sidebar.permissions', path: '/permissions', icon: 'fa-users-cog', adminOnly: true },
+  { label: 'sidebar.branding', path: '/branding', icon: 'fa-palette', adminOnly: true },
 ]
 
 const navItems = computed(() => {

@@ -4,20 +4,20 @@
       <div>
         <div class="d-flex align-center gap-3 mb-2">
           <v-icon icon="fa-tasks" size="large" color="primary" />
-          <h2 class="text-h4 font-weight-bold">Rules Management</h2>
+          <h2 class="text-h4 font-weight-bold">{{ $t('views.rules.title') }}</h2>
         </div>
-        <p class="text-body-1 text-grey-darken-1">Create schema-based rules using expressions to evaluate events</p>
+        <p class="text-body-1 text-grey-darken-1">{{ $t('views.rules.subtitle') }}</p>
       </div>
       <BaseButton @click="openCreateModal" prepend-icon="fa-plus">
-        Create Rule
+        {{ $t('views.rules.createRule') }}
       </BaseButton>
     </div>
 
-    <LoadingSpinner v-if="loading" text="Loading rules..." :centered="false" />
+    <LoadingSpinner v-if="loading" :text="$t('views.rules.loading')" :centered="false" />
 
     <ErrorMessage
       v-else-if="error"
-      title="Error loading rules"
+      :title="$t('views.rules.errorTitle')"
       :message="error"
       retryable
       @retry="loadRules"
@@ -27,7 +27,7 @@
       <BaseTable
         :columns="tableColumns"
         :data="paginatedRules"
-        empty-text="No rules configured. Create your first rule to get started."
+        :empty-text="$t('views.rules.emptyText')"
       >
       <template #cell-schema="{ row }">
         <span class="text-body-2 font-weight-medium text-grey-darken-2">
@@ -42,7 +42,7 @@
 
       <template #cell-action="{ row }">
         <BaseBadge :variant="getActionBadgeVariant(row.action)" rounded>
-          {{ row.action }}
+          {{ getActionLabel(row.action) }}
         </BaseBadge>
       </template>
 
@@ -57,17 +57,17 @@
           @click="toggleRule(row)"
           class="cursor-pointer"
         >
-          {{ row.enabled ? 'Enabled' : 'Disabled' }}
+          {{ row.enabled ? $t('components.ruleTable.enabled') : $t('components.ruleTable.disabled') }}
         </BaseBadge>
       </template>
 
       <template #cell-actions="{ row }">
         <div class="d-flex gap-2">
           <BaseButton size="sm" @click="openEditModal(row)" prepend-icon="fa-pencil">
-            Edit
+            {{ $t('components.ruleTable.edit') }}
           </BaseButton>
           <BaseButton size="sm" variant="danger" @click="deleteRule(row.id)" prepend-icon="fa-trash">
-            Delete
+            {{ $t('components.ruleTable.delete') }}
           </BaseButton>
         </div>
       </template>
@@ -76,7 +76,7 @@
       <!-- Pagination -->
       <div v-if="rules.length > pageSize" class="mt-4 d-flex justify-space-between align-center pa-4 bg-grey-lighten-5 rounded-lg">
         <div class="text-body-2 text-grey-darken-1">
-          Showing {{ startIndex + 1 }} to {{ endIndex }} of {{ rules.length }} rules
+          {{ $t('components.ruleTable.showing') }} {{ startIndex + 1 }} {{ $t('components.ruleTable.to') }} {{ endIndex }} {{ $t('components.ruleTable.of') }} {{ rules.length }} {{ $t('components.ruleTable.rules') }}
         </div>
         <div class="d-flex align-center gap-2">
           <v-btn
@@ -143,7 +143,7 @@
           <div class="d-flex justify-space-between align-center mb-4">
             <h4 class="text-subtitle-1 font-weight-medium d-flex align-center">
               <v-icon icon="fa-code" size="small" class="mr-2" />
-              Rule Conditions <span class="text-red">*</span>
+              {{ $t('views.rules.modal.ruleConditions') }} <span class="text-red">*</span>
             </h4>
             <div class="d-flex gap-2">
               <v-btn-toggle
@@ -155,15 +155,15 @@
               >
               <v-btn value="manual" size="small">
                   <v-icon icon="fa-code" size="small" class="mr-1" />
-                  Manual
+                  {{ $t('views.rules.modal.manual') }}
                 </v-btn>
                 <v-btn value="builder" size="small">
                   <v-icon icon="fa-wrench" size="small" class="mr-1" />
-                  Builder
+                  {{ $t('views.rules.modal.builder') }}
                 </v-btn>
               </v-btn-toggle>
               <BaseButton v-if="expressionMode === 'manual'" size="sm" @click="addCondition" prepend-icon="fa-plus">
-                Add Condition
+                {{ $t('views.rules.modal.addCondition') }}
               </BaseButton>
             </div>
           </div>
@@ -171,7 +171,7 @@
           <!-- Builder Mode: Polygon Builder -->
           <div v-if="expressionMode === 'builder' && builderType === 'polygon'" class="mb-4">
             <div class="d-flex justify-space-between align-center mb-3">
-              <h5 class="text-body-1 font-weight-medium">Polygon Builder</h5>
+              <h5 class="text-body-1 font-weight-medium">{{ $t('views.rules.modal.polygonBuilder') }}</h5>
               <v-btn-toggle
                 v-model="builderType"
                 mandatory
@@ -179,8 +179,8 @@
                 variant="outlined"
                 density="compact"
               >
-                <v-btn value="polygon" size="small">Polygon</v-btn>
-                <v-btn value="velocity" size="small">Velocity</v-btn>
+                <v-btn value="polygon" size="small">{{ $t('views.rules.modal.polygon') }}</v-btn>
+                <v-btn value="velocity" size="small">{{ $t('views.rules.modal.velocity') }}</v-btn>
               </v-btn-toggle>
             </div>
             <PolygonBuilder
@@ -195,7 +195,7 @@
           <!-- Builder Mode: Velocity Builder -->
           <div v-if="expressionMode === 'builder' && builderType === 'velocity'" class="mb-4">
             <div class="d-flex justify-space-between align-center mb-3">
-              <h5 class="text-body-1 font-weight-medium">Velocity Pattern Builder</h5>
+              <h5 class="text-body-1 font-weight-medium">{{ $t('views.rules.modal.velocityBuilder') }}</h5>
               <v-btn-toggle
                 v-model="builderType"
                 mandatory
@@ -203,8 +203,8 @@
                 variant="outlined"
                 density="compact"
               >
-                <v-btn value="polygon" size="small">Polygon</v-btn>
-                <v-btn value="velocity" size="small">Velocity</v-btn>
+                <v-btn value="polygon" size="small">{{ $t('views.rules.modal.polygon') }}</v-btn>
+                <v-btn value="velocity" size="small">{{ $t('views.rules.modal.velocity') }}</v-btn>
               </v-btn-toggle>
             </div>
             <VelocityBuilder
@@ -234,6 +234,7 @@ import { ref, reactive, onMounted, watch, computed } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import { api } from '@/lib/api'
+import { i18n } from '@/plugins/i18n'
 import BaseButton from '@/components/BaseButton.vue'
 import BaseBadge from '@/components/BaseBadge.vue'
 import BaseTable from '@/components/BaseTable.vue'
@@ -248,12 +249,12 @@ const router = useRouter()
 const authStore = useAuthStore()
 
 const tableColumns = [
-  { key: 'schema', label: 'Schema' },
-  { key: 'name', label: 'Name' },
-  { key: 'action', label: 'Action' },
-  { key: 'priority', label: 'Priority' },
-  { key: 'status', label: 'Status' },
-  { key: 'actions', label: 'Actions' },
+  { key: 'schema', label: 'components.ruleTable.schema' },
+  { key: 'name', label: 'components.ruleTable.name' },
+  { key: 'action', label: 'components.ruleTable.action' },
+  { key: 'priority', label: 'components.ruleTable.priority' },
+  { key: 'status', label: 'components.ruleTable.status' },
+  { key: 'actions', label: 'components.ruleTable.actions' },
 ]
 
 const rules = ref<any[]>([])
@@ -1174,7 +1175,7 @@ async function loadRules() {
     // Reset to first page when rules are reloaded
     currentPage.value = 1
   } catch (e: any) {
-    error.value = e.message || 'Failed to load rules'
+    error.value = e.message || (window as any).$i18n?.global?.t?.('views.rules.errorLoad') || 'Failed to load rules'
     console.error('Error loading rules:', e)
   } finally {
     loading.value = false
@@ -1350,7 +1351,7 @@ async function handleSubmit() {
     closeModal()
     await loadRules()
   } catch (e: any) {
-    error.value = e.message || 'Failed to save rule'
+    error.value = e.message || (window as any).$i18n?.global?.t?.('views.rules.errorSave') || 'Failed to save rule'
   } finally {
     saving.value = false
   }
@@ -1571,7 +1572,7 @@ async function deleteRule(id: string) {
     await api.delete(`/api/v1/rules/${id}`)
     await loadRules()
   } catch (e: any) {
-    error.value = e.message || 'Failed to delete rule'
+    error.value = e.message || (window as any).$i18n?.global?.t?.('views.rules.errorDelete') || 'Failed to delete rule'
   }
 }
 
@@ -1580,7 +1581,7 @@ async function toggleRule(rule: any) {
     await api.put(`/api/v1/rules/${rule.id}`, { ...rule, enabled: !rule.enabled })
     await loadRules()
   } catch (e: any) {
-    error.value = e.message || 'Failed to toggle rule'
+    error.value = e.message || (window as any).$i18n?.global?.t?.('views.rules.errorToggle') || 'Failed to toggle rule'
   }
 }
 
@@ -1604,6 +1605,16 @@ function getActionBadgeVariant(action: string): 'success' | 'warning' | 'danger'
       return 'warning'
     default:
       return 'default'
+  }
+}
+
+function getActionLabel(action: string): string {
+  const actionLower = action.toLowerCase()
+  const key = `views.rules.actions.${actionLower}`
+  try {
+    return i18n.global.t(key)
+  } catch {
+    return action
   }
 }
 </script>

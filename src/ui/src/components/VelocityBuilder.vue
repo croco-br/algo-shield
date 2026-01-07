@@ -2,28 +2,28 @@
   <div class="pa-3 bg-white rounded-lg">
     <BaseSelect
       v-model="config.metric"
-      label="Metric"
+      :label="$t('views.rules.modal.velocityBuilder.metric')"
       :options="[
-        { value: 'count', label: 'Transaction Count' },
-        { value: 'sum', label: 'Amount Sum' }
+        { value: 'count', label: $t('views.rules.modal.velocityBuilder.transactionCount') },
+        { value: 'sum', label: $t('views.rules.modal.velocityBuilder.amountSum') }
       ]"
-      hint="Choose what to measure"
+      :hint="$t('views.rules.modal.velocityBuilder.metricHint')"
       persistent-hint
       class="mb-3"
     />
     <BaseSelect
       v-model="config.groupField"
-      label="Group By Field"
+      :label="$t('views.rules.modal.velocityBuilder.groupByField')"
       :options="fieldOptions"
-      hint="Field to group velocity checks by (e.g., origin)"
+      :hint="$t('views.rules.modal.velocityBuilder.groupByFieldHint')"
       persistent-hint
       class="mb-3"
     />
     <BaseInput
       v-model.number="config.threshold"
       type="number"
-      label="Threshold"
-      hint="Maximum allowed value"
+      :label="$t('views.rules.modal.velocityBuilder.threshold')"
+      :hint="$t('views.rules.modal.velocityBuilder.thresholdHint')"
       persistent-hint
       class="mb-3"
     />
@@ -31,24 +31,24 @@
       <BaseInput
         v-model.number="config.timeValue"
         type="number"
-        label="Time Value"
+        :label="$t('views.rules.modal.velocityBuilder.timeValue')"
         class="flex-grow-1"
       />
       <BaseSelect
         v-model="config.timeUnit"
-        label="Time Unit"
+        :label="$t('views.rules.modal.velocityBuilder.timeUnit')"
         :options="[
-          { value: 'seconds', label: 'Seconds' },
-          { value: 'minutes', label: 'Minutes' },
-          { value: 'hours', label: 'Hours' },
-          { value: 'days', label: 'Days' }
+          { value: 'seconds', label: $t('views.rules.modal.velocityBuilder.seconds') },
+          { value: 'minutes', label: $t('views.rules.modal.velocityBuilder.minutes') },
+          { value: 'hours', label: $t('views.rules.modal.velocityBuilder.hours') },
+          { value: 'days', label: $t('views.rules.modal.velocityBuilder.days') }
         ]"
         style="min-width: 150px;"
       />
     </div>
 
     <div v-if="expression" class="mt-3 pa-3 bg-grey-darken-1 rounded">
-      <div class="text-caption text-white mb-1">Generated Expression:</div>
+      <div class="text-caption text-white mb-1">{{ $t('views.rules.generatedExpression') }}:</div>
       <code class="text-white">{{ expression }}</code>
     </div>
   </div>

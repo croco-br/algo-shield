@@ -22,7 +22,7 @@
             />
           </v-avatar>
           <span class="text-white font-bold text-sm sm:text-lg truncate max-w-[200px] sm:max-w-none">
-            {{ brandingConfig?.app_name || 'AlgoShield' }}
+            {{ brandingConfig?.app_name || $t('common.appName') }}
           </span>
         </div>
       </div>
@@ -74,7 +74,25 @@
               to="/profile"
               prepend-icon="fa-user"
             >
-              Profile
+              {{ $t('header.profile') }}
+            </v-list-item>
+            <v-divider />
+            <v-list-subheader class="text-uppercase text-caption">
+              {{ $t('header.language') }}
+            </v-list-subheader>
+            <v-list-item
+              v-for="localeOption in availableLocales"
+              :key="localeOption.value"
+              @click="setLocale(localeOption.value)"
+              :active="locale === localeOption.value"
+              class="cursor-pointer"
+            >
+              <template #prepend>
+                <span class="mr-2" style="font-size: 1.2em">{{ localeOption.flag }}</span>
+              </template>
+              <v-list-item-title>
+                {{ localeOption.label }}
+              </v-list-item-title>
             </v-list-item>
             <v-divider />
             <v-list-item
@@ -82,7 +100,7 @@
               prepend-icon="fa-sign-out-alt"
               class="text-error"
             >
-              Logout
+              {{ $t('auth.logout') }}
             </v-list-item>
           </v-list>
         </v-menu>
@@ -96,11 +114,13 @@ import { ref, computed } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import { useBrandingStore } from '@/stores/branding'
+import { useLocale } from '@/composables/useLocale'
 
 const router = useRouter()
 const route = useRoute()
 const authStore = useAuthStore()
 const brandingStore = useBrandingStore()
+const { locale, availableLocales, setLocale } = useLocale()
 
 const showUserMenu = ref(false)
 

@@ -3,13 +3,13 @@
     <!-- Header -->
     <div class="px-6 py-4 border-b border-neutral-200 bg-neutral-50">
       <div class="flex items-center justify-between">
-        <h3 class="text-lg font-semibold text-neutral-900">Recent Transactions</h3>
+        <h3 class="text-lg font-semibold text-neutral-900">{{ $t('components.transactionTable.recentTransactions') }}</h3>
         <div class="flex items-center gap-3">
           <BaseButton variant="ghost" size="sm" prepend-icon="fa-filter">
-            Filter
+            {{ $t('components.transactionTable.filter') }}
           </BaseButton>
           <BaseButton variant="ghost" size="sm" prepend-icon="fa-download">
-            Export
+            {{ $t('components.transactionTable.export') }}
           </BaseButton>
         </div>
       </div>
@@ -25,7 +25,7 @@
               :key="column.key"
               class="px-8 py-4 text-left text-xs font-semibold text-neutral-600 uppercase tracking-wider"
             >
-              {{ column.label }}
+              {{ $t(column.label) }}
             </th>
           </tr>
         </thead>
@@ -73,7 +73,7 @@
     <div class="px-6 py-4 border-t border-neutral-200 bg-neutral-50">
       <div class="flex items-center justify-between">
         <div class="text-sm text-neutral-600">
-          Showing {{ startIndex + 1 }} to {{ endIndex }} of {{ data.length }} transactions
+          {{ $t('components.transactionTable.showing') }} {{ startIndex + 1 }} {{ $t('components.transactionTable.to') }} {{ endIndex }} {{ $t('components.transactionTable.of') }} {{ data.length }} {{ $t('components.transactionTable.transactions') }}
         </div>
         <div class="flex items-center gap-2">
           <v-btn
@@ -141,12 +141,12 @@ const emit = defineEmits<{
 }>()
 
 const columns: Column[] = [
-  { key: 'external_id', label: 'External ID' },
-  { key: 'created_at', label: 'Date' },
-  { key: 'amount', label: 'Amount' },
-  { key: 'origin', label: 'Origin' },
-  { key: 'destination', label: 'Destination' },
-  { key: 'status', label: 'Status' },
+  { key: 'external_id', label: 'components.transactionTable.transactionId' },
+  { key: 'created_at', label: 'components.transactionTable.date' },
+  { key: 'amount', label: 'components.transactionTable.amount' },
+  { key: 'origin', label: 'components.transactionTable.origin' },
+  { key: 'destination', label: 'components.transactionTable.destination' },
+  { key: 'status', label: 'components.transactionTable.status' },
 ]
 
 const currentPage = ref(1)

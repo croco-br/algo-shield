@@ -1,14 +1,14 @@
 <template>
   <BaseModal
     :model-value="modelValue"
-    :title="isEditing ? 'Edit Rule' : 'Create New Rule'"
+    :title="isEditing ? $t('views.rules.modal.editTitle') : $t('views.rules.modal.createTitle')"
     size="lg"
     @update:model-value="$emit('update:modelValue', $event)"
   >
     <v-form ref="formRef" @submit.prevent="handleSubmit" class="mt-4">
       <!-- Presets Section (only for new rules) -->
       <div v-if="!isEditing" class="mb-6">
-        <label class="text-body-2 text-grey-darken-1 d-block mb-2">Quick Start with Preset</label>
+        <label class="text-body-2 text-grey-darken-1 d-block mb-2">{{ $t('views.rules.modal.quickStart') }}</label>
         <div class="d-flex flex-wrap gap-2">
           <v-chip
             v-for="preset in rulePresets"
@@ -26,34 +26,34 @@
 
       <BaseInput
         v-model="editingRule.name"
-        label="Rule Name"
-        placeholder="e.g., High Value Transaction, Suspicious Activity"
+        :label="$t('views.rules.modal.ruleName')"
+        :placeholder="$t('views.rules.modal.ruleNamePlaceholder')"
         required
-        :rules="[(v: string) => !!v || 'Name is required']"
+        :rules="[(v: string) => !!v || $t('views.rules.modal.nameRequired')]"
         prepend-inner-icon="fa-text"
-        hint="A descriptive name for this rule"
+        :hint="$t('views.rules.modal.ruleNameHint')"
         persistent-hint
         class="mb-4"
       />
 
       <BaseInput
         v-model="editingRule.description"
-        label="Description"
-        placeholder="Describe what this rule checks for"
+        :label="$t('views.rules.modal.ruleDescription')"
+        :placeholder="$t('views.rules.modal.ruleDescriptionPlaceholder')"
         required
-        :rules="[(v: string) => !!v || 'Description is required']"
+        :rules="[(v: string) => !!v || $t('views.rules.modal.descriptionRequired')]"
         prepend-inner-icon="fa-align-left"
-        hint="Explain when this rule should trigger"
+        :hint="$t('views.rules.modal.ruleDescriptionHint')"
         persistent-hint
         class="mb-4"
       />
 
       <BaseSelect
         v-model="editingRule.schema_id"
-        label="Event Schema"
+        :label="$t('views.rules.modal.eventSchema')"
         :options="schemaOptions"
-        :rules="[(v: string) => !!v || 'Schema is required']"
-        hint="Choose the event schema that defines the structure of events this rule will evaluate"
+        :rules="[(v: string) => !!v || $t('views.rules.modal.schemaRequired')]"
+        :hint="$t('views.rules.modal.eventSchemaHint')"
         persistent-hint
         class="mb-4"
       />
@@ -63,7 +63,7 @@
         <div class="d-flex justify-space-between align-center mb-2">
           <label class="text-caption text-grey-darken-1 d-flex align-center">
             <v-icon icon="fa-info-circle" size="x-small" class="mr-1" />
-            Available fields from "{{ currentSchema.name }}" ({{ currentSchema.extracted_fields.length }}):
+            {{ $t('views.rules.modal.availableFields') }} "{{ currentSchema.name }}" ({{ currentSchema.extracted_fields.length }}):
           </label>
           <v-btn
             v-if="currentSchema.extracted_fields.length > 10"
@@ -71,7 +71,7 @@
             variant="text"
             @click="showAllFields = !showAllFields"
           >
-            {{ showAllFields ? 'Show Less' : `Show All (${currentSchema.extracted_fields.length})` }}
+            {{ showAllFields ? $t('views.rules.modal.showLess') : `${$t('views.rules.showAll')} (${currentSchema.extracted_fields.length})` }}
           </v-btn>
         </div>
         <div class="d-flex flex-wrap gap-1">
@@ -86,31 +86,31 @@
           </v-chip>
         </div>
         <p class="text-caption text-grey-darken-1 mt-2">
-          Available fields for use in conditions below.
+          {{ $t('views.rules.modal.availableFieldsHint') }}
         </p>
       </div>
 
       <BaseSelect
         v-model="editingRule.action"
-        label="Action"
+        :label="$t('views.rules.modal.action')"
         :options="ruleActions"
         required
-        :rules="[(v: string) => !!v || 'Action is required']"
+        :rules="[(v: string) => !!v || $t('views.rules.modal.actionRequired')]"
         class="mb-4"
       />
 
       <BaseInput
         v-model.number="editingRule.priority"
         type="number"
-        label="Priority"
+        :label="$t('views.rules.modal.priority')"
         :min="0"
         :max="100"
         required
         :rules="[
-          (v: any) => (v !== null && v !== undefined && v !== '') || 'Priority is required',
-          (v: any) => (typeof v === 'number' && v >= 0 && v <= 100) || 'Priority must be between 0 and 100'
+          (v: any) => (v !== null && v !== undefined && v !== '') || $t('views.rules.modal.priorityRequired'),
+          (v: any) => (typeof v === 'number' && v >= 0 && v <= 100) || $t('views.rules.modal.priorityRange')
         ]"
-        hint="0 = highest priority, 100 = lowest priority"
+        :hint="$t('views.rules.modal.priorityHint')"
         persistent-hint
         prepend-inner-icon="fa-sort"
         class="mb-4"
@@ -132,7 +132,7 @@
       </v-alert>
 
       <div class="mb-6">
-        <label class="text-body-2 text-grey-darken-1 d-block mb-2">Status</label>
+        <label class="text-body-2 text-grey-darken-1 d-block mb-2">{{ $t('views.rules.modal.status') }}</label>
         <v-btn-toggle
           v-model="editingRule.enabled"
           mandatory
@@ -141,29 +141,32 @@
         >
           <v-btn :value="true" class="px-6">
             <v-icon icon="fa-check" size="small" class="mr-2" />
-            Enabled
+            {{ $t('views.rules.modal.enabled') }}
           </v-btn>
           <v-btn :value="false" class="px-6">
             <v-icon icon="fa-ban" size="small" class="mr-2" />
-            Disabled
+            {{ $t('views.rules.modal.disabled') }}
           </v-btn>
         </v-btn-toggle>
       </div>
     </v-form>
 
     <template #footer>
-      <BaseButton variant="ghost" @click="$emit('cancel')" prepend-icon="fa-xmark">Cancel</BaseButton>
-      <BaseButton @click="handleSubmit" :loading="saving" prepend-icon="fa-save">Save</BaseButton>
+      <BaseButton variant="ghost" @click="$emit('cancel')" prepend-icon="fa-xmark">{{ $t('views.rules.modal.cancel') }}</BaseButton>
+      <BaseButton @click="handleSubmit" :loading="saving" prepend-icon="fa-save">{{ $t('views.rules.modal.save') }}</BaseButton>
     </template>
   </BaseModal>
 </template>
 
 <script setup lang="ts">
 import { ref, computed, watch } from 'vue'
+import { i18n } from '@/plugins/i18n'
 import BaseModal from '@/components/BaseModal.vue'
 import BaseInput from '@/components/BaseInput.vue'
 import BaseSelect from '@/components/BaseSelect.vue'
 import BaseButton from '@/components/BaseButton.vue'
+
+const t = i18n.global.t
 
 interface Props {
   modelValue: boolean
@@ -246,20 +249,20 @@ async function handleSubmit() {
 function validateConditions(): string | null {
   // Validate that a schema is selected
   if (!props.editingRule.schema_id || !props.currentSchema) {
-    return 'Please select a schema first'
+    return t('views.rules.modal.validation.selectSchema')
   }
 
   const schemaFields = props.currentSchema.extracted_fields || []
   
   if (schemaFields.length === 0) {
-    return 'Selected schema has no fields. Please select a different schema.'
+    return t('views.rules.modal.validation.noFields')
   }
 
   // Validate based on expression mode
   if (props.expressionMode === 'builder') {
     if (props.builderType === 'polygon') {
       if (!props.polygonConfig.latField || !props.polygonConfig.lonField) {
-        return 'Please select latitude and longitude fields for polygon check'
+        return t('views.rules.modal.validation.selectLatLon')
       }
       const validPoints = props.polygonConfig.points.filter(p => p[0] !== 0 || p[1] !== 0)
       if (validPoints.length < 3) {
@@ -280,44 +283,44 @@ function validateConditions(): string | null {
       }
       const expression = props.polygonExpression
       if (!expression || expression.trim() === '') {
-        return 'Invalid polygon configuration'
+        return t('views.rules.modal.validation.invalidPolygon')
       }
       // Sanitize the polygon expression
       const sanitizeResult = sanitizeExpression(expression)
       if (!sanitizeResult.valid) {
-        return sanitizeResult.error || 'Invalid polygon expression'
+        return sanitizeResult.error || t('views.rules.modal.validation.invalidPolygonExpression')
       }
       // Builder mode validation complete - return early
       return null
     } else if (props.builderType === 'velocity') {
       if (!props.velocityConfig.groupField) {
-        return 'Please select a group field for velocity check'
+        return t('views.rules.modal.validation.selectGroupField')
       }
       if (!props.velocityConfig.threshold || props.velocityConfig.threshold <= 0) {
-        return 'Please enter a valid threshold value'
+        return t('views.rules.modal.validation.validThreshold')
       }
       if (!props.velocityConfig.timeValue || props.velocityConfig.timeValue <= 0) {
-        return 'Please enter a valid time value'
+        return t('views.rules.modal.validation.validTimeValue')
       }
       const expression = props.velocityExpression
       if (!expression || expression.trim() === '') {
-        return 'Invalid velocity configuration'
+        return t('views.rules.modal.validation.invalidVelocity')
       }
       // Sanitize the velocity expression
       const sanitizeResult = sanitizeExpression(expression)
       if (!sanitizeResult.valid) {
-        return sanitizeResult.error || 'Invalid velocity expression'
+        return sanitizeResult.error || t('views.rules.modal.validation.invalidVelocityExpression')
       }
       // Builder mode validation complete - return early
       return null
     } else {
       // Invalid builder type
-      return 'Invalid builder type. Please select polygon or velocity check.'
+      return t('views.rules.modal.validation.invalidBuilderType')
     }
   } else {
     // Manual mode: Validate condition rows
     if (props.conditionRows.length === 0) {
-      return 'At least one condition is required'
+      return t('views.rules.modal.validation.atLeastOneCondition')
     }
 
     // Validate each condition row

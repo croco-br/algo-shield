@@ -3,9 +3,9 @@
     <div class="mb-3">
       <div class="d-flex align-center gap-2 mb-1">
         <v-icon icon="fa-palette" size="default" color="primary" />
-        <h1 class="text-h5 font-weight-bold">Branding Configuration</h1>
+        <h1 class="text-h5 font-weight-bold">{{ $t('views.branding.title') }}</h1>
       </div>
-      <p class="text-body-2 text-grey-darken-1">Customize your application branding</p>
+      <p class="text-body-2 text-grey-darken-1">{{ $t('views.branding.subtitle') }}</p>
     </div>
 
     <v-alert
@@ -32,17 +32,17 @@
       <!-- Configuration Form -->
       <v-col cols="12" lg="6" class="pr-lg-2" style="padding-left: 0;">
         <v-card class="pa-3">
-          <v-card-title class="text-subtitle-1 mb-3" style="font-weight: 600;">Configuration</v-card-title>
+          <v-card-title class="text-subtitle-1 mb-3" style="font-weight: 600;">{{ $t('views.branding.configuration') }}</v-card-title>
 
           <v-form @submit.prevent="handleSubmit">
             <!-- App Name -->
             <BaseInput
               v-model="form.app_name"
-              label="Application Name"
-              placeholder="AlgoShield"
+              :label="$t('views.branding.appName')"
+              :placeholder="$t('views.branding.appNamePlaceholder')"
               required
               :maxlength="100"
-              hint="Max 100 characters"
+              :hint="$t('views.branding.appNameHint')"
               persistent-hint
               prepend-inner-icon="fa-window-maximize"
               class="mb-3"
@@ -52,9 +52,9 @@
             <!-- Icon URL -->
             <BaseInput
               v-model="form.icon_url"
-              label="Logo Icon URL"
-              placeholder="/assets/logo.svg"
-              hint="URL or path to logo image"
+              :label="$t('views.branding.iconUrl')"
+              :placeholder="$t('views.branding.iconUrlPlaceholder')"
+              :hint="$t('views.branding.iconUrlHint')"
               persistent-hint
               prepend-inner-icon="fa-image"
               class="mb-3"
@@ -64,9 +64,9 @@
             <!-- Favicon URL -->
             <BaseInput
               v-model="form.favicon_url"
-              label="Favicon URL"
-              placeholder="/favicon.ico"
-              hint="URL or path to favicon"
+              :label="$t('views.branding.faviconUrl')"
+              :placeholder="$t('views.branding.faviconUrlPlaceholder')"
+              :hint="$t('views.branding.faviconUrlHint')"
               persistent-hint
               prepend-inner-icon="fa-star"
               class="mb-3"
@@ -77,7 +77,7 @@
             <div class="mb-3">
               <label class="text-body-2 text-grey-darken-1 mb-1 d-flex align-center gap-2">
                 <v-icon icon="fa-palette" size="x-small" />
-                Primary Color
+                {{ $t('views.branding.primaryColor') }}
               </label>
               <div class="d-flex align-center gap-2">
                 <input
@@ -103,7 +103,7 @@
             <div class="mb-3">
               <label class="text-body-2 text-grey-darken-1 mb-1 d-flex align-center gap-2">
                 <v-icon icon="fa-palette" size="x-small" />
-                Secondary Color
+                {{ $t('views.branding.secondaryColor') }}
               </label>
               <div class="d-flex align-center gap-2">
                 <input
@@ -129,7 +129,7 @@
             <div class="mb-4">
               <label class="text-body-2 text-grey-darken-1 mb-1 d-flex align-center gap-2">
                 <v-icon icon="fa-heading" size="x-small" />
-                Header Background Color
+                {{ $t('views.branding.headerColor') }}
               </label>
               <div class="d-flex align-center gap-2">
                 <input
@@ -160,7 +160,7 @@
                 full-width
                 prepend-icon="fa-save"
               >
-                {{ loading ? 'Saving...' : 'Save Configuration' }}
+                {{ loading ? $t('common.loading') : $t('views.branding.saveConfiguration') }}
               </BaseButton>
               <BaseButton
                 variant="secondary"
@@ -168,7 +168,7 @@
                 full-width
                 prepend-icon="fa-rotate-left"
               >
-                Reset to Defaults
+                {{ $t('views.branding.resetToDefaults') }}
               </BaseButton>
             </div>
           </v-form>
@@ -178,7 +178,7 @@
       <!-- Live Preview -->
       <v-col cols="12" lg="6" class="pl-lg-2" style="padding-right: 0;">
         <v-card class="pa-3">
-          <v-card-title class="text-subtitle-1 mb-3" style="font-weight: 600;">Live Preview</v-card-title>
+          <v-card-title class="text-subtitle-1 mb-3" style="font-weight: 600;">{{ $t('views.branding.livePreview') }}</v-card-title>
 
           <div class="d-flex flex-column gap-3">
           <div class="d-flex flex-column gap-2">
@@ -202,7 +202,7 @@
 
             <!-- Color Swatches -->
             <div>
-              <h3 class="text-caption font-weight-medium text-grey-darken-1 mb-1">Colors</h3>
+              <h3 class="text-caption font-weight-medium text-grey-darken-1 mb-1">{{ $t('views.branding.colors') }}</h3>
               <div class="d-flex flex-column gap-1">
                 <div class="d-flex align-center gap-2">
                   <div
@@ -210,7 +210,7 @@
                     :style="{ backgroundColor: form.primary_color }"
                   />
                   <div>
-                    <p class="text-caption font-weight-medium mb-0">Primary</p>
+                    <p class="text-caption font-weight-medium mb-0">{{ $t('views.branding.primary') }}</p>
                     <p class="text-caption text-grey font-mono mb-0" style="font-size: 10px;">{{ form.primary_color }}</p>
                   </div>
                 </div>
@@ -220,7 +220,7 @@
                     :style="{ backgroundColor: form.secondary_color }"
                   />
                   <div>
-                    <p class="text-caption font-weight-medium mb-0">Secondary</p>
+                    <p class="text-caption font-weight-medium mb-0">{{ $t('views.branding.secondary') }}</p>
                     <p class="text-caption text-grey font-mono mb-0" style="font-size: 10px;">{{ form.secondary_color }}</p>
                   </div>
                 </div>
@@ -230,7 +230,7 @@
                     :style="{ backgroundColor: form.header_color }"
                   />
                   <div>
-                    <p class="text-caption font-weight-medium mb-0">Header</p>
+                    <p class="text-caption font-weight-medium mb-0">{{ $t('views.branding.header') }}</p>
                     <p class="text-caption text-grey font-mono mb-0" style="font-size: 10px;">{{ form.header_color }}</p>
                   </div>
                 </div>
@@ -239,7 +239,7 @@
 
             <!-- Header Preview -->
             <div>
-              <h3 class="text-caption font-weight-medium text-grey-darken-1 mb-1">Header</h3>
+              <h3 class="text-caption font-weight-medium text-grey-darken-1 mb-1">{{ $t('views.branding.header') }}</h3>
               <v-card
                 :style="{ backgroundColor: form.header_color }"
                 class="pa-2"
@@ -258,26 +258,26 @@
 
             <!-- Button Preview -->
             <div>
-              <h3 class="text-caption font-weight-medium text-grey-darken-1 mb-1">Buttons</h3>
+              <h3 class="text-caption font-weight-medium text-grey-darken-1 mb-1">{{ $t('views.branding.buttons') }}</h3>
               <div class="d-flex gap-2">
                 <BaseButton
                   size="sm"
                   :style="{ backgroundColor: form.primary_color }"
                 >
-                  Primary
+                  {{ $t('views.branding.primary') }}
                 </BaseButton>
                 <BaseButton
                   size="sm"
                   :style="{ backgroundColor: form.secondary_color }"
                 >
-                  Secondary
+                  {{ $t('views.branding.secondary') }}
                 </BaseButton>
               </div>
             </div>
 
             <!-- Browser Title Preview -->
             <div>
-              <h3 class="text-caption font-weight-medium text-grey-darken-1 mb-1">Browser Tab</h3>
+              <h3 class="text-caption font-weight-medium text-grey-darken-1 mb-1">{{ $t('views.branding.browserTab') }}</h3>
               <v-card variant="tonal" class="pa-1">
                 <div class="d-flex align-center gap-1 text-caption">
                   <div style="width: 12px; height: 12px; background-color: grey; border-radius: 2px;" />
@@ -345,12 +345,12 @@ async function handleSubmit() {
       header_color: form.header_color,
     })
 
-    success.value = 'Branding configuration updated successfully!'
+    success.value = (window as any).$i18n?.global?.t?.('views.branding.saveSuccess') || 'Branding configuration updated successfully!'
     setTimeout(() => {
       success.value = ''
     }, 5000)
   } catch (e) {
-    error.value = e instanceof Error ? e.message : 'Failed to update branding configuration'
+    error.value = e instanceof Error ? e.message : ((window as any).$i18n?.global?.t?.('views.branding.saveError') || 'Failed to update branding configuration')
   } finally {
     loading.value = false
   }

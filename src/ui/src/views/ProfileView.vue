@@ -1,8 +1,8 @@
 <template>
   <v-container fluid class="pa-8">
     <div class="mb-10">
-      <h2 class="text-h4 font-weight-bold mb-2">Profile</h2>
-      <p class="text-body-1 text-grey-darken-1">Manage your account information and preferences</p>
+      <h2 class="text-h4 font-weight-bold mb-2">{{ $t('views.profile.title') }}</h2>
+      <p class="text-body-1 text-grey-darken-1">{{ $t('views.profile.subtitle') }}</p>
     </div>
 
     <v-card class="pa-8">
@@ -11,8 +11,8 @@
           <v-icon icon="fa-user" color="white" />
         </v-avatar>
         <div>
-          <h3 class="text-h6 font-weight-bold">User Information</h3>
-          <p class="text-body-2 text-grey-darken-1">View and update your profile details</p>
+          <h3 class="text-h6 font-weight-bold">{{ $t('views.profile.userInfo') }}</h3>
+          <p class="text-body-2 text-grey-darken-1">{{ $t('views.profile.userInfoSubtitle') }}</p>
         </div>
       </div>
 
@@ -21,9 +21,9 @@
           <template #prepend>
             <v-icon icon="fa-user" color="grey-darken-1" />
           </template>
-          <v-list-item-title class="font-weight-semibold">Name</v-list-item-title>
+          <v-list-item-title class="font-weight-semibold">{{ $t('views.profile.name') }}</v-list-item-title>
           <template #append>
-            <span class="text-body-2 text-grey-darken-3">{{ user?.name || 'N/A' }}</span>
+            <span class="text-body-2 text-grey-darken-3">{{ user?.name || $t('views.profile.notAvailable') }}</span>
           </template>
         </v-list-item>
 
@@ -31,9 +31,9 @@
           <template #prepend>
             <v-icon icon="fa-envelope" color="grey-darken-1" />
           </template>
-          <v-list-item-title class="font-weight-semibold">Email</v-list-item-title>
+          <v-list-item-title class="font-weight-semibold">{{ $t('views.profile.email') }}</v-list-item-title>
           <template #append>
-            <span class="text-body-2 text-grey-darken-3">{{ user?.email || 'N/A' }}</span>
+            <span class="text-body-2 text-grey-darken-3">{{ user?.email || $t('views.profile.notAvailable') }}</span>
           </template>
         </v-list-item>
 
@@ -41,9 +41,9 @@
           <template #prepend>
             <v-icon icon="fa-key" color="grey-darken-1" />
           </template>
-          <v-list-item-title class="font-weight-semibold">Authentication Type</v-list-item-title>
+          <v-list-item-title class="font-weight-semibold">{{ $t('views.profile.authType') }}</v-list-item-title>
           <template #append>
-            <span class="text-body-2 text-grey-darken-3 uppercase">{{ user?.auth_type || 'N/A' }}</span>
+            <span class="text-body-2 text-grey-darken-3 uppercase">{{ user?.auth_type || $t('views.profile.notAvailable') }}</span>
           </template>
         </v-list-item>
 
@@ -51,7 +51,7 @@
           <template #prepend>
             <v-icon icon="fa-shield" color="grey-darken-1" />
           </template>
-          <v-list-item-title class="font-weight-semibold">Roles</v-list-item-title>
+          <v-list-item-title class="font-weight-semibold">{{ $t('views.profile.roles') }}</v-list-item-title>
           <template #append>
             <div class="d-flex gap-2 flex-wrap align-center">
               <template v-if="user?.roles && user.roles.length > 0">
@@ -65,7 +65,7 @@
                 </BaseBadge>
               </template>
               <span v-else class="text-body-2 text-grey-darken-1">
-                No roles assigned
+                {{ $t('views.profile.noRoles') }}
               </span>
             </div>
           </template>
@@ -75,13 +75,13 @@
           <template #prepend>
             <v-icon :icon="user?.active ? 'fa-check-circle' : 'fa-xmark-circle'" :color="user?.active ? 'success' : 'error'" />
           </template>
-          <v-list-item-title class="font-weight-semibold">Status</v-list-item-title>
+          <v-list-item-title class="font-weight-semibold">{{ $t('views.profile.status') }}</v-list-item-title>
           <template #append>
             <BaseBadge
               :variant="user?.active ? 'success' : 'danger'"
               size="sm"
             >
-              {{ user?.active ? 'Active' : 'Inactive' }}
+              {{ user?.active ? $t('common.active') : $t('common.inactive') }}
             </BaseBadge>
           </template>
         </v-list-item>

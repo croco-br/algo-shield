@@ -3,9 +3,9 @@
     <div class="mb-10">
       <div class="d-flex align-center gap-3 mb-2">
         <v-icon icon="fa-users-cog" size="large" color="primary" />
-        <h1 class="text-h4 font-weight-bold">Permissions Management</h1>
+        <h1 class="text-h4 font-weight-bold">{{ $t('views.permissions.title') }}</h1>
       </div>
-      <p class="text-body-1 text-grey-darken-1">Manage users, roles, and permissions</p>
+      <p class="text-body-1 text-grey-darken-1">{{ $t('views.permissions.subtitle') }}</p>
     </div>
 
     <ErrorMessage
@@ -15,13 +15,13 @@
       @dismiss="error = ''"
     />
 
-    <LoadingSpinner v-if="loading" text="Loading..." :centered="false" />
+    <LoadingSpinner v-if="loading" :text="$t('views.permissions.loading')" :centered="false" />
 
     <BaseTable
       v-else
       :columns="tableColumns"
       :data="users"
-      empty-text="No users found"
+      :empty-text="$t('views.permissions.emptyText')"
     >
       <template #cell-user="{ row }">
         <div class="d-flex align-center gap-3">
@@ -60,16 +60,16 @@
             size="sm"
             variant="ghost"
             @click="openRoleModal(row)"
-            prepend-icon="fa-plus-circle"
-          >
-            Add Role
-          </BaseButton>
+          prepend-icon="fa-plus-circle"
+        >
+          {{ $t('components.permissionsTable.addRole') }}
+        </BaseButton>
         </div>
       </template>
 
       <template #cell-status="{ row }">
         <BaseBadge :variant="row.active ? 'success' : 'danger'" size="sm">
-          {{ row.active ? 'Active' : 'Inactive' }}
+          {{ row.active ? $t('components.permissionsTable.active') : $t('common.inactive') }}
         </BaseBadge>
       </template>
 
@@ -80,7 +80,7 @@
           @click="toggleUserActive(row)"
           :prepend-icon="row.active ? 'fa-user-slash' : 'fa-user-check'"
         >
-          {{ row.active ? 'Deactivate' : 'Activate' }}
+          {{ row.active ? $t('components.permissionsTable.deactivate') : $t('components.permissionsTable.activate') }}
         </BaseButton>
       </template>
     </BaseTable>
@@ -141,11 +141,11 @@ const router = useRouter()
 const authStore = useAuthStore()
 
 const tableColumns = [
-	{ key: 'user', label: 'User' },
-	{ key: 'email', label: 'Email' },
-	{ key: 'roles', label: 'Roles' },
-	{ key: 'status', label: 'Status' },
-	{ key: 'actions', label: 'Actions' },
+	{ key: 'user', label: 'components.permissionsTable.user' },
+	{ key: 'email', label: 'components.permissionsTable.email' },
+	{ key: 'roles', label: 'components.permissionsTable.roles' },
+	{ key: 'status', label: 'components.permissionsTable.status' },
+	{ key: 'actions', label: 'components.permissionsTable.actions' },
 ]
 
 const users = ref<User[]>([])
@@ -181,7 +181,7 @@ async function loadData() {
 		users.value = usersResponse?.users || []
 		roles.value = rolesResponse || []
 	} catch (e: any) {
-		error.value = e.message || 'Failed to load data'
+		error.value = e.message || (window as any).$i18n?.global?.t?.('views.permissions.errorLoad') || 'Failed to load data'
 		console.error('Error loading data:', e)
 	} finally {
 		loading.value = false
@@ -205,7 +205,7 @@ async function assignRole(roleId: string) {
 		showRoleModal.value = false
 		await loadData()
 	} catch (e: any) {
-		error.value = e.message || 'Failed to assign role'
+		error.value = e.message || (window as any).$i18n?.global?.t?.('views.permissions.errorAssignRole') || 'Failed to assign role'
 	}
 }
 
@@ -214,7 +214,7 @@ async function removeRole(userId: string, roleId: string) {
 		await api.delete(`/api/v1/permissions/users/${userId}/roles/${roleId}`)
 		await loadData()
 	} catch (e: any) {
-		error.value = e.message || 'Failed to remove role'
+		error.value = e.message || (window as any).$i18n?.global?.t?.('views.permissions.errorRemoveRole') || 'Failed to remove role'
 	}
 }
 
@@ -223,7 +223,7 @@ async function toggleUserActive(user: User) {
 		await api.put(`/api/v1/permissions/users/${user.id}/active`, { active: !user.active })
 		await loadData()
 	} catch (e: any) {
-		error.value = e.message || 'Failed to toggle user status'
+		error.value = e.message || (window as any).$i18n?.global?.t?.('views.permissions.errorToggleStatus') || 'Failed to toggle user status'
 	}
 }
 </script>
