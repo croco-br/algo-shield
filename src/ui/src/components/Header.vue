@@ -8,7 +8,7 @@
     class="border-b border-neutral-800"
   >
     <div class="d-flex align-center justify-space-between w-100 px-4">
-      <!-- Left: Logo + Search -->
+      <!-- Left: Logo -->
       <div class="d-flex align-center gap-6">
         <!-- Logo -->
         <div class="d-flex align-center gap-2 sm:gap-3">
@@ -25,23 +25,6 @@
             {{ brandingConfig?.app_name || 'AlgoShield' }}
           </span>
         </div>
-
-        <!-- Global Search -->
-        <v-text-field
-          v-model="searchQuery"
-          placeholder="Search transactions, customers, alerts"
-          variant="solo-filled"
-          density="compact"
-          hide-details
-          class="search-field"
-          style="min-width: 300px; max-width: 400px; flex: 1 1 auto;"
-          bg-color="rgba(255, 255, 255, 0.1)"
-          color="white"
-        >
-          <template #prepend-inner>
-            <v-icon icon="fa-magnifying-glass" color="white" size="small" />
-          </template>
-        </v-text-field>
       </div>
 
       <!-- Right: User -->
@@ -119,7 +102,6 @@ const route = useRoute()
 const authStore = useAuthStore()
 const brandingStore = useBrandingStore()
 
-const searchQuery = ref('')
 const showUserMenu = ref(false)
 
 const user = computed(() => authStore.user)
@@ -139,21 +121,4 @@ const handleLogoError = (event: Event) => {
 </script>
 
 <style scoped>
-.search-field :deep(.v-field__input) {
-  color: white;
-}
-
-.search-field :deep(.v-field__input::placeholder) {
-  color: rgba(255, 255, 255, 0.7);
-}
-
-.search-field :deep(.v-field) {
-  overflow: visible;
-}
-
-.search-field :deep(.v-field__input) {
-  overflow: visible;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
 </style>
