@@ -48,12 +48,6 @@ const router = createRouter({
       meta: { requiresAdmin: true },
     },
     {
-      path: '/health',
-      name: 'health',
-      component: () => import('@/views/HealthView.vue'),
-      meta: { public: true },
-    },
-    {
       path: '/profile',
       name: 'profile',
       component: () => import('@/views/ProfileView.vue'),

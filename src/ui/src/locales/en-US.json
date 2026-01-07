@@ -333,23 +333,6 @@
       "sampleValue": "Sample Value",
       "noDescription": "No description",
       "fields": "fields"
-    },
-    "health": {
-      "title": "Health Check",
-      "subtitle": "Check system status",
-      "loading": "Checking system health...",
-      "healthy": "System healthy",
-      "unhealthy": "System has issues",
-      "database": "Database",
-      "redis": "Redis",
-      "api": "API",
-      "systemStatus": "System Status",
-      "allSystemsOperational": "All systems operational",
-      "systemDegraded": "System degraded",
-      "status": "Status",
-      "postgresql": "PostgreSQL",
-      "timestamp": "Timestamp",
-      "errorLoad": "Failed to load health status"
     }
   },
   "components": {
@@ -442,25 +425,6 @@
       "receiver": "Receiver",
       "details": "Details",
       "escalate": "Escalate"
-    },
-    "riskEscalation": {
-      "title": "Escalate Transaction",
-      "transactionId": "Transaction ID",
-      "escalationLevel": "Escalation Level",
-      "selectLevel": "Select level",
-      "tier1": "Tier 1 - Senior Analyst",
-      "tier2": "Tier 2 - Manager",
-      "tier3": "Tier 3 - Director",
-      "tier4": "Tier 4 - Compliance Officer",
-      "priority": "Priority",
-      "low": "Low",
-      "medium": "Medium",
-      "high": "High",
-      "comments": "Comments",
-      "commentsPlaceholder": "Provide detailed reason for escalation...",
-      "commentsHint": "Minimum 20 characters required",
-      "cancel": "Cancel",
-      "submit": "Submit"
     }
   },
   "errors": {

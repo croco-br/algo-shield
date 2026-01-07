@@ -333,23 +333,6 @@
       "sampleValue": "Valor de Exemplo",
       "noDescription": "Sem descrição",
       "fields": "campos"
-    },
-    "health": {
-      "title": "Health Check",
-      "subtitle": "Verifique o status do sistema",
-      "loading": "Verificando saúde do sistema...",
-      "healthy": "Sistema saudável",
-      "unhealthy": "Sistema com problemas",
-      "database": "Banco de Dados",
-      "redis": "Redis",
-      "api": "API",
-      "systemStatus": "Status do Sistema",
-      "allSystemsOperational": "Todos os sistemas operacionais",
-      "systemDegraded": "Sistema degradado",
-      "status": "Status",
-      "postgresql": "PostgreSQL",
-      "timestamp": "Data/Hora",
-      "errorLoad": "Falha ao carregar status de saúde"
     }
   },
   "components": {
@@ -442,25 +425,6 @@
       "receiver": "Destinatário",
       "details": "Detalhes",
       "escalate": "Escalar"
-    },
-    "riskEscalation": {
-      "title": "Escalar Transação",
-      "transactionId": "ID da Transação",
-      "escalationLevel": "Nível de Escalação",
-      "selectLevel": "Selecione o nível",
-      "tier1": "Nível 1 - Analista Sênior",
-      "tier2": "Nível 2 - Gerente",
-      "tier3": "Nível 3 - Diretor",
-      "tier4": "Nível 4 - Oficial de Compliance",
-      "priority": "Prioridade",
-      "low": "Baixa",
-      "medium": "Média",
-      "high": "Alta",
-      "comments": "Comentários",
-      "commentsPlaceholder": "Forneça um motivo detalhado para a escalação...",
-      "commentsHint": "Mínimo 20 caracteres necessários",
-      "cancel": "Cancelar",
-      "submit": "Enviar"
     }
   },
   "errors": {
