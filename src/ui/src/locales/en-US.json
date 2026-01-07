@@ -190,6 +190,33 @@
       },
       "showAll": "Show All",
       "generatedExpression": "Generated Expression",
+      "presets": {
+        "highValue": {
+          "label": "High Value",
+          "name": "High Value Transaction",
+          "description": "Flag events with high value amounts"
+        },
+        "suspiciousFlag": {
+          "label": "Suspicious Flag",
+          "name": "Suspicious Flag Check",
+          "description": "Check for suspicious flag in event metadata"
+        },
+        "polygonRestriction": {
+          "label": "Polygon Restriction",
+          "name": "Polygon Restriction",
+          "description": "Flag events within a geographic polygon area"
+        },
+        "velocityCheck": {
+          "label": "High Transaction Frequency",
+          "name": "High Transaction Frequency",
+          "description": "Flag events with high transaction frequency"
+        },
+        "amountVelocity": {
+          "label": "Amount Velocity",
+          "name": "High Amount Velocity",
+          "description": "Flag fields with high cumulative amounts in time window"
+        }
+      },
       "modal": {
         "createTitle": "Create New Rule",
         "editTitle": "Edit Rule",
@@ -224,8 +251,6 @@
         "manual": "Manual",
         "builder": "Builder",
         "addCondition": "Add Condition",
-        "polygonBuilder": "Polygon Builder",
-        "velocityBuilder": "Velocity Pattern Builder",
         "polygon": "Polygon",
         "velocity": "Velocity",
         "validation": {
@@ -270,6 +295,7 @@
           "or": "OR"
         },
         "polygonBuilder": {
+          "title": "Polygon Builder",
           "latitudeField": "Latitude Field",
           "longitudeField": "Longitude Field",
           "latitudeFieldHint": "Select the field containing latitude (e.g., location.lat, latitude)",
@@ -289,6 +315,7 @@
           "addPoint": "Add Point"
         },
         "velocityBuilder": {
+          "title": "Velocity Pattern Builder",
           "metric": "Metric",
           "transactionCount": "Transaction Count",
           "amountSum": "Amount Sum",

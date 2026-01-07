@@ -1,7 +1,7 @@
 {
   "common": {
     "appName": "AlgoShield",
-    "appTagline": "Enterprise AML Platform",
+    "appTagline": "Plataforma PLD Empresarial",
     "save": "Salvar",
     "cancel": "Cancelar",
     "edit": "Editar",
@@ -164,7 +164,7 @@
     },
     "rules": {
       "title": "Regras",
-      "subtitle": "Gerencie regras de detecção de fraude e AML",
+      "subtitle": "Gerencie regras de detecção de fraude e PLD",
       "loading": "Carregando regras...",
       "errorTitle": "Erro ao carregar regras",
       "createRule": "Criar Regra",
@@ -190,6 +190,33 @@
       },
       "showAll": "Mostrar Todos",
       "generatedExpression": "Expressão Gerada",
+      "presets": {
+        "highValue": {
+          "label": "Alto Valor",
+          "name": "Transação de Alto Valor",
+          "description": "Sinalizar eventos com valores altos"
+        },
+        "suspiciousFlag": {
+          "label": "Marcador Suspeito",
+          "name": "Verificação de Marcador Suspeito",
+          "description": "Verificar marcador de suspeita nos metadados do evento"
+        },
+        "polygonRestriction": {
+          "label": "Restrição de Polígono",
+          "name": "Restrição de Polígono",
+          "description": "Sinalizar eventos dentro de uma área geográfica de polígono"
+        },
+        "velocityCheck": {
+          "label": "Alta Frequência de Transações",
+          "name": "Alta Frequência de Transações",
+          "description": "Sinalizar eventos com alta frequência de transações"
+        },
+        "amountVelocity": {
+          "label": "Velocidade de Valores",
+          "name": "Alta Velocidade de Valores",
+          "description": "Sinalizar campos com valores cumulativos altos em janela de tempo"
+        }
+      },
       "modal": {
         "createTitle": "Criar Nova Regra",
         "editTitle": "Editar Regra",
@@ -224,8 +251,6 @@
         "manual": "Manual",
         "builder": "Construtor",
         "addCondition": "Adicionar Condição",
-        "polygonBuilder": "Construtor de Polígono",
-        "velocityBuilder": "Construtor de Padrão de Velocidade",
         "polygon": "Polígono",
         "velocity": "Velocidade",
         "validation": {
@@ -270,6 +295,7 @@
           "or": "OU"
         },
         "polygonBuilder": {
+          "title": "Construtor de Polígono",
           "latitudeField": "Campo de Latitude",
           "longitudeField": "Campo de Longitude",
           "latitudeFieldHint": "Selecione o campo que contém a latitude (ex: location.lat, latitude)",
@@ -289,6 +315,7 @@
           "addPoint": "Adicionar Ponto"
         },
         "velocityBuilder": {
+          "title": "Construtor de Padrão de Velocidade",
           "metric": "Métrica",
           "transactionCount": "Contagem de Transações",
           "amountSum": "Soma de Valores",

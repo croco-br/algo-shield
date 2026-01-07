@@ -171,7 +171,7 @@
           <!-- Builder Mode: Polygon Builder -->
           <div v-if="expressionMode === 'builder' && builderType === 'polygon'" class="mb-4">
             <div class="d-flex justify-space-between align-center mb-3">
-              <h5 class="text-body-1 font-weight-medium">{{ $t('views.rules.modal.polygonBuilder') }}</h5>
+              <h5 class="text-body-1 font-weight-medium">{{ $t('views.rules.modal.polygonBuilder.title') }}</h5>
               <v-btn-toggle
                 v-model="builderType"
                 mandatory
@@ -195,7 +195,7 @@
           <!-- Builder Mode: Velocity Builder -->
           <div v-if="expressionMode === 'builder' && builderType === 'velocity'" class="mb-4">
             <div class="d-flex justify-space-between align-center mb-3">
-              <h5 class="text-body-1 font-weight-medium">{{ $t('views.rules.modal.velocityBuilder') }}</h5>
+              <h5 class="text-body-1 font-weight-medium">{{ $t('views.rules.modal.velocityBuilder.title') }}</h5>
               <v-btn-toggle
                 v-model="builderType"
                 mandatory
@@ -667,53 +667,53 @@ interface RulePreset {
   conditions: Record<string, any>
 }
 
-const rulePresets: RulePreset[] = [
+const rulePresets = computed<RulePreset[]>(() => [
   {
     id: 'high-value',
-    label: 'High Value',
+    label: t('views.rules.presets.highValue.label'),
     icon: 'fa-dollar-sign',
-    name: 'High Value Transaction',
-    description: 'Flag events with high value amounts',
+    name: t('views.rules.presets.highValue.name'),
+    description: t('views.rules.presets.highValue.description'),
     action: 'review',
     conditions: { custom_expression: 'amount > 10000' },
   },
   {
     id: 'suspicious-flag',
-    label: 'Suspicious Flag',
+    label: t('views.rules.presets.suspiciousFlag.label'),
     icon: 'fa-exclamation-triangle',
-    name: 'Suspicious Flag Check',
-    description: 'Check for suspicious flag in event metadata',
+    name: t('views.rules.presets.suspiciousFlag.name'),
+    description: t('views.rules.presets.suspiciousFlag.description'),
     action: 'review',
     conditions: { custom_expression: 'metadata.is_suspicious == true' },
   },
   {
     id: 'polygon-restriction',
-    label: 'Polygon Restriction',
+    label: t('views.rules.presets.polygonRestriction.label'),
     icon: 'fa-globe',
-    name: 'Polygon Restriction',
-    description: 'Flag events within a geographic polygon area',
+    name: t('views.rules.presets.polygonRestriction.name'),
+    description: t('views.rules.presets.polygonRestriction.description'),
     action: 'review',
     conditions: { custom_expression: 'pointInPolygon(location.lat, location.lon, [[37.7749, -122.4194], [37.7849, -122.4094], [37.7649, -122.4294]])' },
   },
   {
     id: 'velocity-check',
-    label: 'High Transaction Frequency',
+    label: t('views.rules.presets.velocityCheck.label'),
     icon: 'fa-tachometer-alt',
-    name: 'High Transaction Frequency',
-    description: 'Flag events with high transaction frequency',
+    name: t('views.rules.presets.velocityCheck.name'),
+    description: t('views.rules.presets.velocityCheck.description'),
     action: 'review',
     conditions: { custom_expression: 'velocityCount(field, 3600) > 10' },
   },
   {
     id: 'amount-velocity',
-    label: 'Amount Velocity',
+    label: t('views.rules.presets.amountVelocity.label'),
     icon: 'fa-chart-line',
-    name: 'High Amount Velocity',
-    description: 'Flag fields with high cumulative amounts in time window',
+    name: t('views.rules.presets.amountVelocity.name'),
+    description: t('views.rules.presets.amountVelocity.description'),
     action: 'review',
     conditions: { custom_expression: 'velocitySum(field, 3600) > 10000' },
   },
-]
+])
 
 
 // Sanitize expression to prevent code injection
