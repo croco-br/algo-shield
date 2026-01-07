@@ -61,7 +61,7 @@ src/ui/.next
 .bmad   
 .claude
 .cursor
-docs/
+
 
 #envs
 .env
