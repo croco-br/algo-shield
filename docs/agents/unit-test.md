@@ -54,15 +54,27 @@
 * All new code must maintain or improve overall coverage
 * Coverage is measured automatically in CI via `go test -coverprofile`
 * Coverage reports are uploaded to Codecov for tracking
-* AI agents must verify coverage before completing tasks:
+* AI agents must verify coverage AND lint compliance before completing tasks:
 
 ```bash
+# Go - verify linting first
+go vet ./...
+golangci-lint run ./...
+
+# Go - then check coverage
 go test -coverprofile=coverage.txt -covermode=atomic ./...
 go tool cover -func=coverage.txt | grep total
+
+# TypeScript/Vue - verify linting first
+npm run lint
+
+# TypeScript/Vue - then check coverage
+npm run test:coverage
 ```
 
 * If coverage drops below 80%, agent must add tests or ask for clarification
 * Focus on meaningful coverage: test logic, not just lines
+* Fix all lint errors before checking coverage
 
 ---
 
@@ -1114,6 +1126,9 @@ AI agents **must not**:
 * Write tests for code that violates single responsibility
 * Skip refactoring code that is hard to test
 * Prioritize happy path over error scenarios
+* Generate tests with lint errors or warnings
+* Leave unused variables, imports, or dead code in tests
+* Disable linter rules without explicit justification
 
 AI agents **must**:
 
@@ -1127,6 +1142,9 @@ AI agents **must**:
 * Add descriptive error messages to assertions
 * Ensure each unit under test has a single, clear responsibility
 * Validate that dependencies are injected, not hard‑coded
+* Run linters and fix all errors/warnings before completing tasks
+* Ensure tests are properly formatted (go fmt, prettier)
+* Remove all unused variables, imports, and debugging code
 
 ---
 
@@ -1230,6 +1248,257 @@ func testServiceBehavior(t *testing.T, input string) {
 
 ---
 
+### 6.10 Lint Compliance
+
+**All generated tests must pass linting without errors or warnings.**
+
+#### Go Linting Rules
+
+AI agents must ensure tests comply with:
+
+* **No unused variables or imports**
+  * Every declared variable must be used
+  * Remove unused imports immediately
+  * Use `_` for intentionally ignored values
+
+```go
+// Bad: unused variable
+result, err := svc.Process()
+require.NoError(t, err)
+// result is never used ❌
+
+// Good: use the result
+result, err := svc.Process()
+require.NoError(t, err)
+assert.Equal(t, expected, result)
+
+// Good: explicitly ignore if not needed
+_, err := svc.Process()
+require.NoError(t, err)
+```
+
+* **No shadowed variables**
+  * Avoid redeclaring variables in inner scopes
+  * Use different names or proper scoping
+
+```go
+// Bad: shadowing err
+user, err := repo.FindByID("123")
+require.NoError(t, err)
+if user.Active {
+    err := svc.Activate(user) // ❌ shadows outer err
+    require.NoError(t, err)
+}
+
+// Good: reuse err or use distinct name
+user, err := repo.FindByID("123")
+require.NoError(t, err)
+if user.Active {
+    err = svc.Activate(user) // ✓ reuses err
+    require.NoError(t, err)
+}
+```
+
+* **Proper error handling**
+  * Never ignore errors without explicit `_`
+  * Use `require.NoError` or `assert.Error` as appropriate
+
+```go
+// Bad: ignored error
+svc.Process() // ❌ error not handled
+
+// Good: error checked
+err := svc.Process()
+require.NoError(t, err)
+
+// Good: error explicitly ignored with justification
+_ = conn.Close() // Cleanup, error not critical in test
+```
+
+* **Correct use of `t.Fatal` and `t.Error`**
+  * Never use `t.Fatal` in goroutines (causes panic)
+  * Use `t.Error` + channels to report goroutine errors
+
+```go
+// Bad: Fatal in goroutine
+go func() {
+    if err != nil {
+        t.Fatal(err) // ❌ will panic
+    }
+}()
+
+// Good: Error + channel
+errCh := make(chan error, 1)
+go func() {
+    if err != nil {
+        errCh <- err
+    }
+    close(errCh)
+}()
+require.NoError(t, <-errCh)
+```
+
+* **Consistent formatting**
+  * Run `go fmt` before committing
+  * Follow standard Go conventions (handled by formatter)
+
+* **No hardcoded credentials or sensitive data**
+  * Use placeholder values in tests
+  * Never commit real credentials
+
+#### TypeScript/Vue Linting Rules
+
+AI agents must ensure tests comply with:
+
+* **No unused variables or imports**
+  * Remove unused imports immediately
+  * Prefix intentionally unused variables with `_`
+
+```ts
+// Bad: unused import
+import { mount } from '@vue/test-utils'
+import { ref } from 'vue' // ❌ never used
+
+// Good: only needed imports
+import { mount } from '@vue/test-utils'
+```
+
+* **Explicit types, avoid `any`**
+  * Always type function parameters and returns
+  * Use proper types instead of `any`
+  * If `any` is unavoidable, add `// eslint-disable-next-line @typescript-eslint/no-explicit-any`
+
+```ts
+// Bad: implicit any
+function createMockUser(data) { // ❌ implicit any
+  return { ...data }
+}
+
+// Good: explicit types
+function createMockUser(data: Partial<User>): User {
+  return { id: '1', name: 'Test', ...data }
+}
+
+// Acceptable with disable comment (rare cases)
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function genericHandler(data: any) {
+  return data
+}
+```
+
+* **Await all promises**
+  * Never create promises without awaiting
+  * Use `void` prefix if promise result is intentionally not awaited
+
+```ts
+// Bad: promise not awaited
+it('tests async operation', () => {
+  wrapper.vm.loadData() // ❌ promise not awaited
+  expect(wrapper.vm.loading).toBe(false)
+})
+
+// Good: promise awaited
+it('tests async operation', async () => {
+  await wrapper.vm.loadData()
+  expect(wrapper.vm.loading).toBe(false)
+})
+
+// Good: explicitly void if not awaiting (rare)
+void wrapper.vm.loadData() // Fire and forget
+```
+
+* **No console.log or debugging code**
+  * Remove all `console.log`, `debugger`, `console.dir` statements
+  * Use proper assertions instead
+
+```ts
+// Bad: debugging code left in
+it('calculates total', () => {
+  const result = calculateTotal(items)
+  console.log(result) // ❌ remove before commit
+  expect(result).toBe(100)
+})
+
+// Good: clean test
+it('calculates total', () => {
+  const result = calculateTotal(items)
+  expect(result).toBe(100)
+})
+```
+
+* **Consistent formatting**
+  * Follow project ESLint/Prettier configuration
+  * Tests are auto-formatted on commit
+
+* **No @ts-ignore without justification**
+  * Avoid `@ts-ignore` and `@ts-expect-error`
+  * If absolutely necessary, add explanation comment
+
+```ts
+// Bad: suppressing errors without reason
+// @ts-ignore
+wrapper.vm.privateMethod() // ❌ no explanation
+
+// Acceptable with justification (rare)
+// @ts-expect-error - testing internal API for regression
+wrapper.vm.$_privateMethod()
+```
+
+#### Lint Validation Process
+
+**Before completing any test generation task:**
+
+1. **Run linters locally**
+
+```bash
+# Go
+go vet ./...
+golangci-lint run ./...
+
+# TypeScript/Vue
+npm run lint
+# or
+npm run lint:fix  # auto-fix where possible
+```
+
+2. **Fix all errors and warnings**
+   * Do not commit code with lint errors
+   * Fix warnings proactively
+   * Never disable linting rules without explicit approval
+
+3. **Verify in CI**
+   * Tests must pass lint stage in CI pipeline
+   * CI fails on any lint errors
+
+#### Common Lint Pitfalls to Avoid
+
+**Go:**
+* Returning `nil` error as naked `nil` - use explicit type: `return nil, ErrNotFound` not `return nil, nil`
+* Unchecked type assertions - use comma-ok pattern: `val, ok := x.(Type)`
+* Comparing errors with `==` instead of `errors.Is()`
+* Not checking `Close()` errors - at minimum: `defer func() { _ = f.Close() }()`
+
+**TypeScript/Vue:**
+* Using `{}` instead of `Record<string, unknown>` for object types
+* Declaring variables with `var` instead of `const`/`let`
+* Not handling promise rejections in async tests
+* Using `toBe()` for object comparison instead of `toEqual()`
+
+#### Linter Configuration
+
+This project uses:
+
+* **Go:** `golangci-lint` with project-specific configuration (`.golangci.yml` if present)
+* **TypeScript/Vue:** ESLint + Prettier with rules defined in `eslintrc`, `prettier.config.js`
+
+**AI agents must:**
+* Follow the existing linter configuration
+* Never modify linter rules without explicit user approval
+* Fix code to comply with linters, not the other way around
+* Ask for guidance if a lint rule seems incorrect
+
+---
+
 ## 7. Definition of a Good Unit Test
 
 A unit test is considered **valid** if:
@@ -1247,6 +1516,7 @@ A unit test is considered **valid** if:
 * It contributes to maintaining 80% coverage
 * It passes in CI environment (no local dependencies)
 * It passes race detection (`go test -race` for Go)
+* **It passes all linters without errors or warnings** (see section 6.10)
 
 If any of these conditions are violated, the test must be rewritten.
 
