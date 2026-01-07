@@ -63,4 +63,9 @@ const mappedType = computed(() => {
       return 'error'
   }
 })
+
+// Expose for testing
+defineExpose({
+  mappedType,
+})
 </script>

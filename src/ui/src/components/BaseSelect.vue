@@ -79,4 +79,9 @@ function handleUpdate(value: any) {
   // Vuetify select with item-title and item-value returns the value directly
   emit('update:modelValue', value)
 }
+
+// Expose for testing
+defineExpose({
+  normalizedOptions,
+})
 </script>

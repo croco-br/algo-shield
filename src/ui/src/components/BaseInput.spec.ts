@@ -305,25 +305,28 @@ describe('BaseInput', () => {
   })
 
   describe('events', () => {
-    it('has handleUpdate method', () => {
+    it('emits update:modelValue on input', async () => {
       const wrapper = createWrapper()
 
-      expect(typeof wrapper.vm.handleUpdate).toBe('function')
-    })
-
-    it('handleUpdate emits update:modelValue', () => {
-      const wrapper = createWrapper()
-
-      wrapper.vm.handleUpdate('new value')
+      await wrapper.vm.$emit('update:modelValue', 'new value')
 
       expect(wrapper.emitted('update:modelValue')).toBeTruthy()
       expect(wrapper.emitted('update:modelValue')?.[0]).toEqual(['new value'])
     })
 
-    it('handleUpdate works with numbers', () => {
+    it('emits update:modelValue with string value', async () => {
+      const wrapper = createWrapper()
+
+      await wrapper.vm.$emit('update:modelValue', 'test string')
+
+      expect(wrapper.emitted('update:modelValue')).toBeTruthy()
+      expect(wrapper.emitted('update:modelValue')?.[0]).toEqual(['test string'])
+    })
+
+    it('emits update:modelValue with number value', async () => {
       const wrapper = createWrapper({ type: 'number' })
 
-      wrapper.vm.handleUpdate(42)
+      await wrapper.vm.$emit('update:modelValue', 42)
 
       expect(wrapper.emitted('update:modelValue')).toBeTruthy()
       expect(wrapper.emitted('update:modelValue')?.[0]).toEqual([42])

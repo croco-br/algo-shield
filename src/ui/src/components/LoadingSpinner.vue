@@ -73,4 +73,12 @@ const textClasses = computed(() => {
 
   return classes.join(' ')
 })
+
+// Expose for testing
+defineExpose({
+  containerClasses,
+  mappedSize,
+  mappedWidth,
+  textClasses,
+})
 </script>

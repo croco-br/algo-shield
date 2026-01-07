@@ -231,7 +231,7 @@ describe('Header', () => {
 
       const mockEvent = {
         target: { src: '' },
-      } as Event
+      } as unknown as Event
 
       wrapper.vm.handleLogoError(mockEvent)
 

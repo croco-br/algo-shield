@@ -238,4 +238,16 @@ async function handleRegister() {
     loading.value = false
   }
 }
+
+// Expose for testing
+defineExpose({
+  email,
+  password,
+  name,
+  activeTab,
+  loading,
+  error,
+  handleLogin,
+  handleRegister,
+})
 </script>

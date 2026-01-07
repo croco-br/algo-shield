@@ -71,6 +71,13 @@ const mappedColor = computed(() => {
   }
   return 'primary' // primary variant
 })
+
+// Expose for testing
+defineExpose({
+  mappedSize,
+  mappedVariant,
+  mappedColor,
+})
 </script>
 
 <style scoped>

@@ -138,6 +138,12 @@ const handleLogoError = (event: Event) => {
   const img = event.target as HTMLImageElement
   img.src = '/gopher.png'
 }
+
+// Expose for testing
+defineExpose({
+  handleLogout,
+  handleLogoError,
+})
 </script>
 
 <style scoped>

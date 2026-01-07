@@ -67,4 +67,9 @@ const emit = defineEmits<{
 function handleUpdate(value: string | number) {
   emit('update:modelValue', value)
 }
+
+// Expose for testing
+defineExpose({
+  handleUpdate,
+})
 </script>

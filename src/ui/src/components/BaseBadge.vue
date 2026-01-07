@@ -67,6 +67,13 @@ const mappedSize = computed(() => {
       return 'default'
   }
 })
+
+// Expose for testing
+defineExpose({
+  mappedColor,
+  mappedVariant,
+  mappedSize,
+})
 </script>
 
 <style scoped>

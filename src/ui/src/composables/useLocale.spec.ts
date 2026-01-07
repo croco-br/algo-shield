@@ -26,12 +26,12 @@ describe('useLocale', () => {
       const { availableLocales } = useLocale()
 
       expect(availableLocales).toHaveLength(2)
-      expect(availableLocales[0].value).toBe('pt-BR')
-      expect(availableLocales[0].label).toBe('Português (Brasil)')
-      expect(availableLocales[0].flag).toBe('🇧🇷')
-      expect(availableLocales[1].value).toBe('en-US')
-      expect(availableLocales[1].label).toBe('English (US)')
-      expect(availableLocales[1].flag).toBe('🇺🇸')
+      expect(availableLocales[0]?.value).toBe('pt-BR')
+      expect(availableLocales[0]?.label).toBe('Português (Brasil)')
+      expect(availableLocales[0]?.flag).toBe('🇧🇷')
+      expect(availableLocales[1]?.value).toBe('en-US')
+      expect(availableLocales[1]?.label).toBe('English (US)')
+      expect(availableLocales[1]?.flag).toBe('🇺🇸')
     })
   })
 
@@ -64,9 +64,9 @@ describe('useLocale', () => {
     it('returns current locale option object', () => {
       const { currentLocaleOption } = useLocale()
 
-      expect(currentLocaleOption.value.value).toBe('en-US')
-      expect(currentLocaleOption.value.label).toBe('English (US)')
-      expect(currentLocaleOption.value.flag).toBe('🇺🇸')
+      expect(currentLocaleOption.value?.value).toBe('en-US')
+      expect(currentLocaleOption.value?.label).toBe('English (US)')
+      expect(currentLocaleOption.value?.flag).toBe('🇺🇸')
     })
 
     it('updates when locale changes', () => {
@@ -74,18 +74,19 @@ describe('useLocale', () => {
 
       locale.value = 'pt-BR'
 
-      expect(currentLocaleOption.value.value).toBe('pt-BR')
-      expect(currentLocaleOption.value.label).toBe('Português (Brasil)')
-      expect(currentLocaleOption.value.flag).toBe('🇧🇷')
+      expect(currentLocaleOption.value?.value).toBe('pt-BR')
+      expect(currentLocaleOption.value?.label).toBe('Português (Brasil)')
+      expect(currentLocaleOption.value?.flag).toBe('🇧🇷')
     })
 
-    it('falls back to en-US when locale is invalid', () => {
-      const { i18n } = require('@/plugins/i18n')
+    it('falls back to en-US when locale is invalid', async () => {
+      const { i18n } = await import('@/plugins/i18n')
+      // @ts-expect-error - Testing invalid locale fallback
       i18n.global.locale = 'invalid-locale'
       
       const { currentLocaleOption } = useLocale()
 
-      expect(currentLocaleOption.value.value).toBe('en-US')
+      expect(currentLocaleOption.value?.value).toBe('en-US')
     })
   })
 

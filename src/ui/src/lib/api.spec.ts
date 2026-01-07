@@ -17,7 +17,7 @@ describe('api', () => {
     localStorage.clear()
     
     // Reset fetch mock
-    global.fetch = vi.fn()
+    globalThis.fetch = vi.fn()
   })
 
   afterEach(() => {
@@ -28,7 +28,7 @@ describe('api', () => {
     it('makes GET request with correct headers', async () => {
       // Arrange
       const mockResponse = { data: 'test' }
-      global.fetch = vi.fn().mockResolvedValue({
+      globalThis.fetch = vi.fn().mockResolvedValue({
         ok: true,
         status: 200,
         headers: new Headers({ 'content-type': 'application/json' }),
@@ -39,7 +39,7 @@ describe('api', () => {
       const result = await api.get('/test')
 
       // Assert
-      expect(global.fetch).toHaveBeenCalledWith(
+      expect(globalThis.fetch).toHaveBeenCalledWith(
         'http://localhost:8080/test',
         expect.objectContaining({
           method: 'GET',
@@ -57,7 +57,7 @@ describe('api', () => {
       localStorage.setItem('auth_token', token)
 
       const mockResponse = { data: 'test' }
-      global.fetch = vi.fn().mockResolvedValue({
+      globalThis.fetch = vi.fn().mockResolvedValue({
         ok: true,
         status: 200,
         headers: new Headers({ 'content-type': 'application/json' }),
@@ -68,7 +68,7 @@ describe('api', () => {
       await api.get('/test')
 
       // Assert
-      expect(global.fetch).toHaveBeenCalledWith(
+      expect(globalThis.fetch).toHaveBeenCalledWith(
         'http://localhost:8080/test',
         expect.objectContaining({
           headers: expect.objectContaining({
@@ -85,7 +85,7 @@ describe('api', () => {
       const requestData = { email: 'test@example.com', password: 'password123' }
       const mockResponse = { token: 'jwt-token' }
       
-      global.fetch = vi.fn().mockResolvedValue({
+      globalThis.fetch = vi.fn().mockResolvedValue({
         ok: true,
         status: 200,
         headers: new Headers({ 'content-type': 'application/json' }),
@@ -96,7 +96,7 @@ describe('api', () => {
       const result = await api.post('/auth/login', requestData)
 
       // Assert
-      expect(global.fetch).toHaveBeenCalledWith(
+      expect(globalThis.fetch).toHaveBeenCalledWith(
         'http://localhost:8080/auth/login',
         expect.objectContaining({
           method: 'POST',
@@ -112,7 +112,7 @@ describe('api', () => {
       // Arrange
       const errorResponse = { error: 'Invalid credentials' }
       
-      global.fetch = vi.fn().mockResolvedValue({
+      globalThis.fetch = vi.fn().mockResolvedValue({
         ok: false,
         status: 401,
         headers: new Headers({ 'content-type': 'application/json' }),
@@ -125,7 +125,7 @@ describe('api', () => {
 
     it('throws generic error for non-JSON error responses', async () => {
       // Arrange
-      global.fetch = vi.fn().mockResolvedValue({
+      globalThis.fetch = vi.fn().mockResolvedValue({
         ok: false,
         status: 500,
         headers: new Headers({ 'content-type': 'text/html' }),
@@ -140,7 +140,7 @@ describe('api', () => {
 
     it('throws timeout error when request takes too long', async () => {
       // Arrange
-      global.fetch = vi.fn().mockImplementation(() => 
+      globalThis.fetch = vi.fn().mockImplementation(() => 
         new Promise((_, reject) => {
           setTimeout(() => reject(new DOMException('Aborted', 'AbortError')), 100)
         })
@@ -152,7 +152,7 @@ describe('api', () => {
 
     it('throws connection error on network failure', async () => {
       // Arrange
-      global.fetch = vi.fn().mockRejectedValue(new Error('Failed to fetch'))
+      globalThis.fetch = vi.fn().mockRejectedValue(new Error('Failed to fetch'))
 
       // Act & Assert
       await expect(api.get('/test')).rejects.toThrow('Unable to connect to server')
@@ -162,7 +162,7 @@ describe('api', () => {
   describe('204 No Content', () => {
     it('returns undefined for 204 responses', async () => {
       // Arrange
-      global.fetch = vi.fn().mockResolvedValue({
+      globalThis.fetch = vi.fn().mockResolvedValue({
         ok: true,
         status: 204,
         headers: new Headers(),
@@ -179,7 +179,7 @@ describe('api', () => {
   describe('CORS handling', () => {
     it('sets correct CORS mode and credentials', async () => {
       // Arrange
-      global.fetch = vi.fn().mockResolvedValue({
+      globalThis.fetch = vi.fn().mockResolvedValue({
         ok: true,
         status: 200,
         headers: new Headers({ 'content-type': 'application/json' }),
@@ -190,7 +190,7 @@ describe('api', () => {
       await api.get('/test')
 
       // Assert
-      expect(global.fetch).toHaveBeenCalledWith(
+      expect(globalThis.fetch).toHaveBeenCalledWith(
         'http://localhost:8080/test',
         expect.objectContaining({
           mode: 'cors',
