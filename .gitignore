@@ -11,9 +11,6 @@ main
 # Test binary
 *.test
 
-# Go generated mocks
-mock_*_test.go
-
 # Output of the go coverage tool
 *.out
 
