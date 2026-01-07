@@ -38,18 +38,18 @@ AlgoShield is built with a modern microservices architecture:
 
 ### Components
 
-- **API Service**: RESTful API built with Fiber (Go) for high-performance HTTP handling with JWT authentication, validation, and dependency injection
-- **Worker Service**: Transaction processing engine with custom expression-based rules evaluation, schema management, and hot-reload support
-- **UI**: Vue.js 3-based modern web interface with Vuetify (Material Design) components, Pinia state management, Tailwind CSS, standardized base components, and Font Awesome icons for rule management, schema management, and user administration
-- **PostgreSQL**: Primary data store for transactions, rules, event schemas, users, roles, and groups
-- **Redis**: Message queue for async processing, rules caching, and schema invalidation pub/sub
+- **API Service**: RESTful API built with Fiber v2 (Go 1.25.4) for high-performance HTTP handling with JWT authentication, validation, dependency injection, and OpenTelemetry observability support
+- **Worker Service**: Transaction processing engine with custom expression-based rules evaluation using expr-lang, schema management, and hot-reload support
+- **UI**: Vue.js 3.5+ (TypeScript 5.9) modern web interface with Vuetify 3.7 (Material Design) components, Pinia 3.0 state management, Tailwind CSS 4.1, standardized base components, Font Awesome 6.5 icons, and Prism.js syntax highlighting for rule management, schema management, and user administration
+- **PostgreSQL**: Primary data store for transactions, rules, event schemas, users, roles, and groups (PostgreSQL 16)
+- **Redis**: Message queue for async processing, rules caching, and schema invalidation pub/sub (Redis 7)
 
 ## 🚀 Quick Start
 
 ### Prerequisites
 
 - Docker & Docker Compose
-- Go 1.25.4+ (for local development)
+- Go 1.25.4 (for local development)
 - Node.js ^20.19.0 or >=22.12.0 (for UI development)
 
 ### Using Docker Compose (Recommended)
@@ -61,6 +61,11 @@ cd algo-shield
 ```
 
 2. Start all services:
+```bash
+make up
+```
+
+Or using Docker Compose directly:
 ```bash
 docker-compose up -d
 ```
@@ -105,9 +110,18 @@ psql -h localhost -U algoshield -d algoshield -f scripts/migrations/004_insert_a
 psql -h localhost -U algoshield -d algoshield -f scripts/migrations/005_branding_config.sql
 psql -h localhost -U algoshield -d algoshield -f scripts/migrations/006_add_header_color.sql
 psql -h localhost -U algoshield -d algoshield -f scripts/migrations/007_event_schemas.sql
+psql -h localhost -U algoshield -d algoshield -f scripts/migrations/008_test_data.sql
 ```
 
-**Note**: The migrations script (`migrations.sh`) is designed for Docker environments. For local development, run migrations manually as shown above.
+**Note**: The migrations script (`migrations.sh`) is designed for Docker environments. For local development, run migrations manually as shown above. The project includes 8 migration files:
+- `001_initial_schema.sql` - Initial database schema
+- `002_auth_schema.sql` - Authentication tables
+- `003_local_auth.sql` - Local authentication setup
+- `004_insert_admin.sql` - Default admin user
+- `005_branding_config.sql` - Branding configuration
+- `006_add_header_color.sql` - Header color customization
+- `007_event_schemas.sql` - Event schema management
+- `008_test_data.sql` - Test data (optional)
 
 5. Start the API:
 ```bash
@@ -400,6 +414,8 @@ Authorization: Bearer <token>
 
 **Requires `admin` or `rule_editor` role**
 
+All rules use custom expressions. Rules must be associated with an event schema.
+
 ```bash
 POST /api/v1/rules
 Authorization: Bearer <token>
@@ -408,12 +424,12 @@ Content-Type: application/json
 {
   "name": "High Value Transaction",
   "description": "Flag transactions over $10,000",
-  "type": "amount",
   "action": "review",
-  "priority": 10,
+  "priority": 500,
   "enabled": true,
+  "schema_id": "uuid-of-event-schema",
   "conditions": {
-    "amount_threshold": 10000
+    "custom_expression": "amount > 10000"
   },
   "score": 50
 }
@@ -735,14 +751,15 @@ Configuration is managed through environment variables. See `.env.example` for a
 - `WORKER_RULES_RELOAD_INTERVAL`: Rules reload interval (default: 10s)
 
 ### UI
-- `VITE_API_URL`: API base URL (default: http://localhost:8080)
-- `VITE_API_TIMEOUT`: API request timeout
-- `VITE_API_RETRY_MAX_ATTEMPTS`: Maximum API retry attempts
-- `VITE_API_RETRY_INITIAL_DELAY`: Initial API retry delay
-- `VITE_API_RETRY_MAX_DELAY`: Maximum API retry delay
-- `VITE_API_RETRY_MULTIPLIER`: API retry delay multiplier
-- `VITE_UI_TOAST_DURATION`: Toast notification duration
-- `VITE_UI_POLLING_INTERVAL`: Polling interval for data refresh
+- `VITE_API_URL`: API base URL (required, must be set at build time)
+- `VITE_API_TIMEOUT`: API request timeout in milliseconds (default: 30000)
+- `VITE_API_RETRY_MAX_ATTEMPTS`: Maximum API retry attempts (default: 3)
+- `VITE_API_RETRY_INITIAL_DELAY`: Initial API retry delay in milliseconds (default: 1000)
+- `VITE_API_RETRY_MAX_DELAY`: Maximum API retry delay in milliseconds (default: 10000)
+- `VITE_API_RETRY_MULTIPLIER`: API retry delay multiplier (default: 2.0)
+- `VITE_UI_TOAST_DURATION`: Toast notification duration in milliseconds (default: 5000)
+- `VITE_UI_POLLING_INTERVAL`: Polling interval for data refresh in milliseconds (default: 10000)
+- `VITE_SERVICE_NAME`: Service identification name
 
 ## 🔐 Authentication & Authorization
 
@@ -780,33 +797,96 @@ Permissions are managed through roles. Each role defines what actions users can 
 AlgoShield is designed for maximum performance:
 
 1. **Compiled with Go 1.25.4** for enhanced performance
-2. **Connection pooling** for PostgreSQL and Redis
+2. **Connection pooling** for PostgreSQL (pgx v5) and Redis (go-redis v9)
 3. **Rule caching** with Redis to minimize database queries
 4. **Schema caching** with in-memory cache and Redis pub/sub invalidation
 5. **Async processing** through Redis queues
 6. **Horizontal scaling** of worker processes
 7. **Optimized database indexes** for fast queries
-8. **Hot-reload rules and schemas** without service restart
-9. **Configurable timeouts** for transaction processing and rule evaluation
+8. **Hot-reload rules and schemas** without service restart (configurable reload interval, default: 10s)
+9. **Configurable timeouts** for transaction processing (default: 300ms) and rule evaluation (default: 300ms)
 10. **Retry mechanisms** with exponential backoff
+11. **Docker BuildKit** for faster builds with better caching
+12. **Parallel builds** for Docker images
+13. **OpenTelemetry** infrastructure for observability (metrics and tracing support)
 
 ## 🧪 Testing
 
-Run tests:
+### Test Strategy
+
+- **API Tests**: Unit and integration tests with race condition detection (`-race` flag)
+- **UI Tests**: Vitest-based unit tests with Vue Test Utils
+- **Integration Tests**: Database integration tests using testcontainers
+- **Benchmarks**: Performance benchmarks for the rules engine
+- **Coverage**: Test coverage reporting for both backend and frontend
+
+### Running Tests
+
+Run all tests (API + UI):
 ```bash
 make test
 ```
 
+Run API tests only (with race detector):
+```bash
+make test-api
+```
+
+Run UI tests only:
+```bash
+make test-ui
+```
+
+Run UI tests with coverage:
+```bash
+cd src/ui && npm run test:coverage
+```
+
+Run UI tests with UI (interactive):
+```bash
+cd src/ui && npm run test:ui
+```
+
+Run rules engine benchmarks:
+```bash
+make bench
+```
+
+Run linters:
+```bash
+make lint
+```
+
 ## 📦 Building
 
-Build all binaries:
+Build all Docker images in parallel:
 ```bash
 make build
 ```
 
-Build Docker images:
+Build only changed services (fast incremental build):
 ```bash
-make docker-build
+make build-fast
+```
+
+Install all dependencies (Go + npm):
+```bash
+make install
+```
+
+Start all services with Docker Compose:
+```bash
+make up
+```
+
+Stop all services:
+```bash
+make down
+```
+
+View service logs:
+```bash
+make logs
 ```
 
 ## 🚢 Deployment
@@ -817,6 +897,13 @@ Update `docker-compose.yml` with production settings and deploy:
 ```bash
 docker-compose -f docker-compose.yml up -d
 ```
+
+Or use the Makefile:
+```bash
+make up
+```
+
+**Note**: Ensure all required environment variables are set in your `.env` file. See `.env.example` for reference.
 
 ### Kubernetes
 
@@ -839,15 +926,80 @@ Example response:
 }
 ```
 
+### Observability
+
+AlgoShield includes OpenTelemetry infrastructure for metrics and tracing:
+- OpenTelemetry SDK integration for Go services
+- Metrics and tracing support (implementation in progress)
+- HTTP instrumentation middleware
+- Ready for integration with observability platforms
+
+## 🔄 CI/CD
+
+The project includes GitHub Actions workflows for continuous integration:
+
+- **Backend CI**: Runs on changes to `src/api/`, `src/workers/`, `src/pkg/`, and Go dependencies
+  - Linting with golangci-lint
+  - Unit and integration tests with race detector
+  - Docker image builds
+  - Test coverage reporting
+
+- **Frontend CI**: Runs on changes to `src/ui/` and UI dependencies
+  - TypeScript type checking
+  - Linting (ESLint)
+  - Unit tests with Vitest
+  - Docker image builds
+  - Test coverage reporting
+
+Workflows trigger on pushes and pull requests to `main` and `develop` branches.
+
+## 🏛️ Architecture & Development
+
+### Code Organization
+
+AlgoShield follows a **vertical slice architecture** pattern, organizing code by feature rather than by technical layer. This improves maintainability and code readability.
+
+### Key Patterns
+
+- **Dependency Injection**: All handlers and services use dependency injection for better testability and modularity
+- **Validation**: All handlers include request validation as a mandatory practice
+- **Error Handling**: Comprehensive error handling with proper context wrapping
+- **Structured Logging**: All services use structured logging with configurable log levels
+- **Connection Pooling**: Reusable PostgreSQL and Redis connections for optimal performance
+
+### Development Guidelines
+
+- Follow SOLID principles strictly
+- Use vertical slice architecture for new features
+- Implement proper dependency injection
+- Always add validation to handlers
+- Use race condition flags (`-race`) when running tests
+- Update `.env.example` when adding new environment variables
+- Standardize base components in the frontend for consistency
+- Remove unused code and components regularly
+
+### Git Workflow
+
+- **Main branch**: `main` (production-ready code)
+- Feature branches: Created from `main`, merged via PR
+- Commit conventions: Use prefixes like `feat:`, `fix:`, `chore:`, `docs:`, etc.
+- Git hooks: Install via `./scripts/install-hooks.sh` (includes pre-commit checks)
+
 ## 🤝 Contributing
 
 Contributions are welcome! Please feel free to submit a Pull Request.
 
 1. Fork the repository
 2. Create your feature branch (`git checkout -b feature/AmazingFeature`)
-3. Commit your changes (`git commit -m 'Add some AmazingFeature'`)
-4. Push to the branch (`git push origin feature/AmazingFeature`)
-5. Open a Pull Request
+3. Install Git hooks: `./scripts/install-hooks.sh`
+4. Make your changes following the development guidelines above
+5. Run tests: `make test`
+6. Run linters: `make lint`
+7. Commit your changes (`git commit -m 'feat: Add some AmazingFeature'`)
+8. Push to the branch (`git push origin feature/AmazingFeature`)
+9. Open a Pull Request
+
+**Note**: The project uses OpenSpec for spec-driven development. For significant changes, see `openspec/AGENTS.md` for guidance on creating change proposals.
 
 ## 📝 License
 
@@ -856,19 +1008,25 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 ## 🙏 Acknowledgments
 
 Built with:
-- [Go](https://golang.org/) - Programming language
-- [Fiber](https://gofiber.io/) - Web framework
-- [pgx](https://github.com/jackc/pgx) - PostgreSQL driver
-- [Vue.js](https://vuejs.org/) - UI framework
-- [Vuetify](https://vuetifyjs.com/) - Material Design component framework
-- [Pinia](https://pinia.vuejs.org/) - State management
-- [Vue Router](https://router.vuejs.org/) - Routing
-- [Tailwind CSS](https://tailwindcss.com/) - Utility-first CSS framework
-- [Vite](https://vitejs.dev/) - Build tool
-- [Redis](https://redis.io/) - Caching and message queue
-- [JWT](https://jwt.io/) - Authentication tokens
-- [Font Awesome](https://fontawesome.com/) - Icon library
-- [Prism.js](https://prismjs.com/) - Syntax highlighting
+- [Go 1.25.4](https://golang.org/) - Programming language
+- [Fiber v2](https://gofiber.io/) - High-performance web framework
+- [pgx v5](https://github.com/jackc/pgx) - PostgreSQL driver with connection pooling
+- [go-redis v9](https://github.com/redis/go-redis) - Redis client
+- [expr-lang v1.17.7](https://github.com/expr-lang/expr) - Expression evaluation engine
+- [golang-jwt v5](https://github.com/golang-jwt/jwt) - JWT authentication
+- [OpenTelemetry](https://opentelemetry.io/) - Observability framework
+- [Vue.js 3.5+](https://vuejs.org/) - Progressive JavaScript framework
+- [TypeScript 5.9](https://www.typescriptlang.org/) - Typed JavaScript
+- [Vuetify 3.7](https://vuetifyjs.com/) - Material Design component framework
+- [Pinia 3.0](https://pinia.vuejs.org/) - State management
+- [Vue Router 4.6](https://router.vuejs.org/) - Routing
+- [Tailwind CSS 4.1](https://tailwindcss.com/) - Utility-first CSS framework
+- [Vite 7.2](https://vitejs.dev/) - Next-generation build tool
+- [Vitest 4.0](https://vitest.dev/) - Fast unit test framework
+- [Font Awesome 6.5](https://fontawesome.com/) - Icon library
+- [Prism.js 1.30](https://prismjs.com/) - Syntax highlighting
+- [PostgreSQL 16](https://www.postgresql.org/) - Database
+- [Redis 7](https://redis.io/) - Caching and message queue
 
 ## 📧 Support
 
