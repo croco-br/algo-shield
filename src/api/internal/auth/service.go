@@ -15,6 +15,16 @@ import (
 	"golang.org/x/crypto/bcrypt"
 )
 
+// AuthService defines the interface for authentication operations
+type AuthService interface {
+	RegisterUser(ctx context.Context, email, name, password string) (*models.User, string, error)
+	LoginUser(ctx context.Context, email, password string) (*models.User, string, error)
+	ValidateToken(tokenString string) (*models.User, error)
+	LogoutUser(ctx context.Context, tokenString string) error
+	RevokeAllUserTokens(ctx context.Context, userID uuid.UUID) error
+	GenerateJWT(user *models.User) (string, error)
+}
+
 // UserService defines the interface for user operations needed by auth
 type UserService interface {
 	GetUserByEmail(ctx context.Context, email string) (*models.User, error)

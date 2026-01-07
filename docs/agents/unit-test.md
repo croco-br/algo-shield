@@ -49,7 +49,7 @@
 
 ## 2. Coverage Requirements
 
-**Minimum coverage threshold: 80%**
+**Minimum coverage threshold: 90%**
 
 * All new code must maintain or improve overall coverage
 * Coverage is measured automatically in CI via `go test -coverprofile`
@@ -72,7 +72,7 @@ npm run lint
 npm run test:coverage
 ```
 
-* If coverage drops below 80%, agent must add tests or ask for clarification
+* If coverage drops below 90%, agent must add tests or ask for clarification
 * Focus on meaningful coverage: test logic, not just lines
 * Fix all lint errors before checking coverage
 
@@ -1030,13 +1030,13 @@ Test boundary conditions explicitly:
 
 ### 6.3 Coverage Goals
 
-**Minimum threshold: 80% line coverage**
+**Minimum threshold: 90% line coverage**
 
 * AI agents must verify coverage after writing tests
-* If coverage is below 80%, add more tests or ask for guidance
+* If coverage is below 90%, add more tests or ask for guidance
 * Coverage is a metric, not a goal:
   * Focus on meaningful tests, not just lines covered
-  * 100% coverage with poor tests is worse than 80% with good tests
+  * 100% coverage with poor tests is worse than 90% with good tests
 
 **How to check:**
 
@@ -1136,7 +1136,7 @@ AI agents **must**:
 * Prefer pure functions and dependency injection
 * Refactor production code when testability is poor (within scope)
 * Test both success and failure paths equally
-* Maintain minimum 80% coverage
+* Maintain minimum 90% coverage
 * Fix broken tests to match current project state
 * Ensure tests pass with git hooks and in CI
 * Add descriptive error messages to assertions
@@ -1513,7 +1513,7 @@ A unit test is considered **valid** if:
 * It fails for exactly one reason
 * It tests both happy path and error scenarios
 * It includes descriptive assertion messages
-* It contributes to maintaining 80% coverage
+* It contributes to maintaining 90% coverage
 * It passes in CI environment (no local dependencies)
 * It passes race detection (`go test -race` for Go)
 * **It passes all linters without errors or warnings** (see section 6.10)

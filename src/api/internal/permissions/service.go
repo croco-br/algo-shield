@@ -10,6 +10,13 @@ import (
 	"github.com/google/uuid"
 )
 
+// PermissionsService defines the interface for permissions operations
+type PermissionsService interface {
+	GetUserByID(ctx context.Context, userID uuid.UUID) (*models.User, error)
+	ListUsers(ctx context.Context) ([]models.User, error)
+	UpdateUserActive(ctx context.Context, currentUserID, targetUserID uuid.UUID, active bool) error
+}
+
 // Service manages users with their roles and groups aggregated.
 // This service has a clear responsibility: user management with permission context.
 type Service struct {

@@ -60,7 +60,8 @@ func Test_Handler_CreateRule_WhenValidRule_ThenCreatesRule(t *testing.T) {
 		},
 	)
 
-	body, _ := json.Marshal(rule)
+	body, err := json.Marshal(rule)
+	require.NoError(t, err)
 	req := httptest.NewRequest("POST", "/rules", bytes.NewReader(body))
 	req.Header.Set("Content-Type", "application/json")
 
@@ -88,7 +89,8 @@ func Test_Handler_CreateRule_WhenInvalidJSON_ThenReturnsBadRequest(t *testing.T)
 	require.NoError(t, err)
 	assert.Equal(t, fiber.StatusBadRequest, resp.StatusCode)
 
-	body, _ := io.ReadAll(resp.Body)
+	body, err := io.ReadAll(resp.Body)
+	require.NoError(t, err)
 	assert.Contains(t, string(body), "Invalid request body")
 }
 
@@ -111,7 +113,8 @@ func Test_Handler_CreateRule_WhenValidationFails_ThenReturnsBadRequest(t *testin
 		Conditions:  map[string]any{"amount": ">1000"},
 	}
 
-	body, _ := json.Marshal(rule)
+	body, err := json.Marshal(rule)
+	require.NoError(t, err)
 	req := httptest.NewRequest("POST", "/rules", bytes.NewReader(body))
 	req.Header.Set("Content-Type", "application/json")
 
@@ -142,7 +145,8 @@ func Test_Handler_CreateRule_WhenRepositoryFails_ThenReturnsInternalError(t *tes
 
 	repo.EXPECT().CreateRule(gomock.Any(), gomock.Any()).Return(errors.New("database error"))
 
-	body, _ := json.Marshal(rule)
+	body, err := json.Marshal(rule)
+	require.NoError(t, err)
 	req := httptest.NewRequest("POST", "/rules", bytes.NewReader(body))
 	req.Header.Set("Content-Type", "application/json")
 
@@ -151,7 +155,8 @@ func Test_Handler_CreateRule_WhenRepositoryFails_ThenReturnsInternalError(t *tes
 	require.NoError(t, err)
 	assert.Equal(t, fiber.StatusInternalServerError, resp.StatusCode)
 
-	respBody, _ := io.ReadAll(resp.Body)
+	respBody, err := io.ReadAll(resp.Body)
+	require.NoError(t, err)
 	assert.Contains(t, string(respBody), "Failed to create rule")
 }
 
@@ -211,7 +216,8 @@ func Test_Handler_GetRule_WhenInvalidID_ThenReturnsBadRequest(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, fiber.StatusBadRequest, resp.StatusCode)
 
-	body, _ := io.ReadAll(resp.Body)
+	body, err := io.ReadAll(resp.Body)
+	require.NoError(t, err)
 	assert.Contains(t, string(body), "Invalid rule ID")
 }
 
@@ -235,7 +241,8 @@ func Test_Handler_GetRule_WhenRuleNotFound_ThenReturnsNotFound(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, fiber.StatusNotFound, resp.StatusCode)
 
-	body, _ := io.ReadAll(resp.Body)
+	body, err := io.ReadAll(resp.Body)
+	require.NoError(t, err)
 	assert.Contains(t, string(body), "Rule not found")
 }
 
@@ -259,7 +266,8 @@ func Test_Handler_GetRule_WhenRepositoryFails_ThenReturnsInternalError(t *testin
 	require.NoError(t, err)
 	assert.Equal(t, fiber.StatusInternalServerError, resp.StatusCode)
 
-	body, _ := io.ReadAll(resp.Body)
+	body, err := io.ReadAll(resp.Body)
+	require.NoError(t, err)
 	assert.Contains(t, string(body), "Failed to fetch rule")
 }
 
@@ -329,7 +337,8 @@ func Test_Handler_ListRules_WhenRepositoryFails_ThenReturnsInternalError(t *test
 	require.NoError(t, err)
 	assert.Equal(t, fiber.StatusInternalServerError, resp.StatusCode)
 
-	body, _ := io.ReadAll(resp.Body)
+	body, err := io.ReadAll(resp.Body)
+	require.NoError(t, err)
 	assert.Contains(t, string(body), "Failed to fetch rules")
 }
 
@@ -362,7 +371,8 @@ func Test_Handler_UpdateRule_WhenValidRule_ThenUpdatesRule(t *testing.T) {
 		},
 	)
 
-	body, _ := json.Marshal(rule)
+	body, err := json.Marshal(rule)
+	require.NoError(t, err)
 	req := httptest.NewRequest("PUT", "/rules/"+ruleID.String(), bytes.NewReader(body))
 	req.Header.Set("Content-Type", "application/json")
 
@@ -391,7 +401,8 @@ func Test_Handler_UpdateRule_WhenInvalidID_ThenReturnsBadRequest(t *testing.T) {
 		Conditions:  map[string]any{"amount": "<500"},
 	}
 
-	body, _ := json.Marshal(rule)
+	body, err := json.Marshal(rule)
+	require.NoError(t, err)
 	req := httptest.NewRequest("PUT", "/rules/invalid-uuid", bytes.NewReader(body))
 	req.Header.Set("Content-Type", "application/json")
 
@@ -400,7 +411,8 @@ func Test_Handler_UpdateRule_WhenInvalidID_ThenReturnsBadRequest(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, fiber.StatusBadRequest, resp.StatusCode)
 
-	respBody, _ := io.ReadAll(resp.Body)
+	respBody, err := io.ReadAll(resp.Body)
+	require.NoError(t, err)
 	assert.Contains(t, string(respBody), "Invalid rule ID")
 }
 
@@ -424,7 +436,8 @@ func Test_Handler_UpdateRule_WhenInvalidJSON_ThenReturnsBadRequest(t *testing.T)
 	require.NoError(t, err)
 	assert.Equal(t, fiber.StatusBadRequest, resp.StatusCode)
 
-	body, _ := io.ReadAll(resp.Body)
+	body, err := io.ReadAll(resp.Body)
+	require.NoError(t, err)
 	assert.Contains(t, string(body), "Invalid request body")
 }
 
@@ -448,7 +461,8 @@ func Test_Handler_UpdateRule_WhenValidationFails_ThenReturnsBadRequest(t *testin
 		Conditions:  map[string]any{"amount": "<500"},
 	}
 
-	body, _ := json.Marshal(rule)
+	body, err := json.Marshal(rule)
+	require.NoError(t, err)
 	req := httptest.NewRequest("PUT", "/rules/"+ruleID.String(), bytes.NewReader(body))
 	req.Header.Set("Content-Type", "application/json")
 
@@ -480,7 +494,8 @@ func Test_Handler_UpdateRule_WhenRuleNotFound_ThenReturnsNotFound(t *testing.T) 
 
 	repo.EXPECT().UpdateRule(gomock.Any(), gomock.Any()).Return(pgx.ErrNoRows)
 
-	body, _ := json.Marshal(rule)
+	body, err := json.Marshal(rule)
+	require.NoError(t, err)
 	req := httptest.NewRequest("PUT", "/rules/"+ruleID.String(), bytes.NewReader(body))
 	req.Header.Set("Content-Type", "application/json")
 
@@ -489,7 +504,8 @@ func Test_Handler_UpdateRule_WhenRuleNotFound_ThenReturnsNotFound(t *testing.T) 
 	require.NoError(t, err)
 	assert.Equal(t, fiber.StatusNotFound, resp.StatusCode)
 
-	respBody, _ := io.ReadAll(resp.Body)
+	respBody, err := io.ReadAll(resp.Body)
+	require.NoError(t, err)
 	assert.Contains(t, string(respBody), "Rule not found")
 }
 
@@ -515,7 +531,8 @@ func Test_Handler_UpdateRule_WhenRepositoryFails_ThenReturnsInternalError(t *tes
 
 	repo.EXPECT().UpdateRule(gomock.Any(), gomock.Any()).Return(errors.New("database error"))
 
-	body, _ := json.Marshal(rule)
+	body, err := json.Marshal(rule)
+	require.NoError(t, err)
 	req := httptest.NewRequest("PUT", "/rules/"+ruleID.String(), bytes.NewReader(body))
 	req.Header.Set("Content-Type", "application/json")
 
@@ -524,7 +541,8 @@ func Test_Handler_UpdateRule_WhenRepositoryFails_ThenReturnsInternalError(t *tes
 	require.NoError(t, err)
 	assert.Equal(t, fiber.StatusInternalServerError, resp.StatusCode)
 
-	respBody, _ := io.ReadAll(resp.Body)
+	respBody, err := io.ReadAll(resp.Body)
+	require.NoError(t, err)
 	assert.Contains(t, string(respBody), "Failed to update rule")
 }
 
@@ -566,7 +584,8 @@ func Test_Handler_DeleteRule_WhenInvalidID_ThenReturnsBadRequest(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, fiber.StatusBadRequest, resp.StatusCode)
 
-	body, _ := io.ReadAll(resp.Body)
+	body, err := io.ReadAll(resp.Body)
+	require.NoError(t, err)
 	assert.Contains(t, string(body), "Invalid rule ID")
 }
 
@@ -590,7 +609,8 @@ func Test_Handler_DeleteRule_WhenRuleNotFound_ThenReturnsNotFound(t *testing.T) 
 	require.NoError(t, err)
 	assert.Equal(t, fiber.StatusNotFound, resp.StatusCode)
 
-	body, _ := io.ReadAll(resp.Body)
+	body, err := io.ReadAll(resp.Body)
+	require.NoError(t, err)
 	assert.Contains(t, string(body), "Rule not found")
 }
 
@@ -614,6 +634,7 @@ func Test_Handler_DeleteRule_WhenRepositoryFails_ThenReturnsInternalError(t *tes
 	require.NoError(t, err)
 	assert.Equal(t, fiber.StatusInternalServerError, resp.StatusCode)
 
-	body, _ := io.ReadAll(resp.Body)
+	body, err := io.ReadAll(resp.Body)
+	require.NoError(t, err)
 	assert.Contains(t, string(body), "Failed to delete rule")
 }
