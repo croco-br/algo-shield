@@ -2,12 +2,14 @@ package transactions
 
 import (
 	"context"
+	"time"
 
 	"github.com/algo-shield/algo-shield/src/api/internal"
 	"github.com/algo-shield/algo-shield/src/api/internal/shared/validation"
 	"github.com/algo-shield/algo-shield/src/pkg/models"
 	"github.com/gofiber/fiber/v2"
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
 )
 
 type Handler struct {
@@ -100,6 +102,55 @@ func (h *Handler) ListTransactions(c *fiber.Ctx) error {
 		})
 	}
 
+	// Build filter from query params
+	filter := TransactionFilter{}
+
+	if status := c.Query("status"); status != "" {
+		s := models.TransactionStatus(status)
+		filter.Status = &s
+	}
+	if schemaID := c.Query("schema_id"); schemaID != "" {
+		if id, err := uuid.Parse(schemaID); err == nil {
+			filter.SchemaID = &id
+		}
+	}
+	if startDate := c.Query("start_date"); startDate != "" {
+		if t, err := time.Parse(time.RFC3339, startDate); err == nil {
+			filter.StartDate = &t
+		}
+	}
+	if endDate := c.Query("end_date"); endDate != "" {
+		if t, err := time.Parse(time.RFC3339, endDate); err == nil {
+			filter.EndDate = &t
+		}
+	}
+	if minAmount := c.QueryFloat("min_amount", 0); minAmount > 0 {
+		filter.MinAmount = &minAmount
+	}
+	if maxAmount := c.QueryFloat("max_amount", 0); maxAmount > 0 {
+		filter.MaxAmount = &maxAmount
+	}
+
+	// Check if any filter is applied
+	hasFilter := filter.Status != nil || filter.SchemaID != nil ||
+		filter.StartDate != nil || filter.EndDate != nil ||
+		filter.MinAmount != nil || filter.MaxAmount != nil
+
+	if hasFilter {
+		transactions, total, err := h.service.ListTransactionsWithFilter(ctx, filter, limit, offset)
+		if err != nil {
+			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+				"error": "Failed to fetch transactions",
+			})
+		}
+		return c.JSON(fiber.Map{
+			"transactions": transactions,
+			"total":        total,
+			"limit":        limit,
+			"offset":       offset,
+		})
+	}
+
 	transactions, err := h.service.ListTransactions(ctx, limit, offset)
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
@@ -112,4 +163,31 @@ func (h *Handler) ListTransactions(c *fiber.Ctx) error {
 		"limit":        limit,
 		"offset":       offset,
 	})
+}
+
+func (h *Handler) ApproveTransaction(c *fiber.Ctx) error {
+	idParam := c.Params("id")
+	id, err := uuid.Parse(idParam)
+	if err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error": "Invalid transaction ID",
+		})
+	}
+
+	ctx, cancel := context.WithTimeout(c.Context(), internal.DEFAULT_TIMEOUT)
+	defer cancel()
+
+	transaction, err := h.service.ApproveTransaction(ctx, id)
+	if err != nil {
+		if err == pgx.ErrNoRows {
+			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+				"error": "Transaction not found or not in review status",
+			})
+		}
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"error": "Failed to approve transaction",
+		})
+	}
+
+	return c.JSON(transaction)
 }

@@ -55,3 +55,16 @@ type UpdateSchemaRequest struct {
 type SchemaListResponse struct {
 	Schemas []EventSchema `json:"schemas"`
 }
+
+// GenerateEventsRequest is the request body for generating synthetic events
+type GenerateEventsRequest struct {
+	Count int    `json:"count" validate:"required,min=1,max=1000"`
+	Seed  *int64 `json:"seed,omitempty"` // Optional seed for reproducibility
+}
+
+// GenerateEventsResponse is the response for synthetic event generation
+type GenerateEventsResponse struct {
+	SchemaID       uuid.UUID `json:"schema_id"`
+	GeneratedCount int       `json:"generated_count"`
+	Message        string    `json:"message"`
+}

@@ -85,3 +85,34 @@ func (mr *MockTransactionServiceMockRecorder) ProcessTransaction(ctx, event any)
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ProcessTransaction", reflect.TypeOf((*MockTransactionService)(nil).ProcessTransaction), ctx, event)
 }
+
+// ListTransactionsWithFilter mocks base method.
+func (m *MockTransactionService) ListTransactionsWithFilter(ctx context.Context, filter TransactionFilter, limit, offset int) ([]models.Transaction, int, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ListTransactionsWithFilter", ctx, filter, limit, offset)
+	ret0, _ := ret[0].([]models.Transaction)
+	ret1, _ := ret[1].(int)
+	ret2, _ := ret[2].(error)
+	return ret0, ret1, ret2
+}
+
+// ListTransactionsWithFilter indicates an expected call of ListTransactionsWithFilter.
+func (mr *MockTransactionServiceMockRecorder) ListTransactionsWithFilter(ctx, filter, limit, offset any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListTransactionsWithFilter", reflect.TypeOf((*MockTransactionService)(nil).ListTransactionsWithFilter), ctx, filter, limit, offset)
+}
+
+// ApproveTransaction mocks base method.
+func (m *MockTransactionService) ApproveTransaction(ctx context.Context, id uuid.UUID) (*models.Transaction, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ApproveTransaction", ctx, id)
+	ret0, _ := ret[0].(*models.Transaction)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// ApproveTransaction indicates an expected call of ApproveTransaction.
+func (mr *MockTransactionServiceMockRecorder) ApproveTransaction(ctx, id any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ApproveTransaction", reflect.TypeOf((*MockTransactionService)(nil).ApproveTransaction), ctx, id)
+}

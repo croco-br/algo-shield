@@ -71,3 +71,49 @@ func (mr *MockRepositoryMockRecorder) ListTransactions(ctx, limit, offset any) *
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListTransactions", reflect.TypeOf((*MockRepository)(nil).ListTransactions), ctx, limit, offset)
 }
+
+// ListTransactionsWithFilter mocks base method.
+func (m *MockRepository) ListTransactionsWithFilter(ctx context.Context, filter TransactionFilter, limit, offset int) ([]models.Transaction, int, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ListTransactionsWithFilter", ctx, filter, limit, offset)
+	ret0, _ := ret[0].([]models.Transaction)
+	ret1, _ := ret[1].(int)
+	ret2, _ := ret[2].(error)
+	return ret0, ret1, ret2
+}
+
+// ListTransactionsWithFilter indicates an expected call of ListTransactionsWithFilter.
+func (mr *MockRepositoryMockRecorder) ListTransactionsWithFilter(ctx, filter, limit, offset any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListTransactionsWithFilter", reflect.TypeOf((*MockRepository)(nil).ListTransactionsWithFilter), ctx, filter, limit, offset)
+}
+
+// ApproveTransaction mocks base method.
+func (m *MockRepository) ApproveTransaction(ctx context.Context, id uuid.UUID) (*models.Transaction, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ApproveTransaction", ctx, id)
+	ret0, _ := ret[0].(*models.Transaction)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// ApproveTransaction indicates an expected call of ApproveTransaction.
+func (mr *MockRepositoryMockRecorder) ApproveTransaction(ctx, id any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ApproveTransaction", reflect.TypeOf((*MockRepository)(nil).ApproveTransaction), ctx, id)
+}
+
+// CountTransactions mocks base method.
+func (m *MockRepository) CountTransactions(ctx context.Context) (int, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "CountTransactions", ctx)
+	ret0, _ := ret[0].(int)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// CountTransactions indicates an expected call of CountTransactions.
+func (mr *MockRepositoryMockRecorder) CountTransactions(ctx any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CountTransactions", reflect.TypeOf((*MockRepository)(nil).CountTransactions), ctx)
+}

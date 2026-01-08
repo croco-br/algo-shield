@@ -15,6 +15,8 @@ type Service interface {
 	ProcessTransaction(ctx context.Context, event models.Event) error
 	GetTransaction(ctx context.Context, id uuid.UUID) (*models.Transaction, error)
 	ListTransactions(ctx context.Context, limit, offset int) ([]models.Transaction, error)
+	ListTransactionsWithFilter(ctx context.Context, filter TransactionFilter, limit, offset int) ([]models.Transaction, int, error)
+	ApproveTransaction(ctx context.Context, id uuid.UUID) (*models.Transaction, error)
 }
 
 // QueuePusher defines interface for pushing to queue
@@ -53,4 +55,12 @@ func (s *service) GetTransaction(ctx context.Context, id uuid.UUID) (*models.Tra
 
 func (s *service) ListTransactions(ctx context.Context, limit, offset int) ([]models.Transaction, error) {
 	return s.repo.ListTransactions(ctx, limit, offset)
+}
+
+func (s *service) ListTransactionsWithFilter(ctx context.Context, filter TransactionFilter, limit, offset int) ([]models.Transaction, int, error) {
+	return s.repo.ListTransactionsWithFilter(ctx, filter, limit, offset)
+}
+
+func (s *service) ApproveTransaction(ctx context.Context, id uuid.UUID) (*models.Transaction, error) {
+	return s.repo.ApproveTransaction(ctx, id)
 }

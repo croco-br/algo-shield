@@ -5,6 +5,7 @@ import (
 
 	"github.com/algo-shield/algo-shield/src/api/internal/auth"
 	"github.com/algo-shield/algo-shield/src/api/internal/branding"
+	"github.com/algo-shield/algo-shield/src/api/internal/dashboard"
 	"github.com/algo-shield/algo-shield/src/api/internal/groups"
 	"github.com/algo-shield/algo-shield/src/api/internal/health"
 	"github.com/algo-shield/algo-shield/src/api/internal/permissions"
@@ -38,6 +39,7 @@ func Setup(app *fiber.App, db *pgxpool.Pool, redis *redis.Client, cfg *config.Co
 	ruleRepo := rulespkg.NewPostgresRepository(db, redis)
 	brandingRepo := branding.NewPostgresRepository(db, redis)
 	schemaRepo := schemas.NewPostgresRepository(db, redis)
+	dashboardRepo := dashboard.NewPostgresRepository(db)
 
 	// Create services with dependency injection (business layer - receives interfaces)
 	roleService := roles.NewService(roleRepo)
@@ -48,7 +50,8 @@ func Setup(app *fiber.App, db *pgxpool.Pool, redis *redis.Client, cfg *config.Co
 	permissionsService := permissions.NewService(permissionsUserRepo, roleService, groupService)
 	transactionService := transactions.NewService(transactionRepo, redis)
 	brandingService := branding.NewService(brandingRepo)
-	schemaService := schemas.NewService(schemaRepo)
+	schemaService := schemas.NewService(schemaRepo, redis)
+	dashboardService := dashboard.NewService(dashboardRepo, redis)
 
 	// Create handlers with dependency injection (presentation layer - receives interfaces)
 	authHandler := auth.NewHandler(authService, userService)
@@ -60,6 +63,7 @@ func Setup(app *fiber.App, db *pgxpool.Pool, redis *redis.Client, cfg *config.Co
 	healthHandler := health.NewHandler(db, redis)
 	brandingHandler := branding.NewHandler(brandingService)
 	schemaHandler := schemas.NewHandler(schemaService)
+	dashboardHandler := dashboard.NewHandler(dashboardService)
 
 	// Health routes (public)
 	app.Get("/health", healthHandler.Health)
@@ -84,6 +88,10 @@ func Setup(app *fiber.App, db *pgxpool.Pool, redis *redis.Client, cfg *config.Co
 	transactionsGroup.Post("/", transactionHandler.ProcessTransaction)
 	transactionsGroup.Get("/", transactionHandler.ListTransactions)
 	transactionsGroup.Get("/:id", transactionHandler.GetTransaction)
+	transactionsGroup.Patch("/:id/approve", transactionHandler.ApproveTransaction)
+
+	// Dashboard routes (protected)
+	v1.Get("/dashboard/metrics", dashboardHandler.GetMetrics)
 
 	// Rule routes (protected)
 	rulesGroup := v1.Group("/rules")
@@ -107,6 +115,7 @@ func Setup(app *fiber.App, db *pgxpool.Pool, redis *redis.Client, cfg *config.Co
 	schemasProtected.Put("/:id", schemaHandler.UpdateSchema)
 	schemasProtected.Delete("/:id", schemaHandler.DeleteSchema)
 	schemasProtected.Post("/:id/parse", schemaHandler.ParseSchema)
+	schemasProtected.Post("/:id/generate-events", schemaHandler.GenerateEvents)
 
 	// Permissions management (admin only)
 	permissionsGroup := v1.Group("/permissions", middleware.RequireRole("admin"))

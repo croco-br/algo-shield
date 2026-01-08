@@ -144,3 +144,18 @@ func (mr *MockServiceInterfaceMockRecorder) Update(ctx, id, req any) *gomock.Cal
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Update", reflect.TypeOf((*MockServiceInterface)(nil).Update), ctx, id, req)
 }
+
+// GenerateEvents mocks base method.
+func (m *MockServiceInterface) GenerateEvents(ctx context.Context, id uuid.UUID, req *GenerateEventsRequest) (*GenerateEventsResponse, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GenerateEvents", ctx, id, req)
+	ret0, _ := ret[0].(*GenerateEventsResponse)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GenerateEvents indicates an expected call of GenerateEvents.
+func (mr *MockServiceInterfaceMockRecorder) GenerateEvents(ctx, id, req any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GenerateEvents", reflect.TypeOf((*MockServiceInterface)(nil).GenerateEvents), ctx, id, req)
+}

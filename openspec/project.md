@@ -38,6 +38,14 @@ AlgoShield is an open-source, high-performance fraud detection and anti-money la
 - **Containerization**: Docker + Docker Compose
 - **Deployment**: Multi-stage Docker builds
 
+### Internationalization (i18n)
+- **Library**: vue-i18n v9
+- **Supported Languages**: Portuguese (pt-BR), English (en-US)
+- **Default Language**: English (en-US)
+- **Locale Files**: `src/ui/src/locales/*.json`
+- **Configuration**: `src/ui/src/plugins/i18n.ts`
+- **Composable**: `src/ui/src/composables/useLocale.ts`
+
 ## Project Conventions
 
 ### Code Style
@@ -63,6 +71,48 @@ AlgoShield is an open-source, high-performance fraud detection and anti-money la
 - Use standardized validation fields and form components
 - Remove unused code and components regularly
 - Use fundamental abstractions to simplify complex logic
+
+#### Internationalization (i18n)
+
+**All user-facing text MUST use translation keys. No hardcoded strings in components.**
+
+**Usage in templates:**
+```vue
+<template>
+  <div>{{ $t('common.save') }}</div>
+</template>
+```
+
+**Usage in scripts:**
+```vue
+<script setup lang="ts">
+import { useI18n } from 'vue-i18n'
+
+const { t } = useI18n()
+const message = t('common.save')
+</script>
+```
+
+**Key naming convention (dot-notation hierarchy):**
+- `common.*` - Shared translations (buttons, actions, labels)
+- `auth.*` - Authentication-related
+- `header.*` / `sidebar.*` - Layout component translations
+- `views.<viewName>.*` - View-specific translations
+- `components.<componentName>.*` - Component-specific translations
+- `errors.*` - Error messages
+- `languages.*` - Language names
+
+**Adding new translations:**
+1. Add the key to BOTH `src/ui/src/locales/pt-BR.json` and `src/ui/src/locales/en-US.json`
+2. Use descriptive key paths: `auth.errors.invalidCredentials` not `err1`
+3. Use parameters for dynamic text: `{{ $t('welcome', { name: user.name }) }}`
+
+**Language switching:**
+- Users change language via avatar menu in header
+- Preference saved to `localStorage` and persists across sessions
+- Browser locale detection on first visit (defaults to English if unsupported)
+
+**For detailed i18n documentation, see:** `src/ui/src/locales/README.md`
 
 ### Architecture Patterns
 
@@ -92,19 +142,25 @@ UI (Vue.js) → API (Fiber) → Worker (Rules Engine)
 
 ### Testing Strategy
 
+**For detailed testing guidelines, refer to:**
+- **Unit Tests**: `docs/agents/unit-test.md` - Comprehensive guide for Go and Vue/TypeScript unit testing
+- **Integration Tests**: `docs/agents/integration-test.md` - Guide for integration testing with real dependencies
+
 #### Go Testing
 - Use standard `go test` with race detector (`-race` flag)
 - Run tests in parallel (`-parallel 4`)
 - Unit tests for business logic
-- Integration tests for database interactions
+- Integration tests for database interactions (use `//go:build integration` tag)
 - Benchmarks for performance-critical code (rules engine)
-- Test file naming: `*_test.go`
-- Coverage target: Not explicitly defined, but comprehensive coverage expected
+- Test file naming: `*_test.go` for unit tests, `*_integration_test.go` for integration tests
+- Coverage target: **90% minimum** for new code
+- Use `testcontainers-go` for integration tests with real databases
 
 #### Commands
 - `make test`: Run all tests with race detector
 - `make bench`: Run rules engine benchmarks
 - `make lint`: Run golangci-lint
+- `go test -tags=integration ./...`: Run integration tests only
 
 ### Git Workflow
 
@@ -300,14 +356,20 @@ This section documents key architectural decisions and evolution history to prov
 
 ### Testing Strategy
 
-**Current Approach**: Waiting for scope stabilization
+**Current Approach**: Spec-driven testing with comprehensive documentation
 
-**Rationale**:
-- System is still evolving and scope is not fully defined
-- Plan to add tests via AI once the scope is more stable
-- Tests will be added after core functionality is stabilized
+**Documentation**:
+- **Unit Tests**: `docs/agents/unit-test.md` - Complete guide for Go and Vue/TypeScript
+- **Integration Tests**: `docs/agents/integration-test.md` - Guide for testing with real dependencies
 
-**Note**: Race condition detection is already in place via test flags (`-race`)
+**Requirements**:
+- Minimum 90% coverage for new code
+- All tests must be deterministic (pass with `-count=50`)
+- Race condition detection via `-race` flag
+- Integration tests use `testcontainers-go` for real databases
+- Follow AAA pattern (Arrange-Act-Assert) without comments
+
+**Note**: AI agents MUST follow the testing documentation strictly when generating tests
 
 ### Known Issues
 
@@ -333,7 +395,13 @@ This section documents key architectural decisions and evolution history to prov
 
 3. **Environment Variables**: Always update `.env.example` when adding new environment variables. Improve environment variable management by grouping related variables and providing clear documentation.
 
-4. **Testing**: Use race condition flags (`-race`) when running tests to detect concurrency issues
+4. **Testing**: 
+   - **Unit Tests**: Follow `docs/agents/unit-test.md` strictly
+   - **Integration Tests**: Follow `docs/agents/integration-test.md` strictly
+   - Use race condition flags (`-race`) when running tests
+   - Minimum coverage: 90% for new code
+   - Run `go test -count=50` to detect flaky tests
+   - Use `testcontainers-go` for integration tests with databases
 
 5. **Performance**: Keep <50ms latency target in mind. Need help with performance optimization and monitoring
 
@@ -362,3 +430,10 @@ This section documents key architectural decisions and evolution history to prov
     - Use OpenSpec for spec-driven development
     - Update README.md when adding significant features
     - Document architectural decisions in project.md
+
+12. **Internationalization (i18n)**:
+    - **NEVER hardcode user-facing strings** - always use translation keys
+    - Add translations to BOTH `pt-BR.json` and `en-US.json` simultaneously
+    - Use hierarchical key naming: `views.dashboard.title`, `errors.notFound`
+    - Test UI with both languages to ensure text fits properly
+    - Refer to `src/ui/src/locales/README.md` for detailed guidelines

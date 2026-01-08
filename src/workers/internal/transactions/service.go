@@ -49,6 +49,16 @@ func (s *Service) ProcessTransaction(ctx context.Context, event models.Event) er
 	destination := extractStringFromEvent(event, "destination", "to_account", "recipient_account", "recipient_id")
 	eventType := extractStringFromEvent(event, "type", "transaction_type", "event_type")
 
+	// Extract schema_id if present (added by synthetic event generator)
+	var schemaID *uuid.UUID
+	if schemaIDStr := extractStringFromEvent(event, "_schema_id"); schemaIDStr != "" {
+		if parsed, err := uuid.Parse(schemaIDStr); err == nil {
+			schemaID = &parsed
+		}
+		// Remove _schema_id from event to not include in metadata
+		delete(event, "_schema_id")
+	}
+
 	// Extract metadata if present
 	var metadata map[string]any
 	if meta, ok := event["metadata"].(map[string]any); ok {
@@ -61,6 +71,7 @@ func (s *Service) ProcessTransaction(ctx context.Context, event models.Event) er
 	transaction := &models.Transaction{
 		ID:             transactionID,
 		ExternalID:     externalID,
+		SchemaID:       schemaID,
 		Amount:         amount,
 		Currency:       currency,
 		Origin:         origin,

@@ -2,12 +2,14 @@ package schemas
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"time"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
+	"github.com/redis/go-redis/v9"
 )
 
 // MaxNestingDepth is the maximum depth for JSON field extraction
@@ -30,18 +32,29 @@ type ServiceInterface interface {
 	Delete(ctx context.Context, id uuid.UUID) error
 	GetRulesReferencingSchema(ctx context.Context, id uuid.UUID) ([]string, error)
 	ParseSampleJSON(ctx context.Context, id uuid.UUID) (*EventSchema, error)
+	GenerateEvents(ctx context.Context, id uuid.UUID, req *GenerateEventsRequest) (*GenerateEventsResponse, error)
+}
+
+// QueuePusher defines interface for pushing to queue
+type QueuePusher interface {
+	LPush(ctx context.Context, key string, values ...interface{}) *redis.IntCmd
 }
 
 // Service provides business logic for schema operations
 type Service struct {
-	repo Repository
+	repo      Repository
+	queuePush QueuePusher
 }
 
 // NewService creates a new schema service
-func NewService(repo Repository) *Service {
-	return &Service{
+func NewService(repo Repository, queuePush ...QueuePusher) *Service {
+	s := &Service{
 		repo: repo,
 	}
+	if len(queuePush) > 0 {
+		s.queuePush = queuePush[0]
+	}
+	return s
 }
 
 // Create creates a new event schema from sample JSON
@@ -187,6 +200,46 @@ func (s *Service) ParseSampleJSON(ctx context.Context, id uuid.UUID) (*EventSche
 	}
 
 	return schema, nil
+}
+
+// GenerateEvents generates synthetic events from a schema and queues them for processing
+func (s *Service) GenerateEvents(ctx context.Context, id uuid.UUID, req *GenerateEventsRequest) (*GenerateEventsResponse, error) {
+	if s.queuePush == nil {
+		return nil, errors.New("queue pusher not configured")
+	}
+
+	schema, err := s.repo.GetByID(ctx, id)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, ErrSchemaNotFound
+		}
+		return nil, err
+	}
+
+	generator := NewEventGenerator(req.Seed)
+	generated := 0
+
+	for i := 0; i < req.Count; i++ {
+		event := generator.GenerateEvent(schema)
+		// Add schema_id to the event for tracking
+		event["_schema_id"] = id.String()
+
+		eventJSON, err := json.Marshal(event)
+		if err != nil {
+			continue
+		}
+
+		if err := s.queuePush.LPush(ctx, "transaction:queue", eventJSON).Err(); err != nil {
+			continue
+		}
+		generated++
+	}
+
+	return &GenerateEventsResponse{
+		SchemaID:       id,
+		GeneratedCount: generated,
+		Message:        fmt.Sprintf("Successfully generated and queued %d events", generated),
+	}, nil
 }
 
 // ExtractFields recursively extracts fields from a JSON object

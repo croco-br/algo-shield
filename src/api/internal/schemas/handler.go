@@ -214,3 +214,45 @@ func (h *Handler) ParseSchema(c *fiber.Ctx) error {
 
 	return c.JSON(schema)
 }
+
+// GenerateEvents handles POST /api/v1/schemas/:id/generate-events
+// Generates synthetic events from the schema and queues them for processing
+func (h *Handler) GenerateEvents(c *fiber.Ctx) error {
+	idParam := c.Params("id")
+	id, err := uuid.Parse(idParam)
+	if err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error": "Invalid schema ID",
+		})
+	}
+
+	var req GenerateEventsRequest
+	if err := c.BodyParser(&req); err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error": "Invalid request body",
+		})
+	}
+
+	if err := validation.ValidateStruct(&req); err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error": err.Error(),
+		})
+	}
+
+	ctx, cancel := context.WithTimeout(c.Context(), internal.DEFAULT_TIMEOUT)
+	defer cancel()
+
+	response, err := h.service.GenerateEvents(ctx, id, &req)
+	if err != nil {
+		if errors.Is(err, ErrSchemaNotFound) {
+			return c.Status(fiber.StatusNotFound).JSON(fiber.Map{
+				"error": "Schema not found",
+			})
+		}
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"error": "Failed to generate events",
+		})
+	}
+
+	return c.Status(fiber.StatusAccepted).JSON(response)
+}
