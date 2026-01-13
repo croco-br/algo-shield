@@ -23,7 +23,7 @@ install: ## Install all dependencies (Go + npm)
 
 up: ## Start all services in Docker (API + Worker + UI + infra)
 	@echo "${YELLOW}Starting all services with optimized builds...${RESET}"
-	@docker-compose build --parallel
+	@DOCKER_BUILDKIT=1 docker-compose build --parallel
 	@docker-compose up -d
 	@echo "${GREEN}✓ Services started!${RESET}"
 	@echo "${BLUE}API:${RESET} http://localhost:8080"
@@ -32,12 +32,12 @@ up: ## Start all services in Docker (API + Worker + UI + infra)
 
 build: ## Build all Docker images in parallel (optimized)
 	@echo "${YELLOW}Building all images in parallel with BuildKit...${RESET}"
-	@docker-compose build --parallel
+	@DOCKER_BUILDKIT=1 docker-compose build --parallel
 	@echo "${GREEN}✓ Build completed!${RESET}"
 
 build-fast: ## Build only changed services (fast incremental build)
 	@echo "${YELLOW}Building changed services only...${RESET}"
-	@docker-compose build
+	@DOCKER_BUILDKIT=1 docker-compose build
 	@echo "${GREEN}✓ Fast build completed!${RESET}"
 
 down: ## Stop all services
@@ -121,7 +121,7 @@ clean: ## Remove build artifacts and Docker volumes
 
 ui: ## Start UI service only
 	@echo "${YELLOW}Building and starting UI service...${RESET}"
-	@docker-compose build ui
+	@DOCKER_BUILDKIT=1 docker-compose build ui
 	@docker-compose up -d ui
 	@echo "${GREEN}✓ UI service started!${RESET}"
 	@echo "${BLUE}UI:${RESET}  http://localhost:3000"
@@ -130,7 +130,7 @@ api: ## Start API service with infrastructure (postgres + redis)
 	@echo "${YELLOW}Starting infrastructure services (postgres + redis)...${RESET}"
 	@docker-compose up -d postgres redis
 	@echo "${YELLOW}Building API service...${RESET}"
-	@docker-compose build api
+	@DOCKER_BUILDKIT=1 docker-compose build api
 	@echo "${YELLOW}Waiting for infrastructure to be healthy...${RESET}"
 	@docker-compose up -d api
 	@echo "${GREEN}✓ API service with infrastructure started!${RESET}"
@@ -141,7 +141,7 @@ worker: ## Start Worker service with infrastructure (postgres + redis)
 	@echo "${YELLOW}Starting infrastructure services (postgres + redis)...${RESET}"
 	@docker-compose up -d postgres redis
 	@echo "${YELLOW}Building Worker service...${RESET}"
-	@docker-compose build worker
+	@DOCKER_BUILDKIT=1 docker-compose build worker
 	@echo "${YELLOW}Waiting for infrastructure to be healthy...${RESET}"
 	@docker-compose up -d worker
 	@echo "${GREEN}✓ Worker service with infrastructure started!${RESET}"

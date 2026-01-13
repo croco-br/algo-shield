@@ -1,6 +1,6 @@
 module github.com/algo-shield/algo-shield
 
-go 1.25.4
+go 1.25.5
 
 require (
 	github.com/expr-lang/expr v1.17.7
