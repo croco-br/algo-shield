@@ -246,8 +246,8 @@ func Test_Handler_ListTransactions_WhenSuccess_ThenReturnsTransactions(t *testin
 	}
 
 	mockService.EXPECT().
-		ListTransactions(gomock.Any(), 50, 0).
-		Return(expectedTransactions, nil)
+		ListTransactionsWithFilter(gomock.Any(), TransactionFilter{}, 50, 0).
+		Return(expectedTransactions, 2, nil)
 
 	req := httptest.NewRequest("GET", "/transactions", nil)
 
@@ -263,6 +263,7 @@ func Test_Handler_ListTransactions_WhenSuccess_ThenReturnsTransactions(t *testin
 
 	transactions := result["transactions"].([]interface{})
 	assert.Len(t, transactions, 2)
+	assert.Equal(t, float64(2), result["total"])
 }
 
 func Test_Handler_ListTransactions_WhenCustomPagination_ThenUsesParams(t *testing.T) {
@@ -280,8 +281,8 @@ func Test_Handler_ListTransactions_WhenCustomPagination_ThenUsesParams(t *testin
 	}
 
 	mockService.EXPECT().
-		ListTransactions(gomock.Any(), 10, 5).
-		Return(expectedTransactions, nil)
+		ListTransactionsWithFilter(gomock.Any(), TransactionFilter{}, 10, 5).
+		Return(expectedTransactions, 1, nil)
 
 	req := httptest.NewRequest("GET", "/transactions?limit=10&offset=5", nil)
 
@@ -338,8 +339,8 @@ func Test_Handler_ListTransactions_WhenServiceFails_ThenReturnsInternalError(t *
 	app.Get("/transactions", handler.ListTransactions)
 
 	mockService.EXPECT().
-		ListTransactions(gomock.Any(), 50, 0).
-		Return(nil, errors.New("database error"))
+		ListTransactionsWithFilter(gomock.Any(), TransactionFilter{}, 50, 0).
+		Return(nil, 0, errors.New("database error"))
 
 	req := httptest.NewRequest("GET", "/transactions", nil)
 

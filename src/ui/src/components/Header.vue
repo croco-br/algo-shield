@@ -5,7 +5,7 @@
     :color="brandingConfig?.header_color || 'var(--color-header-background)'"
     fixed
     elevation="0"
-    class="border-b border-neutral-800"
+    :class="['border-b border-neutral-800', { 'synthetic-mode': syntheticMode }]"
   >
     <div class="d-flex align-center justify-space-between w-100 px-4">
       <!-- Left: Logo -->
@@ -27,8 +27,33 @@
         </div>
       </div>
 
-      <!-- Right: User -->
-      <div class="d-flex align-center gap-2">
+      <!-- Right: Synthetic Mode + User -->
+      <div class="d-flex align-center gap-4">
+        <!-- Synthetic Mode Toggle -->
+        <div class="d-flex align-center gap-2">
+          <v-chip 
+            v-if="syntheticMode" 
+            color="warning" 
+            size="small" 
+            class="font-weight-bold"
+          >
+            {{ $t('header.syntheticMode') }}
+          </v-chip>
+          <v-tooltip :text="syntheticMode ? $t('header.disableSynthetic') : $t('header.enableSynthetic')" location="bottom">
+            <template #activator="{ props: tooltipProps }">
+              <v-switch
+                v-bind="tooltipProps"
+                v-model="syntheticMode"
+                :loading="syntheticModeLoading"
+                :disabled="syntheticModeLoading || !isAdmin"
+                color="warning"
+                hide-details
+                density="compact"
+                @update:model-value="handleSyntheticModeChange"
+              />
+            </template>
+          </v-tooltip>
+        </div>
         <!-- User Menu -->
         <v-menu
           v-model="showUserMenu"
@@ -110,16 +135,18 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed } from 'vue'
+import { ref, computed, onMounted, watch } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import { useBrandingStore } from '@/stores/branding'
+import { useSystemModeStore } from '@/stores/systemMode'
 import { useLocale } from '@/composables/useLocale'
 
 const router = useRouter()
 const route = useRoute()
 const authStore = useAuthStore()
 const brandingStore = useBrandingStore()
+const systemModeStore = useSystemModeStore()
 const { locale, availableLocales, setLocale } = useLocale()
 
 const showUserMenu = ref(false)
@@ -127,6 +154,34 @@ const showUserMenu = ref(false)
 const user = computed(() => authStore.user)
 const isLoginPage = computed(() => route.path.startsWith('/login'))
 const brandingConfig = computed(() => brandingStore.config)
+const isAdmin = computed(() => authStore.user?.roles?.some(r => r.name === 'admin') ?? false)
+
+// Synthetic mode state - sync with store
+const syntheticMode = ref(systemModeStore.syntheticMode)
+const syntheticModeLoading = computed(() => systemModeStore.loading)
+
+// Sync with store changes
+watch(() => systemModeStore.syntheticMode, (newValue) => {
+  syntheticMode.value = newValue
+}, { immediate: true })
+
+onMounted(async () => {
+  if (user.value) {
+    await systemModeStore.loadMode()
+  }
+})
+
+const handleSyntheticModeChange = async (enabled: boolean | null) => {
+  if (enabled === null) return
+  try {
+    await systemModeStore.setMode(enabled)
+    // Reload the page to refresh all data with the new mode
+    window.location.reload()
+  } catch {
+    // Revert on error - sync back with store
+    syntheticMode.value = systemModeStore.syntheticMode
+  }
+}
 
 const handleLogout = async () => {
   await authStore.logout()
@@ -143,8 +198,12 @@ const handleLogoError = (event: Event) => {
 defineExpose({
   handleLogout,
   handleLogoError,
+  handleSyntheticModeChange,
 })
 </script>
 
 <style scoped>
+.v-app-bar.synthetic-mode {
+  border-bottom: 3px solid rgb(var(--v-theme-warning)) !important;
+}
 </style>

@@ -43,7 +43,12 @@ func NewEngine(db *pgxpool.Pool, redis *redis.Client, ruleEvaluationTimeout time
 }
 
 // LoadRules loads rules and schemas
+// Also clears the expression cache to ensure fresh compilation with updated schemas
 func (e *Engine) LoadRules(ctx context.Context) error {
+	// Clear expression cache before loading new rules/schemas
+	// This ensures expressions are recompiled with the new environment
+	schemas.GetExpressionCache().ClearCache()
+
 	if err := e.ruleService.LoadRules(ctx); err != nil {
 		return err
 	}

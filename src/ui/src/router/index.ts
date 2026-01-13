@@ -23,7 +23,7 @@ const router = createRouter({
     {
       path: '/transactions',
       name: 'transactions',
-      component: () => import('@/views/DashboardView.vue'),
+      component: () => import('@/views/TransactionsView.vue'),
     },
     {
       path: '/rules',

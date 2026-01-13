@@ -5,6 +5,8 @@ import (
 	"time"
 
 	"github.com/algo-shield/algo-shield/src/api/internal"
+	"github.com/algo-shield/algo-shield/src/api/internal/shared"
+	"github.com/algo-shield/algo-shield/src/api/internal/shared/middleware"
 	"github.com/algo-shield/algo-shield/src/api/internal/shared/validation"
 	"github.com/algo-shield/algo-shield/src/pkg/models"
 	"github.com/gofiber/fiber/v2"
@@ -73,6 +75,7 @@ func (h *Handler) GetTransaction(c *fiber.Ctx) error {
 
 	ctx, cancel := context.WithTimeout(c.Context(), internal.DEFAULT_TIMEOUT)
 	defer cancel()
+	ctx = shared.WithSyntheticMode(ctx, middleware.IsSyntheticMode(c))
 	transaction, err := h.service.GetTransaction(ctx, id)
 	if err != nil {
 		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{
@@ -86,6 +89,7 @@ func (h *Handler) GetTransaction(c *fiber.Ctx) error {
 func (h *Handler) ListTransactions(c *fiber.Ctx) error {
 	ctx, cancel := context.WithTimeout(c.Context(), internal.DEFAULT_TIMEOUT)
 	defer cancel()
+	ctx = shared.WithSyntheticMode(ctx, middleware.IsSyntheticMode(c))
 
 	limit := c.QueryInt("limit", 50)
 	offset := c.QueryInt("offset", 0)
@@ -131,35 +135,16 @@ func (h *Handler) ListTransactions(c *fiber.Ctx) error {
 		filter.MaxAmount = &maxAmount
 	}
 
-	// Check if any filter is applied
-	hasFilter := filter.Status != nil || filter.SchemaID != nil ||
-		filter.StartDate != nil || filter.EndDate != nil ||
-		filter.MinAmount != nil || filter.MaxAmount != nil
-
-	if hasFilter {
-		transactions, total, err := h.service.ListTransactionsWithFilter(ctx, filter, limit, offset)
-		if err != nil {
-			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-				"error": "Failed to fetch transactions",
-			})
-		}
-		return c.JSON(fiber.Map{
-			"transactions": transactions,
-			"total":        total,
-			"limit":        limit,
-			"offset":       offset,
-		})
-	}
-
-	transactions, err := h.service.ListTransactions(ctx, limit, offset)
+	// Always use filtered method to get total count
+	transactions, total, err := h.service.ListTransactionsWithFilter(ctx, filter, limit, offset)
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
 			"error": "Failed to fetch transactions",
 		})
 	}
-
 	return c.JSON(fiber.Map{
 		"transactions": transactions,
+		"total":        total,
 		"limit":        limit,
 		"offset":       offset,
 	})
@@ -176,6 +161,7 @@ func (h *Handler) ApproveTransaction(c *fiber.Ctx) error {
 
 	ctx, cancel := context.WithTimeout(c.Context(), internal.DEFAULT_TIMEOUT)
 	defer cancel()
+	ctx = shared.WithSyntheticMode(ctx, middleware.IsSyntheticMode(c))
 
 	transaction, err := h.service.ApproveTransaction(ctx, id)
 	if err != nil {
@@ -186,6 +172,34 @@ func (h *Handler) ApproveTransaction(c *fiber.Ctx) error {
 		}
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
 			"error": "Failed to approve transaction",
+		})
+	}
+
+	return c.JSON(transaction)
+}
+
+func (h *Handler) RejectTransaction(c *fiber.Ctx) error {
+	idParam := c.Params("id")
+	id, err := uuid.Parse(idParam)
+	if err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error": "Invalid transaction ID",
+		})
+	}
+
+	ctx, cancel := context.WithTimeout(c.Context(), internal.DEFAULT_TIMEOUT)
+	defer cancel()
+	ctx = shared.WithSyntheticMode(ctx, middleware.IsSyntheticMode(c))
+
+	transaction, err := h.service.RejectTransaction(ctx, id)
+	if err != nil {
+		if err == pgx.ErrNoRows {
+			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+				"error": "Transaction not found or not in review status",
+			})
+		}
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"error": "Failed to reject transaction",
 		})
 	}
 

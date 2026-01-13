@@ -59,6 +59,14 @@ func (s *Service) ProcessTransaction(ctx context.Context, event models.Event) er
 		delete(event, "_schema_id")
 	}
 
+	// Check if this is a synthetic event
+	isSynthetic := false
+	if synth, ok := event["_synthetic"].(bool); ok && synth {
+		isSynthetic = true
+		// Remove _synthetic from event to not include in metadata
+		delete(event, "_synthetic")
+	}
+
 	// Extract metadata if present
 	var metadata map[string]any
 	if meta, ok := event["metadata"].(map[string]any); ok {
@@ -66,6 +74,23 @@ func (s *Service) ProcessTransaction(ctx context.Context, event models.Event) er
 	} else {
 		// If no metadata field, use empty map
 		metadata = make(map[string]any)
+	}
+
+	// Synthetic transactions always have pending status and are not processed
+	var status models.TransactionStatus
+	var processingTime int64
+	var matchedRules []string
+	var processedAt *time.Time
+	if isSynthetic {
+		status = models.StatusPending
+		processingTime = 0
+		matchedRules = []string{}
+		processedAt = nil
+	} else {
+		status = result.Status
+		processingTime = result.ProcessingTime
+		matchedRules = result.MatchedRules
+		processedAt = &now
 	}
 
 	transaction := &models.Transaction{
@@ -77,17 +102,23 @@ func (s *Service) ProcessTransaction(ctx context.Context, event models.Event) er
 		Origin:         origin,
 		Destination:    destination,
 		Type:           eventType,
-		Status:         result.Status,
-		ProcessingTime: result.ProcessingTime,
-		MatchedRules:   result.MatchedRules,
+		Status:         status,
+		ProcessingTime: processingTime,
+		MatchedRules:   matchedRules,
 		Metadata:       metadata,
 		CreatedAt:      now,
-		ProcessedAt:    &now,
+		ProcessedAt:    processedAt,
 	}
 
-	// Save transaction to database
-	if err := s.repo.SaveTransaction(ctx, transaction); err != nil {
-		return err
+	// Save transaction to database (synthetic or regular table)
+	var saveErr error
+	if isSynthetic {
+		saveErr = s.repo.SaveSyntheticTransaction(ctx, transaction)
+	} else {
+		saveErr = s.repo.SaveTransaction(ctx, transaction)
+	}
+	if saveErr != nil {
+		return saveErr
 	}
 
 	log.Printf(

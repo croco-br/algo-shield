@@ -13,6 +13,7 @@ import (
 	"github.com/algo-shield/algo-shield/src/api/internal/rules"
 	"github.com/algo-shield/algo-shield/src/api/internal/schemas"
 	"github.com/algo-shield/algo-shield/src/api/internal/shared/middleware"
+	"github.com/algo-shield/algo-shield/src/api/internal/system"
 	"github.com/algo-shield/algo-shield/src/api/internal/transactions"
 	"github.com/algo-shield/algo-shield/src/api/internal/user"
 	"github.com/algo-shield/algo-shield/src/pkg/config"
@@ -28,6 +29,7 @@ func Setup(app *fiber.App, db *pgxpool.Pool, redis *redis.Client, cfg *config.Co
 	app.Use(middleware.Logger())
 	app.Use(middleware.SecurityHeaders()) // Security headers for Brave compatibility
 	app.Use(middleware.CORS())
+	app.Use(middleware.SyntheticModeMiddleware()) // Extract synthetic mode from header
 
 	// Create repositories (infrastructure layer - can create concrete types)
 	roleRepo := roles.NewPostgresRepository(db)
@@ -40,6 +42,7 @@ func Setup(app *fiber.App, db *pgxpool.Pool, redis *redis.Client, cfg *config.Co
 	brandingRepo := branding.NewPostgresRepository(db, redis)
 	schemaRepo := schemas.NewPostgresRepository(db, redis)
 	dashboardRepo := dashboard.NewPostgresRepository(db)
+	systemRepo := system.NewPostgresRepository(db, redis)
 
 	// Create services with dependency injection (business layer - receives interfaces)
 	roleService := roles.NewService(roleRepo)
@@ -52,6 +55,7 @@ func Setup(app *fiber.App, db *pgxpool.Pool, redis *redis.Client, cfg *config.Co
 	brandingService := branding.NewService(brandingRepo)
 	schemaService := schemas.NewService(schemaRepo, redis)
 	dashboardService := dashboard.NewService(dashboardRepo, redis)
+	systemService := system.NewService(systemRepo)
 
 	// Create handlers with dependency injection (presentation layer - receives interfaces)
 	authHandler := auth.NewHandler(authService, userService)
@@ -64,6 +68,7 @@ func Setup(app *fiber.App, db *pgxpool.Pool, redis *redis.Client, cfg *config.Co
 	brandingHandler := branding.NewHandler(brandingService)
 	schemaHandler := schemas.NewHandler(schemaService)
 	dashboardHandler := dashboard.NewHandler(dashboardService)
+	systemHandler := system.NewHandler(systemService)
 
 	// Health routes (public)
 	app.Get("/health", healthHandler.Health)
@@ -137,6 +142,11 @@ func Setup(app *fiber.App, db *pgxpool.Pool, redis *redis.Client, cfg *config.Co
 
 	// Branding management (admin only)
 	v1.Put("/branding", middleware.RequireRole("admin"), brandingHandler.UpdateBranding)
+
+	// System configuration routes (protected)
+	systemGroup := v1.Group("/system")
+	systemGroup.Get("/mode", systemHandler.GetSyntheticMode)
+	systemGroup.Put("/mode", middleware.RequireRole("admin"), systemHandler.SetSyntheticMode)
 
 	// 404 handler - always return JSON for API routes
 	app.Use(func(c *fiber.Ctx) error {

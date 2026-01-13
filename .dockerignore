@@ -39,8 +39,11 @@ build/
 vendor/
 coverage.txt
 coverage.html
+coverage*.out
 go.work
 go.work.sum
+main
+bin/
 
 # Node/NPM
 node_modules/
@@ -56,6 +59,10 @@ src/ui/.next/
 src/ui/out/
 src/ui/.next
 src/ui/.cache
+# Vite build artifacts
+src/ui/dist/
+src/ui/coverage/
+src/ui/*.log
 
 # Environment and secrets
 .env*

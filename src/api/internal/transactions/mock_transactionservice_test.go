@@ -116,3 +116,18 @@ func (mr *MockTransactionServiceMockRecorder) ApproveTransaction(ctx, id any) *g
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ApproveTransaction", reflect.TypeOf((*MockTransactionService)(nil).ApproveTransaction), ctx, id)
 }
+
+// RejectTransaction mocks base method.
+func (m *MockTransactionService) RejectTransaction(ctx context.Context, id uuid.UUID) (*models.Transaction, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "RejectTransaction", ctx, id)
+	ret0, _ := ret[0].(*models.Transaction)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// RejectTransaction indicates an expected call of RejectTransaction.
+func (mr *MockTransactionServiceMockRecorder) RejectTransaction(ctx, id any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RejectTransaction", reflect.TypeOf((*MockTransactionService)(nil).RejectTransaction), ctx, id)
+}

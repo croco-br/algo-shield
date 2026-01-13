@@ -8,7 +8,8 @@ import vueDevTools from 'vite-plugin-vue-devtools'
 export default defineConfig({
   plugins: [
     vue(),
-    vueDevTools(),
+    // Only enable devtools in development mode
+    ...(process.env.NODE_ENV === 'development' ? [vueDevTools()] : []),
   ],
   resolve: {
     alias: {
@@ -16,9 +17,23 @@ export default defineConfig({
     },
   },
   optimizeDeps: {
-    include: []
+    // Pre-bundle these dependencies to speed up builds
+    include: [
+      'vue',
+      'vue-router',
+      'pinia',
+      'vuetify',
+      '@fortawesome/fontawesome-svg-core',
+      '@fortawesome/vue-fontawesome',
+      'vue-i18n'
+    ]
   },
   build: {
+    // Enable minification and source maps only in production
+    minify: 'esbuild',
+    sourcemap: false,
+    // Reduce chunk size for better caching
+    target: 'esnext',
     rollupOptions: {
       output: {
         assetFileNames: (assetInfo) => {

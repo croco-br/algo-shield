@@ -10,7 +10,7 @@ func CORS() fiber.Handler {
 	return cors.New(cors.Config{
 		AllowOrigins:     "*",
 		AllowMethods:     "GET,POST,PUT,DELETE,OPTIONS,PATCH",
-		AllowHeaders:     "Origin, Content-Type, Accept, Authorization, X-Requested-With",
+		AllowHeaders:     "Origin, Content-Type, Accept, Authorization, X-Requested-With, X-Synthetic-Mode",
 		AllowCredentials: false,
 		ExposeHeaders:    "Content-Length, Content-Type",
 		MaxAge:           86400,

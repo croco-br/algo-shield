@@ -6,6 +6,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/algo-shield/algo-shield/src/api/internal/shared"
 	"github.com/algo-shield/algo-shield/src/pkg/models"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -32,6 +33,7 @@ type Repository interface {
 	ListTransactions(ctx context.Context, limit, offset int) ([]models.Transaction, error)
 	ListTransactionsWithFilter(ctx context.Context, filter TransactionFilter, limit, offset int) ([]models.Transaction, int, error)
 	ApproveTransaction(ctx context.Context, id uuid.UUID) (*models.Transaction, error)
+	RejectTransaction(ctx context.Context, id uuid.UUID) (*models.Transaction, error)
 	CountTransactions(ctx context.Context) (int, error)
 }
 
@@ -41,14 +43,15 @@ func NewPostgresRepository(db *pgxpool.Pool) Repository {
 
 func (r *PostgresRepository) GetTransaction(ctx context.Context, id uuid.UUID) (*models.Transaction, error) {
 	var transaction models.Transaction
+	tableName := shared.GetTransactionsTable(ctx)
 
-	query := `
+	query := fmt.Sprintf(`
 		SELECT id, external_id, schema_id, amount, currency, origin, destination, 
 		       type, status, processing_time, 
 		       matched_rules, metadata, created_at, processed_at
-		FROM transactions
+		FROM %s
 		WHERE id = $1
-	`
+	`, tableName)
 
 	err := r.db.QueryRow(ctx, query, id).Scan(
 		&transaction.ID,
@@ -75,14 +78,15 @@ func (r *PostgresRepository) GetTransaction(ctx context.Context, id uuid.UUID) (
 }
 
 func (r *PostgresRepository) ListTransactions(ctx context.Context, limit, offset int) ([]models.Transaction, error) {
-	query := `
+	tableName := shared.GetTransactionsTable(ctx)
+	query := fmt.Sprintf(`
 		SELECT id, external_id, schema_id, amount, currency, origin, destination, 
 		       type, status, processing_time, 
 		       matched_rules, metadata, created_at, processed_at
-		FROM transactions
+		FROM %s
 		ORDER BY created_at DESC
 		LIMIT $1 OFFSET $2
-	`
+	`, tableName)
 
 	rows, err := r.db.Query(ctx, query, limit, offset)
 	if err != nil {
@@ -119,6 +123,7 @@ func (r *PostgresRepository) ListTransactions(ctx context.Context, limit, offset
 }
 
 func (r *PostgresRepository) ListTransactionsWithFilter(ctx context.Context, filter TransactionFilter, limit, offset int) ([]models.Transaction, int, error) {
+	tableName := shared.GetTransactionsTable(ctx)
 	var conditions []string
 	var args []any
 	argNum := 1
@@ -160,7 +165,7 @@ func (r *PostgresRepository) ListTransactionsWithFilter(ctx context.Context, fil
 	}
 
 	// Count query
-	countQuery := fmt.Sprintf("SELECT COUNT(*) FROM transactions %s", whereClause)
+	countQuery := fmt.Sprintf("SELECT COUNT(*) FROM %s %s", tableName, whereClause)
 	var total int
 	err := r.db.QueryRow(ctx, countQuery, args...).Scan(&total)
 	if err != nil {
@@ -172,11 +177,11 @@ func (r *PostgresRepository) ListTransactionsWithFilter(ctx context.Context, fil
 		SELECT id, external_id, schema_id, amount, currency, origin, destination, 
 		       type, status, processing_time, 
 		       matched_rules, metadata, created_at, processed_at
-		FROM transactions
+		FROM %s
 		%s
 		ORDER BY created_at DESC
 		LIMIT $%d OFFSET $%d
-	`, whereClause, argNum, argNum+1)
+	`, tableName, whereClause, argNum, argNum+1)
 
 	args = append(args, limit, offset)
 
@@ -215,14 +220,15 @@ func (r *PostgresRepository) ListTransactionsWithFilter(ctx context.Context, fil
 }
 
 func (r *PostgresRepository) ApproveTransaction(ctx context.Context, id uuid.UUID) (*models.Transaction, error) {
+	tableName := shared.GetTransactionsTable(ctx)
 	now := time.Now()
-	query := `
-		UPDATE transactions 
+	query := fmt.Sprintf(`
+		UPDATE %s 
 		SET status = $1, processed_at = $2
 		WHERE id = $3 AND status = $4
 		RETURNING id, external_id, schema_id, amount, currency, origin, destination,
 		          type, status, processing_time, matched_rules, metadata, created_at, processed_at
-	`
+	`, tableName)
 
 	var transaction models.Transaction
 	err := r.db.QueryRow(ctx, query, models.StatusApproved, now, id, models.StatusInReview).Scan(
@@ -249,8 +255,45 @@ func (r *PostgresRepository) ApproveTransaction(ctx context.Context, id uuid.UUI
 	return &transaction, nil
 }
 
+func (r *PostgresRepository) RejectTransaction(ctx context.Context, id uuid.UUID) (*models.Transaction, error) {
+	tableName := shared.GetTransactionsTable(ctx)
+	now := time.Now()
+	query := fmt.Sprintf(`
+		UPDATE %s 
+		SET status = $1, processed_at = $2
+		WHERE id = $3 AND status = $4
+		RETURNING id, external_id, schema_id, amount, currency, origin, destination,
+		          type, status, processing_time, matched_rules, metadata, created_at, processed_at
+	`, tableName)
+
+	var transaction models.Transaction
+	err := r.db.QueryRow(ctx, query, models.StatusRejected, now, id, models.StatusInReview).Scan(
+		&transaction.ID,
+		&transaction.ExternalID,
+		&transaction.SchemaID,
+		&transaction.Amount,
+		&transaction.Currency,
+		&transaction.Origin,
+		&transaction.Destination,
+		&transaction.Type,
+		&transaction.Status,
+		&transaction.ProcessingTime,
+		&transaction.MatchedRules,
+		&transaction.Metadata,
+		&transaction.CreatedAt,
+		&transaction.ProcessedAt,
+	)
+
+	if err != nil {
+		return nil, err
+	}
+
+	return &transaction, nil
+}
+
 func (r *PostgresRepository) CountTransactions(ctx context.Context) (int, error) {
+	tableName := shared.GetTransactionsTable(ctx)
 	var count int
-	err := r.db.QueryRow(ctx, "SELECT COUNT(*) FROM transactions").Scan(&count)
+	err := r.db.QueryRow(ctx, fmt.Sprintf("SELECT COUNT(*) FROM %s", tableName)).Scan(&count)
 	return count, err
 }

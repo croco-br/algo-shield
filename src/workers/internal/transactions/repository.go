@@ -12,6 +12,8 @@ import (
 type Repository interface {
 	// SaveTransaction saves a processed transaction to the database
 	SaveTransaction(ctx context.Context, transaction *models.Transaction) error
+	// SaveSyntheticTransaction saves a synthetic transaction to the synthetic_transactions table
+	SaveSyntheticTransaction(ctx context.Context, transaction *models.Transaction) error
 }
 
 // PostgresRepository is the PostgreSQL implementation of Repository
@@ -25,11 +27,25 @@ func NewPostgresRepository(db *pgxpool.Pool) Repository {
 }
 
 func (r *PostgresRepository) SaveTransaction(ctx context.Context, transaction *models.Transaction) error {
+	return r.saveTransaction(ctx, transaction, false)
+}
+
+// SaveSyntheticTransaction saves a transaction to the synthetic_transactions table
+func (r *PostgresRepository) SaveSyntheticTransaction(ctx context.Context, transaction *models.Transaction) error {
+	return r.saveTransaction(ctx, transaction, true)
+}
+
+func (r *PostgresRepository) saveTransaction(ctx context.Context, transaction *models.Transaction, synthetic bool) error {
 	matchedRulesJSON, _ := json.Marshal(transaction.MatchedRules)
 	metadataJSON, _ := json.Marshal(transaction.Metadata)
 
+	tableName := "transactions"
+	if synthetic {
+		tableName = "synthetic_transactions"
+	}
+
 	query := `
-		INSERT INTO transactions (
+		INSERT INTO ` + tableName + ` (
 			id, external_id, schema_id, amount, currency, origin, destination, 
 			type, status, processing_time, 
 			matched_rules, metadata, created_at, processed_at

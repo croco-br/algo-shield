@@ -4,6 +4,27 @@ export interface ApiError {
 	error: string;
 }
 
+// Get synthetic mode from localStorage (synced by systemMode store)
+function getSyntheticMode(): boolean {
+	try {
+		const mode = localStorage.getItem('synthetic_mode');
+		return mode === 'true';
+	} catch {
+		// If localStorage is not available, default to false
+		return false;
+	}
+}
+
+// Set synthetic mode in localStorage (called by systemMode store)
+export function setSyntheticModeStorage(enabled: boolean): void {
+	try {
+		localStorage.setItem('synthetic_mode', String(enabled));
+	} catch {
+		// If localStorage is not available, silently fail
+		// This can happen in some environments but shouldn't break the app
+	}
+}
+
 async function request<T>(
 	endpoint: string,
 	options: RequestInit = {}
@@ -15,9 +36,11 @@ async function request<T>(
 		throw new Error(`API baseUrl uses container hostname (${uiConfig.api.baseUrl}). Browser cannot resolve container hostnames. Use http://localhost:8080 instead.`);
 	}
 	const token = localStorage.getItem('auth_token');
+	const syntheticMode = getSyntheticMode();
 	
 	const headers: Record<string, string> = {
 		'Content-Type': 'application/json',
+		'X-Synthetic-Mode': String(syntheticMode),
 		...(options.headers as Record<string, string> || {}),
 	};
 
@@ -126,6 +149,11 @@ export const api = {
 	put: <T>(endpoint: string, data?: unknown) =>
 		request<T>(endpoint, {
 			method: 'PUT',
+			body: data ? JSON.stringify(data) : undefined,
+		}),
+	patch: <T>(endpoint: string, data?: unknown) =>
+		request<T>(endpoint, {
+			method: 'PATCH',
 			body: data ? JSON.stringify(data) : undefined,
 		}),
 	delete: <T>(endpoint: string) => request<T>(endpoint, { method: 'DELETE' }),

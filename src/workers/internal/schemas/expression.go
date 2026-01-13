@@ -4,10 +4,68 @@ import (
 	"context"
 	"log"
 	"strings"
+	"sync"
 
 	"github.com/algo-shield/algo-shield/src/workers/internal/transactions"
 	"github.com/expr-lang/expr"
+	"github.com/expr-lang/expr/vm"
 )
+
+// ExpressionCache caches compiled expr-lang programs for reuse
+// This avoids expensive recompilation of the same expressions
+type ExpressionCache struct {
+	mu    sync.RWMutex
+	cache map[string]*vm.Program
+}
+
+// Global expression cache instance
+var expressionCache = &ExpressionCache{
+	cache: make(map[string]*vm.Program),
+}
+
+// GetCompiledProgram returns a cached compiled program or compiles and caches a new one
+// The cache key includes the expression and schema ID to handle different environments
+func (ec *ExpressionCache) GetCompiledProgram(expression string, schemaID string, env map[string]any) (*vm.Program, error) {
+	cacheKey := schemaID + ":" + expression
+
+	// Try to get from cache (read lock)
+	ec.mu.RLock()
+	if program, ok := ec.cache[cacheKey]; ok {
+		ec.mu.RUnlock()
+		return program, nil
+	}
+	ec.mu.RUnlock()
+
+	// Compile the expression (no lock during compilation)
+	program, err := expr.Compile(expression, expr.Env(env), expr.AsBool())
+	if err != nil {
+		return nil, err
+	}
+
+	// Store in cache (write lock)
+	ec.mu.Lock()
+	// Double-check in case another goroutine compiled it
+	if existing, ok := ec.cache[cacheKey]; ok {
+		ec.mu.Unlock()
+		return existing, nil
+	}
+	ec.cache[cacheKey] = program
+	ec.mu.Unlock()
+
+	return program, nil
+}
+
+// ClearCache clears the expression cache (useful when rules are reloaded)
+func (ec *ExpressionCache) ClearCache() {
+	ec.mu.Lock()
+	ec.cache = make(map[string]*vm.Program)
+	ec.mu.Unlock()
+}
+
+// GetExpressionCache returns the global expression cache instance
+func GetExpressionCache() *ExpressionCache {
+	return expressionCache
+}
 
 // BuildExpressionEnv builds a dynamic expression environment from event JSON
 // using the schema's extracted fields as the structure.
@@ -19,15 +77,23 @@ func BuildExpressionEnv(ctx context.Context, eventData map[string]any, schema *E
 
 	env := make(map[string]any)
 
-	// For each field in the schema, extract the value from the event data
+	// For each field in the schema, extract the value and build nested structure
+	// This allows expressions like "location.lat" to work via property access
 	for _, field := range schema.ExtractedFields {
 		value := extractValueByPath(eventData, field.Path)
-		env[field.Path] = value
+		setNestedValue(env, field.Path, value)
 	}
 
 	// Add helper functions to the environment
-	env["pointInPolygon"] = func(lat, lon float64, polygon [][]float64) bool {
-		return PointInPolygon(lat, lon, polygon)
+	// The polygon parameter accepts any type because expr-lang parses array literals as []interface{}
+	// We handle the type conversion internally
+	env["pointInPolygon"] = func(lat, lon float64, polygon any) bool {
+		converted, ok := convertToFloat64Polygon(polygon)
+		if !ok {
+			log.Printf("pointInPolygon: failed to convert polygon to [][]float64")
+			return false
+		}
+		return PointInPolygon(lat, lon, converted)
 	}
 
 	// Add velocity helper functions if history repository is available
@@ -52,6 +118,43 @@ func BuildExpressionEnv(ctx context.Context, eventData map[string]any, schema *E
 	}
 
 	return env
+}
+
+// setNestedValue sets a value in a nested map structure using dot notation path
+// e.g., setNestedValue(env, "location.lat", 37.7) creates env["location"]["lat"] = 37.7
+func setNestedValue(env map[string]any, path string, value any) {
+	parts := strings.Split(path, ".")
+
+	// For single-part paths, just set directly
+	if len(parts) == 1 {
+		env[path] = value
+		return
+	}
+
+	// Navigate/create nested maps for all but the last part
+	current := env
+	for i := 0; i < len(parts)-1; i++ {
+		part := parts[i]
+		if existing, ok := current[part]; ok {
+			// If nested map exists, use it
+			if nested, ok := existing.(map[string]any); ok {
+				current = nested
+			} else {
+				// Existing value is not a map, create new map (overwrites)
+				nested := make(map[string]any)
+				current[part] = nested
+				current = nested
+			}
+		} else {
+			// Create new nested map
+			nested := make(map[string]any)
+			current[part] = nested
+			current = nested
+		}
+	}
+
+	// Set the final value
+	current[parts[len(parts)-1]] = value
 }
 
 // extractValueByPath extracts a value from nested JSON using dot notation
@@ -83,6 +186,7 @@ func extractValueByPath(data map[string]any, path string) any {
 // EvaluateExpressionWithSchema compiles and evaluates an expression against event data
 // using a schema-defined environment.
 // Returns true if the expression evaluates to true, false otherwise.
+// Uses expression caching for performance - expressions are compiled once and reused.
 func EvaluateExpressionWithSchema(ctx context.Context, expression string, eventData map[string]any, schema *EventSchema, historyRepo transactions.TransactionHistoryRepository) bool {
 	if expression == "" {
 		return false
@@ -91,15 +195,20 @@ func EvaluateExpressionWithSchema(ctx context.Context, expression string, eventD
 	// Build expression environment from schema and event data, including helper functions
 	env := BuildExpressionEnv(ctx, eventData, schema, historyRepo)
 
-	// Compile the expression with type safety
-	// expr.AsBool() ensures the result must be a boolean
-	program, err := expr.Compile(expression, expr.Env(env), expr.AsBool())
+	// Get compiled program from cache or compile and cache it
+	// Using schema ID as part of cache key to handle different schema environments
+	schemaID := ""
+	if schema != nil {
+		schemaID = schema.ID.String()
+	}
+
+	program, err := expressionCache.GetCompiledProgram(expression, schemaID, env)
 	if err != nil {
 		log.Printf("Expression compile error: %v (expression: %s)", err, expression)
 		return false
 	}
 
-	// Run the compiled expression
+	// Run the compiled expression with the current environment
 	result, err := expr.Run(program, env)
 	if err != nil {
 		log.Printf("Expression runtime error: %v (expression: %s)", err, expression)
@@ -131,6 +240,44 @@ func ToFloat64(v any) (float64, bool) {
 	default:
 		return 0, false
 	}
+}
+
+// convertToFloat64Polygon converts an interface{} (typically []interface{} from expr-lang)
+// to [][]float64 for use with PointInPolygon
+func convertToFloat64Polygon(polygon any) ([][]float64, bool) {
+	// If already the right type, return directly
+	if typed, ok := polygon.([][]float64); ok {
+		return typed, true
+	}
+
+	// Handle []interface{} from expr-lang array literals
+	outerSlice, ok := polygon.([]interface{})
+	if !ok {
+		return nil, false
+	}
+
+	result := make([][]float64, len(outerSlice))
+	for i, inner := range outerSlice {
+		// Each inner element should be a slice of two floats (lat, lon)
+		innerSlice, ok := inner.([]interface{})
+		if !ok {
+			return nil, false
+		}
+
+		if len(innerSlice) < 2 {
+			return nil, false
+		}
+
+		lat, latOk := ToFloat64(innerSlice[0])
+		lon, lonOk := ToFloat64(innerSlice[1])
+		if !latOk || !lonOk {
+			return nil, false
+		}
+
+		result[i] = []float64{lat, lon}
+	}
+
+	return result, true
 }
 
 // PointInPolygon checks if a point is inside a polygon using the ray casting algorithm.

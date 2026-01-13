@@ -54,3 +54,17 @@ func (mr *MockRepositoryMockRecorder) SaveTransaction(ctx, transaction any) *gom
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SaveTransaction", reflect.TypeOf((*MockRepository)(nil).SaveTransaction), ctx, transaction)
 }
+
+// SaveSyntheticTransaction mocks base method.
+func (m *MockRepository) SaveSyntheticTransaction(ctx context.Context, transaction *models.Transaction) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "SaveSyntheticTransaction", ctx, transaction)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// SaveSyntheticTransaction indicates an expected call of SaveSyntheticTransaction.
+func (mr *MockRepositoryMockRecorder) SaveSyntheticTransaction(ctx, transaction any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SaveSyntheticTransaction", reflect.TypeOf((*MockRepository)(nil).SaveSyntheticTransaction), ctx, transaction)
+}

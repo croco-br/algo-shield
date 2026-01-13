@@ -71,7 +71,10 @@
   "header": {
     "profile": "Perfil",
     "settings": "Configurações",
-    "language": "Idioma"
+    "language": "Idioma",
+    "syntheticMode": "SINTÉTICO",
+    "enableSynthetic": "Ativar modo sintético (dados de teste)",
+    "disableSynthetic": "Desativar modo sintético (dados de produção)"
   },
   "sidebar": {
     "dashboard": "Dashboard",
@@ -83,12 +86,56 @@
   },
   "views": {
     "dashboard": {
+      "title": "Dashboard",
+      "subtitle": "Visão geral das métricas de transações e saúde do sistema",
+      "loading": "Carregando métricas...",
+      "errorTitle": "Erro ao carregar métricas",
+      "errorRetry": "Falha ao carregar métricas",
+      "escalationNotImplemented": "Recurso de escalação de transação ainda não implementado no backend",
+      "refresh": "Atualizar",
+      "totalTransactions": "Total de Transações",
+      "statusDistribution": "Distribuição por Status",
+      "transactionVolume": "Volume de Transações",
+      "approved": "Aprovadas",
+      "rejected": "Rejeitadas",
+      "inReview": "Em Revisão",
+      "pending": "Pendentes"
+    },
+    "transactions": {
       "title": "Transações",
-      "subtitle": "Visualize e gerencie registros de transações",
+      "subtitle": "Monitore e gerencie o processamento de transações",
       "loading": "Carregando transações...",
       "errorTitle": "Erro ao carregar transações",
-      "errorRetry": "Falha ao carregar transações",
-      "escalationNotImplemented": "Recurso de escalação de transação ainda não implementado no backend"
+      "refresh": "Atualizar",
+      "live": "Ao Vivo",
+      "pause": "Pausar",
+      "filterStatus": "Status",
+      "filterSchema": "Schema",
+      "filterStartDate": "Data Inicial",
+      "filterEndDate": "Data Final",
+      "filterMinAmount": "Valor Mínimo",
+      "filterMaxAmount": "Valor Máximo",
+      "applyFilters": "Aplicar Filtros",
+      "clearFilters": "Limpar",
+      "approve": "Aprovar",
+      "reject": "Rejeitar",
+      "showing": "Mostrando",
+      "of": "de",
+      "transactions": "transações",
+      "statusAll": "Todos",
+      "statusApproved": "Aprovadas",
+      "statusRejected": "Rejeitadas",
+      "statusInReview": "Em Revisão",
+      "statusPending": "Pendentes",
+      "allSchemas": "Todos os Schemas",
+      "tableExternalId": "ID Externo",
+      "tableStatus": "Status",
+      "tableAmount": "Valor",
+      "tableOrigin": "Origem",
+      "tableDestination": "Destino",
+      "tableType": "Tipo",
+      "tableCreated": "Criado em",
+      "tableActions": "Ações"
     },
     "profile": {
       "title": "Perfil",
@@ -370,7 +417,16 @@
       "type": "Tipo",
       "sampleValue": "Valor de Exemplo",
       "noDescription": "Sem descrição",
-      "fields": "campos"
+      "fields": "campos",
+      "generateEvents": "Gerar",
+      "generateEventsTitle": "Gerar Eventos Sintéticos",
+      "generateEventsDescription": "Gere eventos de transação sintéticos a partir deste schema. Os eventos serão enfileirados para processamento.",
+      "eventCount": "Número de Eventos",
+      "eventCountPlaceholder": "Digite um número (1-1000)",
+      "seed": "Seed (opcional)",
+      "seedPlaceholder": "Deixe vazio para aleatório",
+      "seedHint": "Use a mesma seed para gerar sequências de eventos idênticas.",
+      "generate": "Gerar Eventos"
     }
   },
   "components": {

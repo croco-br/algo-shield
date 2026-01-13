@@ -57,6 +57,9 @@
           <BaseButton size="sm" variant="danger" @click="deleteSchema(row.id)" prepend-icon="fa-trash">
             {{ $t('components.schemaTable.delete') }}
           </BaseButton>
+          <BaseButton size="sm" variant="secondary" @click="openGenerateModal(row)" prepend-icon="fa-bolt">
+            {{ $t('views.schemas.generateEvents') }}
+          </BaseButton>
         </div>
       </template>
     </BaseTable>
@@ -143,6 +146,66 @@
           prepend-icon="fa-save"
         >
           {{ $t('components.modal.save') }}
+        </BaseButton>
+      </template>
+    </BaseModal>
+
+    <!-- Generate Events Modal -->
+    <BaseModal
+      v-model="showGenerateModal"
+      :title="$t('views.schemas.generateEventsTitle')"
+      size="md"
+    >
+      <div class="mt-4">
+        <p class="text-body-1 mb-4">
+          {{ $t('views.schemas.generateEventsDescription') }}
+        </p>
+
+        <BaseInput
+          v-model.number="generateCount"
+          :label="$t('views.schemas.eventCount')"
+          type="number"
+          min="1"
+          max="1000"
+          :placeholder="$t('views.schemas.eventCountPlaceholder')"
+          prepend-inner-icon="fa-hashtag"
+          class="mb-4"
+        />
+
+        <BaseInput
+          v-model="generateSeedStr"
+          :label="$t('views.schemas.seed')"
+          type="number"
+          :placeholder="$t('views.schemas.seedPlaceholder')"
+          prepend-inner-icon="fa-dice"
+          class="mb-4"
+        />
+
+        <p class="text-caption text-grey-darken-1">
+          {{ $t('views.schemas.seedHint') }}
+        </p>
+
+        <v-alert
+          v-if="generateResult"
+          :type="generateResult.success ? 'success' : 'error'"
+          variant="tonal"
+          class="mt-4"
+        >
+          {{ generateResult.message }}
+        </v-alert>
+      </div>
+
+      <template #footer>
+        <BaseButton variant="ghost" @click="showGenerateModal = false" prepend-icon="fa-xmark">
+          {{ $t('components.modal.cancel') }}
+        </BaseButton>
+        <BaseButton 
+          @click="handleGenerateEvents" 
+          :loading="generating" 
+          :disabled="!generateCount || generateCount < 1 || generateCount > 1000"
+          prepend-icon="fa-bolt"
+        >
+          {{ $t('views.schemas.generate') }}
         </BaseButton>
       </template>
     </BaseModal>
@@ -243,9 +306,17 @@ const loading = ref(true)
 const error = ref('')
 const showModal = ref(false)
 const showViewModal = ref(false)
+const showGenerateModal = ref(false)
 const isEditing = ref(false)
 const saving = ref(false)
+const generating = ref(false)
 const formRef = ref<any>(null)
+
+// Generate events state
+const generateSchemaId = ref('')
+const generateCount = ref(10)
+const generateSeedStr = ref<string>('')
+const generateResult = ref<{ success: boolean; message: string } | null>(null)
 
 const editingSchema = reactive({
   id: '',
@@ -308,6 +379,50 @@ function openEditModal(schema: EventSchema) {
 function openViewModal(schema: EventSchema) {
   viewingSchema.value = schema
   showViewModal.value = true
+}
+
+function openGenerateModal(schema: EventSchema) {
+  generateSchemaId.value = schema.id
+  generateCount.value = 10
+  generateSeedStr.value = ''
+  generateResult.value = null
+  showGenerateModal.value = true
+}
+
+async function handleGenerateEvents() {
+  if (!generateSchemaId.value || !generateCount.value) return
+
+  try {
+    generating.value = true
+    generateResult.value = null
+
+    const payload: { count: number; seed?: number } = {
+      count: generateCount.value,
+    }
+    if (generateSeedStr.value !== '') {
+      const seedNum = parseInt(generateSeedStr.value, 10)
+      if (!isNaN(seedNum)) {
+        payload.seed = seedNum
+      }
+    }
+
+    const response = await api.post<{ generated_count: number; message: string }>(
+      `/api/v1/schemas/${generateSchemaId.value}/generate-events`,
+      payload
+    )
+
+    generateResult.value = {
+      success: true,
+      message: response?.message || `Successfully generated ${response?.generated_count || generateCount.value} events`,
+    }
+  } catch (e: any) {
+    generateResult.value = {
+      success: false,
+      message: e.message || 'Failed to generate events',
+    }
+  } finally {
+    generating.value = false
+  }
 }
 
 function closeModal() {

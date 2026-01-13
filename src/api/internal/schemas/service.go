@@ -223,6 +223,8 @@ func (s *Service) GenerateEvents(ctx context.Context, id uuid.UUID, req *Generat
 		event := generator.GenerateEvent(schema)
 		// Add schema_id to the event for tracking
 		event["_schema_id"] = id.String()
+		// Mark as synthetic event for separate table storage
+		event["_synthetic"] = true
 
 		eventJSON, err := json.Marshal(event)
 		if err != nil {

@@ -71,7 +71,10 @@
   "header": {
     "profile": "Profile",
     "settings": "Settings",
-    "language": "Language"
+    "language": "Language",
+    "syntheticMode": "SYNTHETIC",
+    "enableSynthetic": "Enable synthetic mode (test data)",
+    "disableSynthetic": "Disable synthetic mode (production data)"
   },
   "sidebar": {
     "dashboard": "Dashboard",
@@ -83,12 +86,56 @@
   },
   "views": {
     "dashboard": {
+      "title": "Dashboard",
+      "subtitle": "Overview of transaction metrics and system health",
+      "loading": "Loading metrics...",
+      "errorTitle": "Error loading metrics",
+      "errorRetry": "Failed to load metrics",
+      "escalationNotImplemented": "Transaction escalation feature not yet implemented in backend",
+      "refresh": "Refresh",
+      "totalTransactions": "Total Transactions",
+      "statusDistribution": "Status Distribution",
+      "transactionVolume": "Transaction Volume",
+      "approved": "Approved",
+      "rejected": "Rejected",
+      "inReview": "In Review",
+      "pending": "Pending"
+    },
+    "transactions": {
       "title": "Transactions",
-      "subtitle": "View and manage transaction records",
+      "subtitle": "Monitor and manage transaction processing",
       "loading": "Loading transactions...",
       "errorTitle": "Error loading transactions",
-      "errorRetry": "Failed to load transactions",
-      "escalationNotImplemented": "Transaction escalation feature not yet implemented in backend"
+      "refresh": "Refresh",
+      "live": "Live",
+      "pause": "Pause",
+      "filterStatus": "Status",
+      "filterSchema": "Schema",
+      "filterStartDate": "Start Date",
+      "filterEndDate": "End Date",
+      "filterMinAmount": "Min Amount",
+      "filterMaxAmount": "Max Amount",
+      "applyFilters": "Apply Filters",
+      "clearFilters": "Clear",
+      "approve": "Approve",
+      "reject": "Reject",
+      "showing": "Showing",
+      "of": "of",
+      "transactions": "transactions",
+      "statusAll": "All",
+      "statusApproved": "Approved",
+      "statusRejected": "Rejected",
+      "statusInReview": "In Review",
+      "statusPending": "Pending",
+      "allSchemas": "All Schemas",
+      "tableExternalId": "External ID",
+      "tableStatus": "Status",
+      "tableAmount": "Amount",
+      "tableOrigin": "Origin",
+      "tableDestination": "Destination",
+      "tableType": "Type",
+      "tableCreated": "Created",
+      "tableActions": "Actions"
     },
     "profile": {
       "title": "Profile",
@@ -370,7 +417,16 @@
       "type": "Type",
       "sampleValue": "Sample Value",
       "noDescription": "No description",
-      "fields": "fields"
+      "fields": "fields",
+      "generateEvents": "Generate",
+      "generateEventsTitle": "Generate Synthetic Events",
+      "generateEventsDescription": "Generate synthetic transaction events from this schema. Events will be queued for processing.",
+      "eventCount": "Number of Events",
+      "eventCountPlaceholder": "Enter number (1-1000)",
+      "seed": "Seed (optional)",
+      "seedPlaceholder": "Leave empty for random",
+      "seedHint": "Use the same seed to generate identical event sequences.",
+      "generate": "Generate Events"
     }
   },
   "components": {

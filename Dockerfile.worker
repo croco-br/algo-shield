@@ -23,17 +23,25 @@ RUN --mount=type=cache,target=/go/pkg/mod \
     --mount=type=cache,target=/root/.cache/go-build \
     go mod download
 
-# Copy only source code (not everything) to preserve cache
-COPY src/ ./src/
+# Copy only necessary source code to preserve cache
+# Copy shared packages first (most stable)
+COPY src/pkg/ ./src/pkg/
+# Copy worker-specific code
+COPY src/workers/ ./src/workers/
 
 # Build the binary with BuildKit cache mount
 # CGO_ENABLED=0 creates a statically linked binary
 # -ldflags="-w -s" reduces binary size by removing debug info
+# Removed -a flag to allow incremental builds (much faster)
+# GOCACHE and GOMODCACHE use cache mounts for faster rebuilds
 RUN --mount=type=cache,target=/go/pkg/mod \
     --mount=type=cache,target=/root/.cache/go-build \
-    CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build \
+    CGO_ENABLED=0 GOOS=linux GOARCH=amd64 \
+    GOCACHE=/root/.cache/go-build \
+    GOMODCACHE=/go/pkg/mod \
+    go build \
     -ldflags='-w -s -extldflags "-static"' \
-    -a -installsuffix cgo \
+    -trimpath \
     -o /build/bin/worker \
     ./src/workers/cmd/main.go
 

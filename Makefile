@@ -62,7 +62,7 @@ test: test-api test-ui ## Run all tests (API + UI)
 
 test-api: gotestsum ## Run API tests with race detector
 	@echo "${YELLOW}Running API tests with race detector...${RESET}"
-	@gotestsum --format testdox -- -race -parallel 4 ./src/...
+	@gotestsum --format testdox -- -race -parallel 8 ./src/...
 	@echo "${GREEN}✓ API tests completed!${RESET}"
 
 test-ui: ## Run UI tests with vitest
@@ -116,6 +116,8 @@ clean: ## Remove build artifacts and Docker volumes
 	@rm -rf bin/ coverage.out coverage.html coverage-unit.out coverage-integration.out coverage-combined.out
 	@rm -rf src/ui/node_modules src/ui/.next
 	@docker-compose down -v
+	@echo "${YELLOW}Removing stale Docker containers...${RESET}"
+	@docker container prune -f
 	@go clean -testcache -cache
 	@echo "${GREEN}✓ Cleanup completed!${RESET}"
 
