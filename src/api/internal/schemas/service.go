@@ -216,7 +216,7 @@ func (s *Service) GenerateEvents(ctx context.Context, id uuid.UUID, req *Generat
 		return nil, err
 	}
 
-	generator := NewEventGenerator(req.Seed)
+	generator := NewEventGenerator()
 	generated := 0
 
 	for i := 0; i < req.Count; i++ {

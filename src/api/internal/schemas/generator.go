@@ -15,16 +15,10 @@ type EventGenerator struct {
 }
 
 // NewEventGenerator creates a new event generator
-// If seed is nil, uses current time as seed
-func NewEventGenerator(seed *int64) *EventGenerator {
-	var s int64
-	if seed != nil {
-		s = *seed
-	} else {
-		s = time.Now().UnixNano()
-	}
+// Uses current time as seed
+func NewEventGenerator() *EventGenerator {
 	return &EventGenerator{
-		rng: rand.New(rand.NewSource(s)),
+		rng: rand.New(rand.NewSource(time.Now().UnixNano())),
 	}
 }
 

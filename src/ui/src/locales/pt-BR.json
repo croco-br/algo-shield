@@ -135,7 +135,15 @@
       "tableDestination": "Destino",
       "tableType": "Tipo",
       "tableCreated": "Criado em",
-      "tableActions": "Ações"
+      "tableActions": "Ações",
+      "generateSynthetic": "Gerar Dados Sintéticos",
+      "generateSyntheticTitle": "Gerar Eventos Sintéticos",
+      "generateSyntheticDescription": "Gere eventos de transação sintéticos a partir de um schema. Os eventos serão enfileirados para processamento.",
+      "selectSchema": "Selecionar Schema",
+      "eventCount": "Número de Eventos",
+      "eventCountPlaceholder": "Digite um número (1-1000)",
+      "generate": "Gerar Eventos",
+      "to": "até"
     },
     "profile": {
       "title": "Perfil",

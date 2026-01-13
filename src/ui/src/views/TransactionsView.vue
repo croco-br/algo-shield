@@ -16,6 +16,14 @@
           </div>
           <div class="d-flex gap-2">
             <BaseButton 
+              v-if="syntheticMode"
+              variant="secondary"
+              @click="openGenerateModal"
+              prepend-icon="fa-bolt"
+            >
+              {{ $t('views.transactions.generateSynthetic') }}
+            </BaseButton>
+            <BaseButton 
               :variant="isLive ? 'secondary' : 'primary'"
               @click="toggleLiveUpdates"
               :prepend-icon="isLive ? 'fa-pause' : 'fa-play'"
@@ -121,8 +129,14 @@
           <v-data-table
             :headers="tableHeaders"
             :items="transactions"
-            :items-per-page="50"
+            :items-per-page="itemsPerPage"
+            :page="currentPage"
+            :items-length="total"
+            :items-per-page-options="itemsPerPageOptions"
+            @update:page="handlePageChange"
+            @update:items-per-page="handleItemsPerPageChange"
             class="elevation-0"
+            server-items-length
           >
             <template #item.status="{ item }">
               <BaseBadge :variant="getStatusVariant(item.status)">
@@ -157,29 +171,84 @@
             </template>
           </v-data-table>
         </v-card>
-
-        <!-- Pagination info -->
-        <div v-if="total > 0" class="mt-4 text-body-2 text-grey-darken-1">
-          {{ $t('views.transactions.showing') }} {{ transactions.length }} {{ $t('views.transactions.of') }} {{ total }} {{ $t('views.transactions.transactions') }}
-        </div>
       </v-col>
     </v-row>
+
+    <!-- Generate Synthetic Events Modal -->
+    <BaseModal
+      v-model="showGenerateModal"
+      :title="$t('views.transactions.generateSyntheticTitle')"
+      size="md"
+    >
+      <div class="mt-4">
+        <p class="text-body-1 mb-4">
+          {{ $t('views.transactions.generateSyntheticDescription') }}
+        </p>
+
+        <v-select
+          v-model="generateSchemaId"
+          :items="generateSchemaOptions"
+          :label="$t('views.transactions.selectSchema')"
+          density="compact"
+          variant="outlined"
+          class="mb-4"
+        />
+
+        <BaseInput
+          v-model.number="generateCount"
+          :label="$t('views.transactions.eventCount')"
+          type="number"
+          min="1"
+          max="1000"
+          :placeholder="$t('views.transactions.eventCountPlaceholder')"
+          prepend-inner-icon="fa-hashtag"
+          class="mb-4"
+        />
+
+        <v-alert
+          v-if="generateResult"
+          :type="generateResult.success ? 'success' : 'error'"
+          variant="tonal"
+          class="mt-4"
+        >
+          {{ generateResult.message }}
+        </v-alert>
+      </div>
+
+      <template #footer>
+        <BaseButton variant="ghost" @click="showGenerateModal = false" prepend-icon="fa-xmark">
+          {{ $t('components.modal.cancel') }}
+        </BaseButton>
+        <BaseButton 
+          @click="handleGenerateEvents" 
+          :loading="generating" 
+          :disabled="!generateSchemaId || !generateCount || generateCount < 1 || generateCount > 1000"
+          prepend-icon="fa-bolt"
+        >
+          {{ $t('views.transactions.generate') }}
+        </BaseButton>
+      </template>
+    </BaseModal>
   </v-container>
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, onMounted, onUnmounted, computed } from 'vue'
+import { ref, reactive, onMounted, onUnmounted, computed, watch } from 'vue'
 import { useLocale } from '@/composables/useLocale'
 import { useCurrency } from '@/composables/useCurrency'
+import { useSystemModeStore } from '@/stores/systemMode'
 import { api } from '@/lib/api'
 import type { Transaction } from '@/types/transaction'
 import BaseButton from '@/components/BaseButton.vue'
 import BaseBadge from '@/components/BaseBadge.vue'
+import BaseModal from '@/components/BaseModal.vue'
+import BaseInput from '@/components/BaseInput.vue'
 import LoadingSpinner from '@/components/LoadingSpinner.vue'
 import ErrorMessage from '@/components/ErrorMessage.vue'
 
 const { t } = useLocale()
 const { formatCurrency } = useCurrency()
+const systemModeStore = useSystemModeStore()
 
 interface Schema {
   id: string
@@ -192,8 +261,21 @@ const transactions = ref<Transaction[]>([])
 const total = ref(0)
 const schemas = ref<Schema[]>([])
 const isLive = ref(false)
+const syntheticMode = computed(() => systemModeStore.syntheticMode)
 let pollingInterval: ReturnType<typeof setInterval> | null = null
 let eventSource: EventSource | null = null
+
+// Pagination state
+const currentPage = ref(1)
+const itemsPerPage = ref(50)
+const itemsPerPageOptions = [10, 25, 50, 100, 200]
+
+// Generate synthetic events state
+const showGenerateModal = ref(false)
+const generateSchemaId = ref<string | null>(null)
+const generateCount = ref(10)
+const generating = ref(false)
+const generateResult = ref<{ success: boolean; message: string } | null>(null)
 
 const filters = reactive({
   status: 'pending' as string | null, // Default filter: pending transactions
@@ -217,6 +299,12 @@ const schemaOptions = computed(() => [
   ...schemas.value.map((s: Schema) => ({ title: s.name, value: s.id }))
 ])
 
+const generateSchemaOptions = computed(() => 
+  schemas.value.map((s: Schema) => ({ title: s.name, value: s.id }))
+)
+
+
+
 const tableHeaders = computed(() => [
   { title: t('views.transactions.tableExternalId'), key: 'external_id', sortable: true },
   { title: t('views.transactions.tableStatus'), key: 'status', sortable: true },
@@ -229,7 +317,16 @@ const tableHeaders = computed(() => [
 ])
 
 onMounted(async () => {
+  await systemModeStore.loadMode()
   await Promise.all([loadTransactions(), loadSchemas()])
+})
+
+// Watch for synthetic mode changes
+watch(() => systemModeStore.syntheticMode, () => {
+  // Modal will be hidden automatically if synthetic mode is disabled
+  if (!systemModeStore.syntheticMode && showGenerateModal.value) {
+    showGenerateModal.value = false
+  }
 })
 
 onUnmounted(() => {
@@ -250,8 +347,9 @@ async function loadTransactions() {
   error.value = ''
   try {
     const params = new URLSearchParams()
-    params.append('limit', '50')
-    params.append('offset', '0')
+    const offset = (currentPage.value - 1) * itemsPerPage.value
+    params.append('limit', String(itemsPerPage.value))
+    params.append('offset', String(offset))
 
     if (filters.status) params.append('status', filters.status)
     if (filters.schemaId) params.append('schema_id', filters.schemaId)
@@ -272,6 +370,7 @@ async function loadTransactions() {
 }
 
 function applyFilters() {
+  currentPage.value = 1
   loadTransactions()
 }
 
@@ -282,7 +381,63 @@ function clearFilters() {
   filters.endDate = null
   filters.minAmount = null
   filters.maxAmount = null
+  currentPage.value = 1
   loadTransactions()
+}
+
+// Pagination handlers
+function handlePageChange(page: number) {
+  currentPage.value = page
+  loadTransactions()
+}
+
+function handleItemsPerPageChange(newValue: number | string) {
+  itemsPerPage.value = typeof newValue === 'string' ? parseInt(newValue, 10) : newValue
+  currentPage.value = 1
+  loadTransactions()
+}
+
+// Generate synthetic events handlers
+function openGenerateModal() {
+  generateSchemaId.value = null
+  generateCount.value = 10
+  generateResult.value = null
+  showGenerateModal.value = true
+}
+
+async function handleGenerateEvents() {
+  if (!generateSchemaId.value || !generateCount.value) return
+
+  try {
+    generating.value = true
+    generateResult.value = null
+
+    const payload = {
+      count: generateCount.value,
+    }
+
+    const response = await api.post<{ generated_count: number; message: string }>(
+      `/api/v1/schemas/${generateSchemaId.value}/generate-events`,
+      payload
+    )
+
+    generateResult.value = {
+      success: true,
+      message: response?.message || `Successfully generated ${response?.generated_count || generateCount.value} events`,
+    }
+
+    // Reload transactions after a short delay to see the new events
+    setTimeout(() => {
+      loadTransactions()
+    }, 1000)
+  } catch (e: any) {
+    generateResult.value = {
+      success: false,
+      message: e.message || 'Failed to generate events',
+    }
+  } finally {
+    generating.value = false
+  }
 }
 
 function toggleLiveUpdates() {

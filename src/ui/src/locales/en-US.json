@@ -135,7 +135,15 @@
       "tableDestination": "Destination",
       "tableType": "Type",
       "tableCreated": "Created",
-      "tableActions": "Actions"
+      "tableActions": "Actions",
+      "generateSynthetic": "Generate Synthetic Data",
+      "generateSyntheticTitle": "Generate Synthetic Events",
+      "generateSyntheticDescription": "Generate synthetic transaction events from a schema. Events will be queued for processing.",
+      "selectSchema": "Select Schema",
+      "eventCount": "Number of Events",
+      "eventCountPlaceholder": "Enter number (1-1000)",
+      "generate": "Generate Events",
+      "to": "to"
     },
     "profile": {
       "title": "Profile",
