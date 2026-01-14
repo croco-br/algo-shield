@@ -66,16 +66,18 @@ func Test_Service_GetTransaction_WhenExists_ThenReturnsTransaction(t *testing.T)
 	now := time.Now()
 	expectedTx := &models.Transaction{
 		ID:             txID,
-		ExternalID:     "ext-123",
-		Amount:         100.50,
-		Currency:       "USD",
-		Origin:         "account1",
-		Destination:    "account2",
-		Type:           "transfer",
-		Status:         "approved",
+		Status:         models.StatusApproved,
 		ProcessingTime: 10,
-		CreatedAt:      now,
-		ProcessedAt:    &now,
+		Metadata: map[string]any{
+			"external_id": "ext-123",
+			"amount":      100.50,
+			"currency":    "USD",
+			"origin":      "account1",
+			"destination": "account2",
+			"type":        "transfer",
+		},
+		CreatedAt:   now,
+		ProcessedAt: &now,
 	}
 	mockRepo := NewMockRepository(ctrl)
 	mockQueue := NewMockQueuePusher(ctrl)
@@ -110,18 +112,22 @@ func Test_Service_ListTransactions_WhenSuccess_ThenReturnsTransactions(t *testin
 
 	expectedTxs := []models.Transaction{
 		{
-			ID:         uuid.New(),
-			ExternalID: "ext-1",
-			Amount:     100.50,
-			Currency:   "USD",
-			Status:     "approved",
+			ID:     uuid.New(),
+			Status: models.StatusApproved,
+			Metadata: map[string]any{
+				"external_id": "ext-1",
+				"amount":      100.50,
+				"currency":    "USD",
+			},
 		},
 		{
-			ID:         uuid.New(),
-			ExternalID: "ext-2",
-			Amount:     200.75,
-			Currency:   "EUR",
-			Status:     "rejected",
+			ID:     uuid.New(),
+			Status: models.StatusRejected,
+			Metadata: map[string]any{
+				"external_id": "ext-2",
+				"amount":      200.75,
+				"currency":    "EUR",
+			},
 		},
 	}
 	mockRepo := NewMockRepository(ctrl)

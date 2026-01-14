@@ -1,15 +1,12 @@
 /**
  * Transaction types matching the backend API structure
+ * All transaction fields come from the schema and are stored in metadata
  */
 
 export interface Transaction {
   id: string
-  external_id: string
-  amount: number
-  currency: string
-  origin: string
-  destination: string
-  type: string
+  schema_id?: string
+  schema_name?: string
   status: 'pending' | 'approved' | 'rejected' | 'in_review'
   processing_time_ms: number
   matched_rules: string[]

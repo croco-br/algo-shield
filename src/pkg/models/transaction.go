@@ -17,13 +17,8 @@ const (
 
 type Transaction struct {
 	ID             uuid.UUID         `json:"id"`
-	ExternalID     string            `json:"external_id"`
 	SchemaID       *uuid.UUID        `json:"schema_id,omitempty"`
-	Amount         float64           `json:"amount"`
-	Currency       string            `json:"currency"`
-	Origin         string            `json:"origin"`
-	Destination    string            `json:"destination"`
-	Type           string            `json:"type"`
+	SchemaName     *string           `json:"schema_name,omitempty"`
 	Status         TransactionStatus `json:"status"`
 	ProcessingTime int64             `json:"processing_time_ms"`
 	MatchedRules   []string          `json:"matched_rules"`

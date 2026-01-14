@@ -366,10 +366,29 @@ function inferType(value: any): string {
   if (value === null) return 'null'
   if (typeof value === 'boolean') return 'boolean'
   if (typeof value === 'number') return 'number'
-  if (typeof value === 'string') return 'string'
+  if (typeof value === 'string') {
+    if (isDateTimeString(value)) return 'datetime'
+    return 'string'
+  }
   if (Array.isArray(value)) return 'array'
   if (typeof value === 'object') return 'object'
   return 'string'
+}
+
+function isDateTimeString(s: string): boolean {
+  if (!s || s.length === 0) return false
+
+  // Common datetime formats to try
+  const formats = [
+    /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$/, // RFC3339
+    /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d+Z$/, // RFC3339Nano
+    /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}[+-]\d{2}:\d{2}$/, // RFC3339 with timezone
+    /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d+[+-]\d{2}:\d{2}$/, // RFC3339Nano with timezone
+    /^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/, // Date time space format
+    /^\d{4}-\d{2}-\d{2}$/, // Date only
+  ]
+
+  return formats.some(format => format.test(s))
 }
 
 async function handleSubmit() {
@@ -443,6 +462,7 @@ function getTypeBadgeVariant(type: string): 'success' | 'warning' | 'info' | 'de
     case 'string': return 'success'
     case 'number': return 'info'
     case 'boolean': return 'warning'
+    case 'datetime': return 'info'
     case 'array': return 'default'
     default: return 'default'
   }

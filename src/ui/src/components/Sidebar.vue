@@ -31,21 +31,48 @@
 
     <!-- Navigation Links -->
     <v-list nav density="comfortable">
-      <v-list-item
-        v-for="item in navItems"
-        :key="item.path"
-        :to="item.path"
-        :active="isActive(item.path)"
-        :prepend-icon="getIcon(item.icon)"
-        :title="isCollapsed ? '' : $t(item.label)"
-        :value="item.path"
-        @click="isMobile && closeMobile()"
-        class="mx-2 mb-1"
-      >
-        <template v-if="isCollapsed" #prepend>
-          <v-icon :icon="getIcon(item.icon)" />
-        </template>
-      </v-list-item>
+      <template v-for="item in navItems" :key="item.path">
+        <!-- Transactions with schema submenu -->
+        <v-list-group
+          v-if="item.path === '/transactions' && !isCollapsed && transactionSchemas.length > 0"
+          :value="isTransactionsActive"
+          color="primary"
+        >
+          <template #activator="{ props }">
+            <v-list-item
+              v-bind="props"
+              :prepend-icon="getIcon(item.icon)"
+              :title="$t(item.label)"
+              :active="isTransactionsActive"
+              class="mx-2 mb-1"
+            />
+          </template>
+          <v-list-item
+            v-for="schema in transactionSchemas"
+            :key="schema.id"
+            :to="`/transactions?schemaId=${schema.id}`"
+            :active="isSchemaActive(schema.id)"
+            :title="`${schema.name} - ${schema.fieldCount} colunas`"
+            class="mx-2"
+            @click="isMobile && closeMobile()"
+          />
+        </v-list-group>
+        <!-- Regular menu items -->
+        <v-list-item
+          v-else
+          :to="item.path"
+          :active="isActive(item.path)"
+          :prepend-icon="getIcon(item.icon)"
+          :title="isCollapsed ? '' : $t(item.label)"
+          :value="item.path"
+          @click="isMobile && closeMobile()"
+          class="mx-2 mb-1"
+        >
+          <template v-if="isCollapsed" #prepend>
+            <v-icon :icon="getIcon(item.icon)" />
+          </template>
+        </v-list-item>
+      </template>
     </v-list>
   </v-navigation-drawer>
 
@@ -62,6 +89,7 @@
 import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { useRoute } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
+import { api } from '@/lib/api'
 
 const emit = defineEmits<{
   collapseChange: [isCollapsed: boolean]
@@ -72,6 +100,18 @@ interface NavItem {
   path: string
   icon: string
   adminOnly?: boolean
+}
+
+interface Schema {
+  id: string
+  name: string
+  extracted_fields: Array<{ path: string; type: string; nullable: boolean }>
+}
+
+interface TransactionSchema {
+  id: string
+  name: string
+  fieldCount: number
 }
 
 const route = useRoute()
@@ -93,6 +133,15 @@ const navItems = computed(() => {
 const isCollapsed = ref(false)
 const isMobile = ref(false)
 const isOpen = ref(false)
+const transactionSchemas = ref<TransactionSchema[]>([])
+
+const isTransactionsActive = computed(() => {
+  return route.path === '/transactions'
+})
+
+const isSchemaActive = (schemaId: string) => {
+  return route.path === '/transactions' && route.query.schemaId === schemaId
+}
 
 const toggleCollapse = () => {
   isCollapsed.value = !isCollapsed.value
@@ -119,10 +168,24 @@ const checkMobile = () => {
   }
 }
 
+async function loadTransactionSchemas() {
+  try {
+    const response = await api.get<{ schemas: Schema[] }>('/api/v1/schemas')
+    transactionSchemas.value = (response?.schemas || []).map((schema: Schema) => ({
+      id: schema.id,
+      name: schema.name,
+      fieldCount: schema.extracted_fields?.length || 0
+    }))
+  } catch (e) {
+    console.error('Error loading schemas for sidebar:', e)
+  }
+}
+
 onMounted(() => {
   checkMobile()
   window.addEventListener('resize', checkMobile)
   emit('collapseChange', isCollapsed.value)
+  loadTransactionSchemas()
 })
 
 onUnmounted(() => {

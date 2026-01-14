@@ -1,12 +1,10 @@
 -- Create transactions table
+-- Simplified structure: only id, schema_id, status, metadata, and timestamps
+-- All transaction fields come from the schema and are stored in metadata
+-- Note: schema_id is nullable and will have its foreign key constraint added in migration 009
 CREATE TABLE IF NOT EXISTS transactions (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    external_id VARCHAR(255) UNIQUE NOT NULL,
-    amount DECIMAL(20, 2) NOT NULL,
-    currency VARCHAR(3) NOT NULL,
-    origin VARCHAR(255) NOT NULL,
-    destination VARCHAR(255) NOT NULL,
-    type VARCHAR(50) NOT NULL,
+    schema_id UUID,
     status VARCHAR(50) NOT NULL DEFAULT 'approved',
     processing_time BIGINT DEFAULT 0,
     matched_rules JSONB DEFAULT '[]',
@@ -29,9 +27,7 @@ CREATE TABLE IF NOT EXISTS rules (
 );
 
 -- Create indexes for performance
-CREATE INDEX IF NOT EXISTS idx_transactions_external_id ON transactions(external_id);
-CREATE INDEX IF NOT EXISTS idx_transactions_origin ON transactions(origin);
-CREATE INDEX IF NOT EXISTS idx_transactions_destination ON transactions(destination);
+CREATE INDEX IF NOT EXISTS idx_transactions_schema_id ON transactions(schema_id);
 CREATE INDEX IF NOT EXISTS idx_transactions_status ON transactions(status);
 CREATE INDEX IF NOT EXISTS idx_transactions_created_at ON transactions(created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_rules_enabled ON rules(enabled);

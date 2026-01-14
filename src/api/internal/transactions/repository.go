@@ -18,8 +18,6 @@ type TransactionFilter struct {
 	SchemaID  *uuid.UUID
 	StartDate *time.Time
 	EndDate   *time.Time
-	MinAmount *float64
-	MaxAmount *float64
 }
 
 // PostgresRepository is the PostgreSQL implementation of Repository
@@ -43,25 +41,22 @@ func NewPostgresRepository(db *pgxpool.Pool) Repository {
 
 func (r *PostgresRepository) GetTransaction(ctx context.Context, id uuid.UUID) (*models.Transaction, error) {
 	var transaction models.Transaction
+	var schemaName *string
 	tableName := shared.GetTransactionsTable(ctx)
 
 	query := fmt.Sprintf(`
-		SELECT id, external_id, schema_id, amount, currency, origin, destination, 
-		       type, status, processing_time, 
-		       matched_rules, metadata, created_at, processed_at
-		FROM %s
-		WHERE id = $1
+		SELECT t.id, t.schema_id, es.name as schema_name,
+		       t.status, t.processing_time, 
+		       t.matched_rules, t.metadata, t.created_at, t.processed_at
+		FROM %s t
+		LEFT JOIN event_schemas es ON t.schema_id = es.id
+		WHERE t.id = $1
 	`, tableName)
 
 	err := r.db.QueryRow(ctx, query, id).Scan(
 		&transaction.ID,
-		&transaction.ExternalID,
 		&transaction.SchemaID,
-		&transaction.Amount,
-		&transaction.Currency,
-		&transaction.Origin,
-		&transaction.Destination,
-		&transaction.Type,
+		&schemaName,
 		&transaction.Status,
 		&transaction.ProcessingTime,
 		&transaction.MatchedRules,
@@ -74,17 +69,19 @@ func (r *PostgresRepository) GetTransaction(ctx context.Context, id uuid.UUID) (
 		return nil, err
 	}
 
+	transaction.SchemaName = schemaName
 	return &transaction, nil
 }
 
 func (r *PostgresRepository) ListTransactions(ctx context.Context, limit, offset int) ([]models.Transaction, error) {
 	tableName := shared.GetTransactionsTable(ctx)
 	query := fmt.Sprintf(`
-		SELECT id, external_id, schema_id, amount, currency, origin, destination, 
-		       type, status, processing_time, 
-		       matched_rules, metadata, created_at, processed_at
-		FROM %s
-		ORDER BY created_at DESC
+		SELECT t.id, t.schema_id, es.name as schema_name,
+		       t.status, t.processing_time, 
+		       t.matched_rules, t.metadata, t.created_at, t.processed_at
+		FROM %s t
+		LEFT JOIN event_schemas es ON t.schema_id = es.id
+		ORDER BY t.created_at DESC
 		LIMIT $1 OFFSET $2
 	`, tableName)
 
@@ -97,15 +94,11 @@ func (r *PostgresRepository) ListTransactions(ctx context.Context, limit, offset
 	transactions := make([]models.Transaction, 0)
 	for rows.Next() {
 		var transaction models.Transaction
+		var schemaName *string
 		err := rows.Scan(
 			&transaction.ID,
-			&transaction.ExternalID,
 			&transaction.SchemaID,
-			&transaction.Amount,
-			&transaction.Currency,
-			&transaction.Origin,
-			&transaction.Destination,
-			&transaction.Type,
+			&schemaName,
 			&transaction.Status,
 			&transaction.ProcessingTime,
 			&transaction.MatchedRules,
@@ -116,6 +109,7 @@ func (r *PostgresRepository) ListTransactions(ctx context.Context, limit, offset
 		if err != nil {
 			continue
 		}
+		transaction.SchemaName = schemaName
 		transactions = append(transactions, transaction)
 	}
 
@@ -148,16 +142,6 @@ func (r *PostgresRepository) ListTransactionsWithFilter(ctx context.Context, fil
 		args = append(args, *filter.EndDate)
 		argNum++
 	}
-	if filter.MinAmount != nil {
-		conditions = append(conditions, fmt.Sprintf("amount >= $%d", argNum))
-		args = append(args, *filter.MinAmount)
-		argNum++
-	}
-	if filter.MaxAmount != nil {
-		conditions = append(conditions, fmt.Sprintf("amount <= $%d", argNum))
-		args = append(args, *filter.MaxAmount)
-		argNum++
-	}
 
 	whereClause := ""
 	if len(conditions) > 0 {
@@ -172,14 +156,15 @@ func (r *PostgresRepository) ListTransactionsWithFilter(ctx context.Context, fil
 		return nil, 0, err
 	}
 
-	// Data query
+	// Data query with LEFT JOIN to get schema name
 	query := fmt.Sprintf(`
-		SELECT id, external_id, schema_id, amount, currency, origin, destination, 
-		       type, status, processing_time, 
-		       matched_rules, metadata, created_at, processed_at
-		FROM %s
+		SELECT t.id, t.schema_id, es.name as schema_name,
+		       t.status, t.processing_time, 
+		       t.matched_rules, t.metadata, t.created_at, t.processed_at
+		FROM %s t
+		LEFT JOIN event_schemas es ON t.schema_id = es.id
 		%s
-		ORDER BY created_at DESC
+		ORDER BY t.created_at DESC
 		LIMIT $%d OFFSET $%d
 	`, tableName, whereClause, argNum, argNum+1)
 
@@ -194,15 +179,11 @@ func (r *PostgresRepository) ListTransactionsWithFilter(ctx context.Context, fil
 	transactions := make([]models.Transaction, 0)
 	for rows.Next() {
 		var transaction models.Transaction
+		var schemaName *string
 		err := rows.Scan(
 			&transaction.ID,
-			&transaction.ExternalID,
 			&transaction.SchemaID,
-			&transaction.Amount,
-			&transaction.Currency,
-			&transaction.Origin,
-			&transaction.Destination,
-			&transaction.Type,
+			&schemaName,
 			&transaction.Status,
 			&transaction.ProcessingTime,
 			&transaction.MatchedRules,
@@ -210,6 +191,10 @@ func (r *PostgresRepository) ListTransactionsWithFilter(ctx context.Context, fil
 			&transaction.CreatedAt,
 			&transaction.ProcessedAt,
 		)
+		if err != nil {
+			continue
+		}
+		transaction.SchemaName = schemaName
 		if err != nil {
 			continue
 		}
@@ -222,24 +207,31 @@ func (r *PostgresRepository) ListTransactionsWithFilter(ctx context.Context, fil
 func (r *PostgresRepository) ApproveTransaction(ctx context.Context, id uuid.UUID) (*models.Transaction, error) {
 	tableName := shared.GetTransactionsTable(ctx)
 	now := time.Now()
-	query := fmt.Sprintf(`
+	updateQuery := fmt.Sprintf(`
 		UPDATE %s 
 		SET status = $1, processed_at = $2
 		WHERE id = $3 AND status = $4
-		RETURNING id, external_id, schema_id, amount, currency, origin, destination,
-		          type, status, processing_time, matched_rules, metadata, created_at, processed_at
+	`, tableName)
+
+	_, err := r.db.Exec(ctx, updateQuery, models.StatusApproved, now, id, models.StatusInReview)
+	if err != nil {
+		return nil, err
+	}
+
+	selectQuery := fmt.Sprintf(`
+		SELECT t.id, t.schema_id, es.name as schema_name,
+		       t.status, t.processing_time, t.matched_rules, t.metadata, t.created_at, t.processed_at
+		FROM %s t
+		LEFT JOIN event_schemas es ON t.schema_id = es.id
+		WHERE t.id = $1
 	`, tableName)
 
 	var transaction models.Transaction
-	err := r.db.QueryRow(ctx, query, models.StatusApproved, now, id, models.StatusInReview).Scan(
+	var schemaName *string
+	err = r.db.QueryRow(ctx, selectQuery, id).Scan(
 		&transaction.ID,
-		&transaction.ExternalID,
 		&transaction.SchemaID,
-		&transaction.Amount,
-		&transaction.Currency,
-		&transaction.Origin,
-		&transaction.Destination,
-		&transaction.Type,
+		&schemaName,
 		&transaction.Status,
 		&transaction.ProcessingTime,
 		&transaction.MatchedRules,
@@ -247,35 +239,42 @@ func (r *PostgresRepository) ApproveTransaction(ctx context.Context, id uuid.UUI
 		&transaction.CreatedAt,
 		&transaction.ProcessedAt,
 	)
-
 	if err != nil {
 		return nil, err
 	}
 
+	transaction.SchemaName = schemaName
 	return &transaction, nil
 }
 
 func (r *PostgresRepository) RejectTransaction(ctx context.Context, id uuid.UUID) (*models.Transaction, error) {
 	tableName := shared.GetTransactionsTable(ctx)
 	now := time.Now()
-	query := fmt.Sprintf(`
+	updateQuery := fmt.Sprintf(`
 		UPDATE %s 
 		SET status = $1, processed_at = $2
 		WHERE id = $3 AND status = $4
-		RETURNING id, external_id, schema_id, amount, currency, origin, destination,
-		          type, status, processing_time, matched_rules, metadata, created_at, processed_at
+	`, tableName)
+
+	_, err := r.db.Exec(ctx, updateQuery, models.StatusRejected, now, id, models.StatusInReview)
+	if err != nil {
+		return nil, err
+	}
+
+	selectQuery := fmt.Sprintf(`
+		SELECT t.id, t.schema_id, es.name as schema_name,
+		       t.status, t.processing_time, t.matched_rules, t.metadata, t.created_at, t.processed_at
+		FROM %s t
+		LEFT JOIN event_schemas es ON t.schema_id = es.id
+		WHERE t.id = $1
 	`, tableName)
 
 	var transaction models.Transaction
-	err := r.db.QueryRow(ctx, query, models.StatusRejected, now, id, models.StatusInReview).Scan(
+	var schemaName *string
+	err = r.db.QueryRow(ctx, selectQuery, id).Scan(
 		&transaction.ID,
-		&transaction.ExternalID,
 		&transaction.SchemaID,
-		&transaction.Amount,
-		&transaction.Currency,
-		&transaction.Origin,
-		&transaction.Destination,
-		&transaction.Type,
+		&schemaName,
 		&transaction.Status,
 		&transaction.ProcessingTime,
 		&transaction.MatchedRules,
@@ -283,11 +282,11 @@ func (r *PostgresRepository) RejectTransaction(ctx context.Context, id uuid.UUID
 		&transaction.CreatedAt,
 		&transaction.ProcessedAt,
 	)
-
 	if err != nil {
 		return nil, err
 	}
 
+	transaction.SchemaName = schemaName
 	return &transaction, nil
 }
 

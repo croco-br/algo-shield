@@ -355,6 +355,47 @@ func Test_inferType_WhenObject_ThenReturnsObjectType(t *testing.T) {
 	assert.False(t, nullable)
 }
 
+func Test_inferType_WhenDateTimeString_ThenReturnsDateTimeType(t *testing.T) {
+	tests := []struct {
+		name  string
+		value string
+	}{
+		{"RFC3339", "2025-01-15T10:30:00Z"},
+		{"RFC3339Nano", "2025-01-15T10:30:00.123456789Z"},
+		{"RFC3339 with timezone", "2025-01-15T10:30:00-07:00"},
+		{"ISO 8601 without timezone", "2025-01-15T10:30:00Z"},
+		{"ISO 8601 with milliseconds", "2025-01-15T10:30:00.000Z"},
+		{"Date only", "2025-01-15"},
+		{"Date time space format", "2025-01-15 10:30:00"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			fieldType, nullable := inferType(tt.value)
+
+			assert.Equal(t, FieldTypeDateTime, fieldType)
+			assert.False(t, nullable)
+		})
+	}
+}
+
+func Test_inferType_WhenRegularString_ThenReturnsStringType(t *testing.T) {
+	tests := []string{
+		"regular string",
+		"not a date",
+		"12345",
+		"2025/01/15",
+		"01-15-2025",
+	}
+
+	for _, val := range tests {
+		fieldType, nullable := inferType(val)
+
+		assert.Equal(t, FieldTypeString, fieldType)
+		assert.False(t, nullable)
+	}
+}
+
 func Test_Service_GetRulesReferencingSchema_WhenSchemaHasRules_ThenReturnsRuleNames(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
@@ -645,4 +686,46 @@ func Test_ExtractFields_WhenNullField_ThenExtractsNullType(t *testing.T) {
 	assert.Equal(t, "optional", fields[0].Path)
 	assert.Equal(t, FieldTypeNull, fields[0].Type)
 	assert.True(t, fields[0].Nullable)
+}
+
+func Test_ExtractFields_WhenDateTimeField_ThenExtractsDateTimeType(t *testing.T) {
+	data := map[string]any{
+		"created_at": "2025-01-15T10:30:00Z",
+		"updated_at": "2025-01-15T10:30:00.123456789Z",
+		"timestamp":  "2025-01-15T10:30:00-07:00",
+		"date":       "2025-01-15",
+	}
+
+	fields := ExtractFields(data, "", 0)
+
+	assert.Len(t, fields, 4)
+	for _, field := range fields {
+		assert.Equal(t, FieldTypeDateTime, field.Type)
+		assert.False(t, field.Nullable)
+	}
+}
+
+func Test_ExtractFields_WhenNestedDateTimeField_ThenExtractsDateTimeType(t *testing.T) {
+	data := map[string]any{
+		"user": map[string]any{
+			"created_at": "2025-01-15T10:30:00Z",
+			"name":       "John",
+		},
+	}
+
+	fields := ExtractFields(data, "", 0)
+
+	assert.Len(t, fields, 2)
+	dateTimeField := findFieldByPath(fields, "user.created_at")
+	require.NotNil(t, dateTimeField)
+	assert.Equal(t, FieldTypeDateTime, dateTimeField.Type)
+}
+
+func findFieldByPath(fields []ExtractedField, path string) *ExtractedField {
+	for i := range fields {
+		if fields[i].Path == path {
+			return &fields[i]
+		}
+	}
+	return nil
 }

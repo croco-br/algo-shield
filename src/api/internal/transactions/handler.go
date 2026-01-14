@@ -128,12 +128,6 @@ func (h *Handler) ListTransactions(c *fiber.Ctx) error {
 			filter.EndDate = &t
 		}
 	}
-	if minAmount := c.QueryFloat("min_amount", 0); minAmount > 0 {
-		filter.MinAmount = &minAmount
-	}
-	if maxAmount := c.QueryFloat("max_amount", 0); maxAmount > 0 {
-		filter.MaxAmount = &maxAmount
-	}
 
 	// Always use filtered method to get total count
 	transactions, total, err := h.service.ListTransactionsWithFilter(ctx, filter, limit, offset)

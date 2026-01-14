@@ -10,12 +10,13 @@ import (
 type FieldType string
 
 const (
-	FieldTypeString  FieldType = "string"
-	FieldTypeNumber  FieldType = "number"
-	FieldTypeBoolean FieldType = "boolean"
-	FieldTypeArray   FieldType = "array"
-	FieldTypeObject  FieldType = "object"
-	FieldTypeNull    FieldType = "null"
+	FieldTypeString   FieldType = "string"
+	FieldTypeNumber   FieldType = "number"
+	FieldTypeBoolean  FieldType = "boolean"
+	FieldTypeArray    FieldType = "array"
+	FieldTypeObject   FieldType = "object"
+	FieldTypeNull     FieldType = "null"
+	FieldTypeDateTime FieldType = "datetime"
 )
 
 // ExtractedField represents a field extracted from sample JSON

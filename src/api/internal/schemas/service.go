@@ -292,6 +292,9 @@ func inferType(value any) (FieldType, bool) {
 	case float64, float32, int, int32, int64:
 		return FieldTypeNumber, false
 	case string:
+		if isDateTimeString(v) {
+			return FieldTypeDateTime, false
+		}
 		return FieldTypeString, false
 	case []any:
 		return FieldTypeArray, false
@@ -304,4 +307,32 @@ func inferType(value any) (FieldType, bool) {
 		}
 		return FieldTypeString, false
 	}
+}
+
+// isDateTimeString checks if a string represents a valid datetime/timestamp
+// Supports common formats: RFC3339, RFC3339Nano, and other ISO 8601 variants
+func isDateTimeString(s string) bool {
+	if s == "" {
+		return false
+	}
+
+	// Common datetime formats to try
+	formats := []string{
+		time.RFC3339,
+		time.RFC3339Nano,
+		"2006-01-02T15:04:05Z",
+		"2006-01-02T15:04:05-07:00",
+		"2006-01-02T15:04:05.000Z",
+		"2006-01-02T15:04:05.000-07:00",
+		"2006-01-02 15:04:05",
+		"2006-01-02",
+	}
+
+	for _, format := range formats {
+		if _, err := time.Parse(format, s); err == nil {
+			return true
+		}
+	}
+
+	return false
 }

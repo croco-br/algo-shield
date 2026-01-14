@@ -46,21 +46,14 @@ func (r *PostgresRepository) saveTransaction(ctx context.Context, transaction *m
 
 	query := `
 		INSERT INTO ` + tableName + ` (
-			id, external_id, schema_id, amount, currency, origin, destination, 
-			type, status, processing_time, 
+			id, schema_id, status, processing_time, 
 			matched_rules, metadata, created_at, processed_at
-		) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
+		) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
 	`
 
 	_, err := r.db.Exec(ctx, query,
 		transaction.ID,
-		transaction.ExternalID,
 		transaction.SchemaID,
-		transaction.Amount,
-		transaction.Currency,
-		transaction.Origin,
-		transaction.Destination,
-		transaction.Type,
 		transaction.Status,
 		transaction.ProcessingTime,
 		matchedRulesJSON,

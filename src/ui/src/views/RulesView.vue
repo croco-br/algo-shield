@@ -613,13 +613,15 @@ const polygonExpression = computed(() => {
 })
 
 // Velocity expression generator
+// Passes field path as string so the function can extract the value from the current event
 const velocityExpression = computed(() => {
   if (!velocityConfig.groupField || !velocityConfig.threshold || !velocityConfig.timeValue) {
     return ''
   }
   const timeWindowSeconds = convertTimeToSeconds(velocityConfig.timeValue, velocityConfig.timeUnit)
   const functionName = velocityConfig.metric === 'count' ? 'velocityCount' : 'velocitySum'
-  return `${functionName}(${velocityConfig.groupField}, ${timeWindowSeconds}) > ${velocityConfig.threshold}`
+  // Pass field path as quoted string so the function knows which field to use
+  return `${functionName}("${velocityConfig.groupField}", ${timeWindowSeconds}) > ${velocityConfig.threshold}`
 })
 
 // Convert time value and unit to seconds
@@ -791,9 +793,11 @@ watch(
 )
 
 
-// Parse velocity expression: velocityCount(field, timeWindow) > threshold or velocitySum(field, timeWindow) > threshold
+// Parse velocity expression: velocityCount("field", timeWindow) > threshold or velocitySum("field", timeWindow) > threshold
+// Supports both quoted and unquoted field paths for backward compatibility
 function parseVelocityExpression(expression: string): { metric: 'count' | 'sum', groupField: string, timeWindowSeconds: number, threshold: number } | null {
-  const velocityCountMatch = expression.match(/velocityCount\s*\(\s*([^,]+)\s*,\s*(\d+)\s*\)\s*>\s*(\d+)/)
+  // Match velocityCount with quoted or unquoted field path
+  const velocityCountMatch = expression.match(/velocityCount\s*\(\s*["']?([^,"']+)["']?\s*,\s*(\d+)\s*\)\s*>\s*(\d+)/)
   if (velocityCountMatch && velocityCountMatch[1] && velocityCountMatch[2] && velocityCountMatch[3]) {
     return {
       metric: 'count',
@@ -803,7 +807,8 @@ function parseVelocityExpression(expression: string): { metric: 'count' | 'sum',
     }
   }
   
-  const velocitySumMatch = expression.match(/velocitySum\s*\(\s*([^,]+)\s*,\s*(\d+)\s*\)\s*>\s*(\d+)/)
+  // Match velocitySum with quoted or unquoted field path
+  const velocitySumMatch = expression.match(/velocitySum\s*\(\s*["']?([^,"']+)["']?\s*,\s*(\d+)\s*\)\s*>\s*(\d+)/)
   if (velocitySumMatch && velocitySumMatch[1] && velocitySumMatch[2] && velocitySumMatch[3]) {
     return {
       metric: 'sum',

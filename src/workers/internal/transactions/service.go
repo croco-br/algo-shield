@@ -41,17 +41,9 @@ func (s *Service) ProcessTransaction(ctx context.Context, event models.Event) er
 	transactionID := uuid.New()
 	now := time.Now()
 
-	// Extract fields from generic event (with fallbacks for common field names)
-	externalID := extractStringFromEvent(event, "external_id", "id", "event_id")
-	amount := extractFloat64FromEvent(event, "amount", "value", "total")
-	currency := extractStringFromEvent(event, "currency", "currency_code", "curr")
-	origin := extractStringFromEvent(event, "origin", "from_account", "account", "user_id", "customer_id")
-	destination := extractStringFromEvent(event, "destination", "to_account", "recipient_account", "recipient_id")
-	eventType := extractStringFromEvent(event, "type", "transaction_type", "event_type")
-
 	// Extract schema_id if present (added by synthetic event generator)
 	var schemaID *uuid.UUID
-	if schemaIDStr := extractStringFromEvent(event, "_schema_id"); schemaIDStr != "" {
+	if schemaIDStr, ok := event["_schema_id"].(string); ok && schemaIDStr != "" {
 		if parsed, err := uuid.Parse(schemaIDStr); err == nil {
 			schemaID = &parsed
 		}
@@ -67,13 +59,10 @@ func (s *Service) ProcessTransaction(ctx context.Context, event models.Event) er
 		delete(event, "_synthetic")
 	}
 
-	// Extract metadata if present
-	var metadata map[string]any
-	if meta, ok := event["metadata"].(map[string]any); ok {
-		metadata = meta
-	} else {
-		// If no metadata field, use empty map
-		metadata = make(map[string]any)
+	// The entire event becomes the metadata (all fields come from schema)
+	metadata := make(map[string]any)
+	for k, v := range event {
+		metadata[k] = v
 	}
 
 	// Synthetic transactions always have pending status and are not processed
@@ -95,13 +84,7 @@ func (s *Service) ProcessTransaction(ctx context.Context, event models.Event) er
 
 	transaction := &models.Transaction{
 		ID:             transactionID,
-		ExternalID:     externalID,
 		SchemaID:       schemaID,
-		Amount:         amount,
-		Currency:       currency,
-		Origin:         origin,
-		Destination:    destination,
-		Type:           eventType,
 		Status:         status,
 		ProcessingTime: processingTime,
 		MatchedRules:   matchedRules,
@@ -123,48 +106,8 @@ func (s *Service) ProcessTransaction(ctx context.Context, event models.Event) er
 
 	log.Printf(
 		"Processed transaction %s: status=%s, time=%dms",
-		externalID, result.Status, result.ProcessingTime,
+		transactionID, result.Status, result.ProcessingTime,
 	)
 
 	return nil
-}
-
-// Helper functions to extract values from generic event
-func extractStringFromEvent(event models.Event, fieldNames ...string) string {
-	for _, name := range fieldNames {
-		if val, ok := event[name]; ok {
-			if str, ok := val.(string); ok {
-				return str
-			}
-		}
-	}
-	return ""
-}
-
-func extractFloat64FromEvent(event models.Event, fieldNames ...string) float64 {
-	for _, name := range fieldNames {
-		if val, ok := event[name]; ok {
-			if f, ok := toFloat64(val); ok {
-				return f
-			}
-		}
-	}
-	return 0
-}
-
-func toFloat64(v any) (float64, bool) {
-	switch val := v.(type) {
-	case float64:
-		return val, true
-	case float32:
-		return float64(val), true
-	case int:
-		return float64(val), true
-	case int64:
-		return float64(val), true
-	case int32:
-		return float64(val), true
-	default:
-		return 0, false
-	}
 }

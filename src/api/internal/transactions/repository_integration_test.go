@@ -32,25 +32,30 @@ func TestIntegration_TransactionsRepository_GetTransaction_ReturnsTransaction(t 
 	matchedRulesJSON, err := json.Marshal(matchedRules)
 	require.NoError(t, err)
 
+	metadata["external_id"] = externalID
+	metadata["amount"] = 100.50
+	metadata["currency"] = "USD"
+	metadata["origin"] = "account1"
+	metadata["destination"] = "account2"
+	metadata["type"] = "transfer"
+	metadataJSON, err = json.Marshal(metadata)
+	require.NoError(t, err)
+
 	_, err = testDB.Postgres.Exec(ctx, `
-		INSERT INTO transactions (id, external_id, amount, currency, origin, destination, type, status, processing_time, matched_rules, metadata, created_at, processed_at)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
-	`, transactionID, externalID, 100.50, "USD", "account1", "account2", "transfer", "approved", 150, matchedRulesJSON, metadataJSON, time.Now(), time.Now())
+		INSERT INTO transactions (id, schema_id, status, processing_time, matched_rules, metadata, created_at, processed_at)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+	`, transactionID, nil, "approved", 150, matchedRulesJSON, metadataJSON, time.Now(), time.Now())
 	require.NoError(t, err)
 
 	result, err := repo.GetTransaction(ctx, transactionID)
 
 	require.NoError(t, err)
 	assert.Equal(t, transactionID, result.ID)
-	assert.Equal(t, externalID, result.ExternalID)
-	assert.Equal(t, 100.50, result.Amount)
-	assert.Equal(t, "USD", result.Currency)
-	assert.Equal(t, "account1", result.Origin)
-	assert.Equal(t, "account2", result.Destination)
-	assert.Equal(t, "transfer", result.Type)
 	assert.Equal(t, models.StatusApproved, result.Status)
 	assert.Equal(t, int64(150), result.ProcessingTime)
 	assert.Len(t, result.MatchedRules, 2)
+	assert.Equal(t, externalID, result.Metadata["external_id"])
+	assert.Equal(t, 100.50, result.Metadata["amount"])
 }
 
 func TestIntegration_TransactionsRepository_GetTransaction_NotFound_ReturnsError(t *testing.T) {
@@ -77,11 +82,11 @@ func TestIntegration_TransactionsRepository_ListTransactions_ReturnsTransactions
 	metadataJSON, _ := json.Marshal(map[string]any{})
 
 	_, err := testDB.Postgres.Exec(ctx, `
-		INSERT INTO transactions (id, external_id, amount, currency, origin, destination, type, status, processing_time, matched_rules, metadata, created_at)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12),
-		       ($13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24)
-	`, transactionID1, "ext-1", 100.0, "USD", "acc1", "acc2", "transfer", "approved", 100, matchedRulesJSON, metadataJSON, time.Now(),
-		transactionID2, "ext-2", 200.0, "EUR", "acc3", "acc4", "payment", "approved", 200, matchedRulesJSON, metadataJSON, time.Now())
+		INSERT INTO transactions (id, schema_id, status, processing_time, matched_rules, metadata, created_at)
+		VALUES ($1, $2, $3, $4, $5, $6, $7),
+		       ($8, $9, $10, $11, $12, $13, $14)
+	`, transactionID1, nil, "approved", 100, matchedRulesJSON, metadataJSON, time.Now(),
+		transactionID2, nil, "approved", 200, matchedRulesJSON, metadataJSON, time.Now())
 	require.NoError(t, err)
 
 	result, err := repo.ListTransactions(ctx, 10, 0)
@@ -100,9 +105,9 @@ func TestIntegration_TransactionsRepository_ListTransactions_WithLimit_RespectsL
 
 	for i := 0; i < 5; i++ {
 		_, err := testDB.Postgres.Exec(ctx, `
-			INSERT INTO transactions (id, external_id, amount, currency, origin, destination, type, status, processing_time, matched_rules, metadata, created_at)
-			VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
-		`, uuid.New(), "ext-"+strconv.Itoa(i), 100.0, "USD", "acc1", "acc2", "transfer", "approved", 100, matchedRulesJSON, metadataJSON, time.Now())
+			INSERT INTO transactions (id, schema_id, status, processing_time, matched_rules, metadata, created_at)
+			VALUES ($1, $2, $3, $4, $5, $6, $7)
+		`, uuid.New(), nil, "approved", 100, matchedRulesJSON, metadataJSON, time.Now())
 		require.NoError(t, err)
 	}
 
@@ -126,13 +131,13 @@ func TestIntegration_TransactionsRepository_ListTransactions_WithOffset_Respects
 
 	now := time.Now()
 	_, err := testDB.Postgres.Exec(ctx, `
-		INSERT INTO transactions (id, external_id, amount, currency, origin, destination, type, status, processing_time, matched_rules, metadata, created_at)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12),
-		       ($13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24),
-		       ($25, $26, $27, $28, $29, $30, $31, $32, $33, $34, $35, $36)
-	`, transactionID1, "ext-1", 100.0, "USD", "acc1", "acc2", "transfer", "approved", 100, matchedRulesJSON, metadataJSON, now.Add(3*time.Second),
-		transactionID2, "ext-2", 200.0, "EUR", "acc3", "acc4", "payment", "approved", 200, matchedRulesJSON, metadataJSON, now.Add(2*time.Second),
-		transactionID3, "ext-3", 300.0, "GBP", "acc5", "acc6", "transfer", "approved", 300, matchedRulesJSON, metadataJSON, now.Add(1*time.Second))
+		INSERT INTO transactions (id, schema_id, status, processing_time, matched_rules, metadata, created_at)
+		VALUES ($1, $2, $3, $4, $5, $6, $7),
+		       ($8, $9, $10, $11, $12, $13, $14),
+		       ($15, $16, $17, $18, $19, $20, $21)
+	`, transactionID1, nil, "approved", 100, matchedRulesJSON, metadataJSON, now.Add(3*time.Second),
+		transactionID2, nil, "approved", 200, matchedRulesJSON, metadataJSON, now.Add(2*time.Second),
+		transactionID3, nil, "approved", 300, matchedRulesJSON, metadataJSON, now.Add(1*time.Second))
 	require.NoError(t, err)
 
 	firstPage, err := repo.ListTransactions(ctx, 2, 0)

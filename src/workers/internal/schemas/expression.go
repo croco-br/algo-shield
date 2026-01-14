@@ -2,6 +2,7 @@ package schemas
 
 import (
 	"context"
+	"fmt"
 	"log"
 	"strings"
 	"sync"
@@ -97,9 +98,20 @@ func BuildExpressionEnv(ctx context.Context, eventData map[string]any, schema *E
 	}
 
 	// Add velocity helper functions if history repository is available
+	// These functions accept a field path (e.g., "origin", "user.id") and extract the value from the current event
+	// The field path is used to query the metadata JSONB in the database
 	if historyRepo != nil {
-		env["velocityCount"] = func(account string, timeWindowSeconds int) int {
-			count, err := historyRepo.CountByAccountInTimeWindow(ctx, account, timeWindowSeconds)
+		env["velocityCount"] = func(fieldPathOrValue any, timeWindowSeconds int) int {
+			// Try to extract field path and value
+			// If fieldPathOrValue is a string, treat it as field path and extract value
+			// If it's already a value, we need to find the field path (not ideal, but for backward compatibility)
+			fieldPath, fieldValue := extractFieldPathAndValue(fieldPathOrValue, eventData, schema)
+			if fieldPath == "" || fieldValue == "" {
+				log.Printf("Velocity count error: invalid field path or value (path: %v)", fieldPathOrValue)
+				return 0
+			}
+
+			count, err := historyRepo.CountByFieldInTimeWindow(ctx, fieldPath, fieldValue, timeWindowSeconds)
 			if err != nil {
 				log.Printf("Velocity count error: %v", err)
 				return 0
@@ -107,8 +119,58 @@ func BuildExpressionEnv(ctx context.Context, eventData map[string]any, schema *E
 			return count
 		}
 
-		env["velocitySum"] = func(account string, timeWindowSeconds int) float64 {
-			sum, err := historyRepo.SumAmountByAccountInTimeWindow(ctx, account, timeWindowSeconds)
+		// velocitySum supports two signatures:
+		// 1. velocitySum(groupFieldPath, timeWindowSeconds) - uses auto-detected sum field
+		// 2. velocitySum(groupFieldPath, sumFieldPath, timeWindowSeconds) - uses specified sum field
+		env["velocitySum"] = func(args ...any) float64 {
+			if len(args) < 2 {
+				log.Printf("Velocity sum error: requires at least 2 arguments (groupFieldPath, timeWindowSeconds)")
+				return 0.0
+			}
+
+			// Extract group field path and value
+			groupFieldPath, groupFieldValue := extractFieldPathAndValue(args[0], eventData, schema)
+			if groupFieldPath == "" || groupFieldValue == "" {
+				log.Printf("Velocity sum error: invalid group field path or value")
+				return 0.0
+			}
+
+			var sumFieldPath string
+			var timeWindowSeconds int
+
+			if len(args) == 2 {
+				// Signature: velocitySum(groupFieldPath, timeWindowSeconds)
+				// Auto-detect sum field
+				if tw, ok := args[1].(int); ok {
+					timeWindowSeconds = tw
+				} else {
+					log.Printf("Velocity sum error: invalid timeWindowSeconds type")
+					return 0.0
+				}
+				sumFieldPath = detectSumField(schema)
+				if sumFieldPath == "" {
+					sumFieldPath = "amount" // fallback
+				}
+			} else if len(args) == 3 {
+				// Signature: velocitySum(groupFieldPath, sumFieldPath, timeWindowSeconds)
+				if sumPath, ok := args[1].(string); ok {
+					sumFieldPath = sumPath
+				} else {
+					log.Printf("Velocity sum error: sumFieldPath must be a string")
+					return 0.0
+				}
+				if tw, ok := args[2].(int); ok {
+					timeWindowSeconds = tw
+				} else {
+					log.Printf("Velocity sum error: invalid timeWindowSeconds type")
+					return 0.0
+				}
+			} else {
+				log.Printf("Velocity sum error: invalid number of arguments")
+				return 0.0
+			}
+
+			sum, err := historyRepo.SumFieldByFieldInTimeWindow(ctx, groupFieldPath, groupFieldValue, sumFieldPath, timeWindowSeconds)
 			if err != nil {
 				log.Printf("Velocity sum error: %v", err)
 				return 0.0
@@ -118,6 +180,62 @@ func BuildExpressionEnv(ctx context.Context, eventData map[string]any, schema *E
 	}
 
 	return env
+}
+
+// extractFieldPathAndValue extracts the field path and value from the event
+// fieldPathOrValue should be a string representing the field path (e.g., "origin", "user.id")
+// The function extracts the value from eventData using this path
+func extractFieldPathAndValue(fieldPathOrValue any, eventData map[string]any, schema *EventSchema) (string, string) {
+	// Must be a string representing the field path
+	fieldPath, ok := fieldPathOrValue.(string)
+	if !ok {
+		return "", ""
+	}
+
+	// Extract value from event data using the field path
+	value := extractValueByPath(eventData, fieldPath)
+	if value == nil {
+		return "", ""
+	}
+
+	// Convert value to string for query
+	var strValue string
+	switch v := value.(type) {
+	case string:
+		strValue = v
+	case float64, float32, int, int64, int32:
+		strValue = fmt.Sprintf("%v", v)
+	default:
+		strValue = fmt.Sprintf("%v", value)
+	}
+
+	return fieldPath, strValue
+}
+
+// detectSumField detects which numeric field to use for summing
+// Prefers "amount", then "value", then "total", then first numeric field found
+func detectSumField(schema *EventSchema) string {
+	if schema == nil {
+		return "amount"
+	}
+
+	preferredFields := []string{"amount", "value", "total"}
+	for _, preferred := range preferredFields {
+		for _, field := range schema.ExtractedFields {
+			if field.Path == preferred && field.Type == FieldTypeNumber {
+				return preferred
+			}
+		}
+	}
+
+	// Find first numeric field
+	for _, field := range schema.ExtractedFields {
+		if field.Type == FieldTypeNumber {
+			return field.Path
+		}
+	}
+
+	return "amount" // fallback
 }
 
 // setNestedValue sets a value in a nested map structure using dot notation path

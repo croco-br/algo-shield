@@ -636,17 +636,28 @@ The polygon is defined as a 2D array of `[latitude, longitude]` coordinate pairs
 
 #### Velocity Checks
 
-Check transaction velocity (count or sum) within a time window:
+Check transaction velocity (count or sum) within a time window using custom fields from your schema:
 
 ```javascript
-// Count transactions in the last hour (3600 seconds)
-velocityCount(origin, 3600) > 10
+// Count transactions in the last hour (3600 seconds) grouped by a custom field
+velocityCount("origin", 3600) > 10
+velocityCount("user.id", 3600) > 10
+velocityCount("customer_id", 3600) > 10
 
-// Sum transaction amounts in the last hour
-velocitySum(origin, 3600) > 10000
+// Sum transaction amounts in the last hour grouped by a custom field
+velocitySum("origin", 3600) > 10000
+velocitySum("user.id", 3600) > 10000
+
+// Sum a specific numeric field (e.g., "value", "total") grouped by a custom field
+velocitySum("origin", "value", 3600) > 10000
 ```
 
-**Note:** Velocity checks query transaction history from the database. The `origin` field should match the account identifier in your event schema.
+**Note:** 
+- Velocity checks query transaction history from the database using the `metadata` JSONB column.
+- The first parameter is the field path (as a string) used for grouping. It can be any field from your schema (e.g., "origin", "user.id", "customer_id").
+- For `velocitySum`, if you provide only 2 parameters, it auto-detects the numeric field to sum (prefers "amount", "value", "total", or first numeric field found).
+- If you provide 3 parameters to `velocitySum`, the second parameter specifies which numeric field to sum.
+- Field paths support dot notation for nested fields (e.g., "user.id", "account.balance").
 
 ### Recreating Legacy Rule Types
 

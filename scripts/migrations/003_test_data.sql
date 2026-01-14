@@ -1,9 +1,64 @@
--- Migration: Add comprehensive test data
--- This migration adds:
--- 1. A payment event schema that uses all field types and features
--- 2. Rules that demonstrate all possible combinations of actions, expressions, and priorities
+-- ============================================================================
+-- Migration 003: Test Data
+-- Inserts default roles, admin user, branding config, system config, and test data
+-- ============================================================================
 
--- Insert comprehensive payment event schema
+-- ----------------------------------------------------------------------------
+-- Default Roles
+-- ----------------------------------------------------------------------------
+INSERT INTO roles (id, name, description) VALUES
+    (gen_random_uuid(), 'admin', 'Administrator with full system access'),
+    (gen_random_uuid(), 'rule_editor', 'Can create, edit and delete rules'),
+    (gen_random_uuid(), 'viewer', 'Read-only access to view rules and transactions')
+ON CONFLICT (name) DO NOTHING;
+
+-- ----------------------------------------------------------------------------
+-- Default Admin User
+-- Email: admin@admin.com
+-- Password: admin@123
+-- ----------------------------------------------------------------------------
+DO $$
+DECLARE
+    admin_user_id UUID;
+    admin_role_id UUID;
+    admin_email VARCHAR(255) := 'admin@admin.com';
+BEGIN
+    SELECT id INTO admin_role_id FROM roles WHERE name = 'admin';
+    IF admin_role_id IS NULL THEN
+        RAISE EXCEPTION 'Admin role not found. Please ensure roles have been inserted.';
+    END IF;
+    SELECT id INTO admin_user_id FROM users WHERE email = admin_email;
+    IF admin_user_id IS NULL THEN
+        admin_user_id := gen_random_uuid();
+        INSERT INTO users (id, email, name, password_hash, auth_type, active, created_at, updated_at)
+        VALUES (admin_user_id, admin_email, 'Administrator', '$2a$10$IIbu/Hx8lQJanbd0Rr3OeunWWVDF.m6PdRErfcFpZbaJkSsNoJX0.', 'local', true, NOW(), NOW());
+        RAISE NOTICE 'Admin user created successfully with email: % and password: admin@123', admin_email;
+    ELSE
+        RAISE NOTICE 'Admin user already exists, ensuring admin role is assigned';
+    END IF;
+    INSERT INTO user_roles (user_id, role_id, assigned_at)
+    VALUES (admin_user_id, admin_role_id, NOW())
+    ON CONFLICT (user_id, role_id) DO NOTHING;
+    RAISE NOTICE 'Admin role assigned to user with email: %', admin_email;
+END $$;
+
+-- ----------------------------------------------------------------------------
+-- Branding Configuration
+-- ----------------------------------------------------------------------------
+INSERT INTO branding_config (id, app_name, icon_url, favicon_url, primary_color, secondary_color, header_color)
+VALUES (1, 'AlgoShield', '/assets/logo.svg', '/favicon.ico', '#3B82F6', '#10B981', '#1e1e1e')
+ON CONFLICT DO NOTHING;
+
+-- ----------------------------------------------------------------------------
+-- System Configuration
+-- ----------------------------------------------------------------------------
+INSERT INTO system_config (key, value, updated_at)
+VALUES ('synthetic_mode', '{"enabled": false}'::jsonb, NOW())
+ON CONFLICT (key) DO NOTHING;
+
+-- ----------------------------------------------------------------------------
+-- Test Event Schema: Payment Transaction Example
+-- ----------------------------------------------------------------------------
 INSERT INTO event_schemas (id, name, description, sample_json, extracted_fields, created_at, updated_at)
 VALUES (
   '550e8400-e29b-41d4-a716-446655440000'::uuid,
@@ -17,6 +72,7 @@ VALUES (
     "destination": "ACC002",
     "type": "transfer",
     "timestamp": 1704067200000,
+    "created_at": "2024-01-01T12:00:00Z",
     "is_verified": true,
     "is_suspicious": false,
     "tags": ["high-value", "international", "urgent"],
@@ -56,6 +112,7 @@ VALUES (
     {"path": "destination", "type": "string", "nullable": false, "sample_value": "ACC002"},
     {"path": "type", "type": "string", "nullable": false, "sample_value": "transfer"},
     {"path": "timestamp", "type": "number", "nullable": false, "sample_value": 1704067200000},
+    {"path": "created_at", "type": "datetime", "nullable": false, "sample_value": "2024-01-01T12:00:00Z"},
     {"path": "is_verified", "type": "boolean", "nullable": false, "sample_value": true},
     {"path": "is_suspicious", "type": "boolean", "nullable": false, "sample_value": false},
     {"path": "tags", "type": "array", "nullable": false, "sample_value": ["high-value", "international", "urgent"]},
@@ -83,6 +140,10 @@ VALUES (
   NOW()
 )
 ON CONFLICT (name) DO NOTHING;
+
+-- ----------------------------------------------------------------------------
+-- Test Rules
+-- ----------------------------------------------------------------------------
 
 -- Rule 1: High Value Transaction (Block action, high priority)
 INSERT INTO rules (id, name, description, action, priority, enabled, conditions, schema_id, created_at, updated_at)
@@ -148,211 +209,66 @@ VALUES (
 )
 ON CONFLICT (id) DO NOTHING;
 
--- Rule 5: Velocity Count Check (Review action, medium-high priority)
+-- Rule 5: Velocity Check (Review action, medium priority)
 INSERT INTO rules (id, name, description, action, priority, enabled, conditions, schema_id, created_at, updated_at)
 VALUES (
   '660e8400-e29b-41d4-a716-446655440005'::uuid,
-  'High Transaction Frequency',
+  'Review High Velocity Transactions',
   'Example: Review accounts with more than 10 transactions in the last hour',
-  'review',
-  40,
-  true,
-  '{"custom_expression": "velocityCount(origin, 3600) > 10"}'::jsonb,
-  '550e8400-e29b-41d4-a716-446655440000'::uuid,
-  NOW(),
-  NOW()
-)
-ON CONFLICT (id) DO NOTHING;
-
--- Rule 6: Velocity Sum Check (Block action, high priority)
-INSERT INTO rules (id, name, description, action, priority, enabled, conditions, schema_id, created_at, updated_at)
-VALUES (
-  '660e8400-e29b-41d4-a716-446655440006'::uuid,
-  'Block High Cumulative Amount',
-  'Example: Block accounts with cumulative transaction amount over $50,000 in the last 24 hours',
-  'block',
-  15,
-  true,
-  '{"custom_expression": "velocitySum(origin, 86400) > 50000"}'::jsonb,
-  '550e8400-e29b-41d4-a716-446655440000'::uuid,
-  NOW(),
-  NOW()
-)
-ON CONFLICT (id) DO NOTHING;
-
--- Rule 7: Polygon Geographic Check (Review action, medium priority)
-INSERT INTO rules (id, name, description, action, priority, enabled, conditions, schema_id, created_at, updated_at)
-VALUES (
-  '660e8400-e29b-41d4-a716-446655440007'::uuid,
-  'Review Restricted Geographic Zone',
-  'Example: Review transactions originating from a restricted geographic polygon area',
   'review',
   55,
   true,
-  '{"custom_expression": "pointInPolygon(location.lat, location.lon, [[37.7749, -122.4194], [37.7849, -122.4094], [37.7649, -122.4294], [37.7549, -122.4394]])"}'::jsonb,
+  '{"custom_expression": "velocityCount(\"origin\", 3600) > 10"}'::jsonb,
   '550e8400-e29b-41d4-a716-446655440000'::uuid,
   NOW(),
   NOW()
 )
 ON CONFLICT (id) DO NOTHING;
 
--- Rule 8: Complex Expression with AND (Review action, medium priority)
+-- Rule 6: Amount Velocity Check (Review action, medium priority)
+INSERT INTO rules (id, name, description, action, priority, enabled, conditions, schema_id, created_at, updated_at)
+VALUES (
+  '660e8400-e29b-41d4-a716-446655440006'::uuid,
+  'Review High Amount Velocity',
+  'Example: Review accounts with transaction sums exceeding $10,000 in the last hour',
+  'review',
+  56,
+  true,
+  '{"custom_expression": "velocitySum(\"origin\", 3600) > 10000"}'::jsonb,
+  '550e8400-e29b-41d4-a716-446655440000'::uuid,
+  NOW(),
+  NOW()
+)
+ON CONFLICT (id) DO NOTHING;
+
+-- Rule 7: Complex Multi-Condition Rule (Block action, high priority)
+INSERT INTO rules (id, name, description, action, priority, enabled, conditions, schema_id, created_at, updated_at)
+VALUES (
+  '660e8400-e29b-41d4-a716-446655440007'::uuid,
+  'Block High-Risk Multi-Condition Transactions',
+  'Example: Block transactions that meet multiple high-risk criteria simultaneously',
+  'block',
+  15,
+  true,
+  '{"custom_expression": "(amount > 5000 and currency != \"USD\") or (amount > 10000 and user.country in [\"RU\", \"CN\", \"KP\"])"}'::jsonb,
+  '550e8400-e29b-41d4-a716-446655440000'::uuid,
+  NOW(),
+  NOW()
+)
+ON CONFLICT (id) DO NOTHING;
+
+-- Rule 8: Allow Low-Risk Transactions (Allow action, low priority)
 INSERT INTO rules (id, name, description, action, priority, enabled, conditions, schema_id, created_at, updated_at)
 VALUES (
   '660e8400-e29b-41d4-a716-446655440008'::uuid,
-  'Review High Value International',
-  'Example: Review high-value transactions to international destinations',
-  'review',
-  45,
-  true,
-  '{"custom_expression": "amount > 5000 and currency != \"USD\""}'::jsonb,
-  '550e8400-e29b-41d4-a716-446655440000'::uuid,
-  NOW(),
-  NOW()
-)
-ON CONFLICT (id) DO NOTHING;
-
--- Rule 9: Complex Expression with OR (Review action, medium priority)
-INSERT INTO rules (id, name, description, action, priority, enabled, conditions, schema_id, created_at, updated_at)
-VALUES (
-  '660e8400-e29b-41d4-a716-446655440009'::uuid,
-  'Review High Risk Combinations',
-  'Example: Review transactions that are either high-value USD or from high-risk geographic regions',
-  'review',
-  50,
-  true,
-  '{"custom_expression": "(amount > 10000 and currency == \"USD\") or (amount > 5000 and (pointInPolygon(location.lat, location.lon, [[55.0, 30.0], [60.0, 30.0], [60.0, 45.0], [55.0, 45.0]]) or pointInPolygon(location.lat, location.lon, [[35.0, 110.0], [45.0, 110.0], [45.0, 125.0], [35.0, 125.0]])))"}'::jsonb,
-  '550e8400-e29b-41d4-a716-446655440000'::uuid,
-  NOW(),
-  NOW()
-)
-ON CONFLICT (id) DO NOTHING;
-
--- Rule 10: Boolean Check (Allow action, low priority - whitelist)
-INSERT INTO rules (id, name, description, action, priority, enabled, conditions, schema_id, created_at, updated_at)
-VALUES (
-  '660e8400-e29b-41d4-a716-446655440010'::uuid,
-  'Allow Verified Premium Users',
-  'Example: Explicitly allow transactions from verified premium users',
+  'Allow Low-Risk Verified Transactions',
+  'Example: Automatically approve low-value, verified transactions from trusted sources',
   'allow',
-  90,
+  100,
   true,
-  '{"custom_expression": "is_verified == true and user.account_type == \"premium\" and user.verification_status == \"verified\""}'::jsonb,
+  '{"custom_expression": "amount < 1000 and is_verified == true and user.verification_status == \"verified\""}'::jsonb,
   '550e8400-e29b-41d4-a716-446655440000'::uuid,
   NOW(),
   NOW()
 )
 ON CONFLICT (id) DO NOTHING;
-
--- Rule 11: Array Contains Check (Review action, medium priority)
-INSERT INTO rules (id, name, description, action, priority, enabled, conditions, schema_id, created_at, updated_at)
-VALUES (
-  '660e8400-e29b-41d4-a716-446655440011'::uuid,
-  'Review Tagged Transactions',
-  'Example: Review transactions tagged as high-value or urgent',
-  'review',
-  65,
-  true,
-  '{"custom_expression": "\"high-value\" in tags or \"urgent\" in tags"}'::jsonb,
-  '550e8400-e29b-41d4-a716-446655440000'::uuid,
-  NOW(),
-  NOW()
-)
-ON CONFLICT (id) DO NOTHING;
-
--- Rule 12: Nested Field Comparison (Review action, medium priority)
-INSERT INTO rules (id, name, description, action, priority, enabled, conditions, schema_id, created_at, updated_at)
-VALUES (
-  '660e8400-e29b-41d4-a716-446655440012'::uuid,
-  'Review High Risk Score',
-  'Example: Review transactions with high metadata risk score',
-  'review',
-  70,
-  true,
-  '{"custom_expression": "metadata.risk_score > 75"}'::jsonb,
-  '550e8400-e29b-41d4-a716-446655440000'::uuid,
-  NOW(),
-  NOW()
-)
-ON CONFLICT (id) DO NOTHING;
-
--- Rule 13: Multiple Conditions with NOT (Review action, medium priority)
-INSERT INTO rules (id, name, description, action, priority, enabled, conditions, schema_id, created_at, updated_at)
-VALUES (
-  '660e8400-e29b-41d4-a716-446655440013'::uuid,
-  'Review Unverified High Value',
-  'Example: Review high-value transactions from unverified users',
-  'review',
-  35,
-  true,
-  '{"custom_expression": "amount > 5000 and not is_verified"}'::jsonb,
-  '550e8400-e29b-41d4-a716-446655440000'::uuid,
-  NOW(),
-  NOW()
-)
-ON CONFLICT (id) DO NOTHING;
-
--- Rule 14: Payment Method Check (Review action, medium priority)
-INSERT INTO rules (id, name, description, action, priority, enabled, conditions, schema_id, created_at, updated_at)
-VALUES (
-  '660e8400-e29b-41d4-a716-446655440014'::uuid,
-  'Review Non-Standard Payment Methods',
-  'Example: Review transactions using non-standard payment methods',
-  'review',
-  75,
-  true,
-  '{"custom_expression": "payment_method.type != \"credit_card\" and payment_method.type != \"debit_card\""}'::jsonb,
-  '550e8400-e29b-41d4-a716-446655440000'::uuid,
-  NOW(),
-  NOW()
-)
-ON CONFLICT (id) DO NOTHING;
-
--- Rule 15: Disabled Rule Example (Block action, high priority but disabled)
-INSERT INTO rules (id, name, description, action, priority, enabled, conditions, schema_id, created_at, updated_at)
-VALUES (
-  '660e8400-e29b-41d4-a716-446655440015'::uuid,
-  'Disabled: Block All International',
-  'Example: Example of a disabled rule - would block all international transactions if enabled',
-  'block',
-  20,
-  false,
-  '{"custom_expression": "currency != \"USD\""}'::jsonb,
-  '550e8400-e29b-41d4-a716-446655440000'::uuid,
-  NOW(),
-  NOW()
-)
-ON CONFLICT (id) DO NOTHING;
-
--- Rule 16: Low Priority Allow Rule (Allow action, very low priority)
-INSERT INTO rules (id, name, description, action, priority, enabled, conditions, schema_id, created_at, updated_at)
-VALUES (
-  '660e8400-e29b-41d4-a716-446655440016'::uuid,
-  'Allow Low Value Domestic',
-  'Example: Explicitly allow low-value domestic transactions from US geographic region',
-  'allow',
-  95,
-  true,
-  '{"custom_expression": "amount < 1000 and currency == \"USD\" and pointInPolygon(location.lat, location.lon, [[25.0, -125.0], [49.0, -125.0], [49.0, -66.0], [25.0, -66.0]])"}'::jsonb,
-  '550e8400-e29b-41d4-a716-446655440000'::uuid,
-  NOW(),
-  NOW()
-)
-ON CONFLICT (id) DO NOTHING;
-
--- Rule 17: Complex Multi-Condition with Nested Fields (Review action, medium priority)
-INSERT INTO rules (id, name, description, action, priority, enabled, conditions, schema_id, created_at, updated_at)
-VALUES (
-  '660e8400-e29b-41d4-a716-446655440017'::uuid,
-  'Review Complex Risk Pattern',
-  'Example: Review transactions matching complex risk patterns combining multiple factors including geographic regions',
-  'review',
-  30,
-  true,
-  '{"custom_expression": "(amount > 3000 and metadata.risk_score > 50) or ((pointInPolygon(location.lat, location.lon, [[55.0, 30.0], [60.0, 30.0], [60.0, 45.0], [55.0, 45.0]]) or pointInPolygon(location.lat, location.lon, [[35.0, 110.0], [45.0, 110.0], [45.0, 125.0], [35.0, 125.0]])) and not is_verified) or (velocityCount(origin, 7200) > 5 and amount > 2000)"}'::jsonb,
-  '550e8400-e29b-41d4-a716-446655440000'::uuid,
-  NOW(),
-  NOW()
-)
-ON CONFLICT (id) DO NOTHING;
-

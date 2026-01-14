@@ -154,11 +154,13 @@ func Test_Handler_GetTransaction_WhenValidID_ThenReturnsTransaction(t *testing.T
 
 	transactionID := uuid.New()
 	expectedTransaction := &models.Transaction{
-		ID:         transactionID,
-		ExternalID: "tx-123",
-		Amount:     100.0,
-		Currency:   "USD",
-		Status:     "APPROVED",
+		ID:     transactionID,
+		Status: models.StatusApproved,
+		Metadata: map[string]any{
+			"external_id": "tx-123",
+			"amount":      100.0,
+			"currency":    "USD",
+		},
 	}
 
 	mockService.EXPECT().
@@ -177,8 +179,9 @@ func Test_Handler_GetTransaction_WhenValidID_ThenReturnsTransaction(t *testing.T
 	err = json.Unmarshal(body, &result)
 	require.NoError(t, err)
 
-	assert.Equal(t, expectedTransaction.ExternalID, result.ExternalID)
-	assert.Equal(t, expectedTransaction.Amount, result.Amount)
+	assert.Equal(t, expectedTransaction.Status, result.Status)
+	assert.Equal(t, "tx-123", result.Metadata["external_id"])
+	assert.Equal(t, 100.0, result.Metadata["amount"])
 }
 
 func Test_Handler_GetTransaction_WhenInvalidID_ThenReturnsBadRequest(t *testing.T) {
@@ -241,8 +244,8 @@ func Test_Handler_ListTransactions_WhenSuccess_ThenReturnsTransactions(t *testin
 	app.Get("/transactions", handler.ListTransactions)
 
 	expectedTransactions := []models.Transaction{
-		{ID: uuid.New(), ExternalID: "tx-1", Amount: 100.0},
-		{ID: uuid.New(), ExternalID: "tx-2", Amount: 200.0},
+		{ID: uuid.New(), Status: models.StatusApproved, Metadata: map[string]any{"external_id": "tx-1", "amount": 100.0}},
+		{ID: uuid.New(), Status: models.StatusApproved, Metadata: map[string]any{"external_id": "tx-2", "amount": 200.0}},
 	}
 
 	mockService.EXPECT().
@@ -277,7 +280,7 @@ func Test_Handler_ListTransactions_WhenCustomPagination_ThenUsesParams(t *testin
 	app.Get("/transactions", handler.ListTransactions)
 
 	expectedTransactions := []models.Transaction{
-		{ID: uuid.New(), ExternalID: "tx-1", Amount: 100.0},
+		{ID: uuid.New(), Status: models.StatusApproved, Metadata: map[string]any{"external_id": "tx-1", "amount": 100.0}},
 	}
 
 	mockService.EXPECT().

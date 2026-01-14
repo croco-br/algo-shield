@@ -50,16 +50,6 @@
               />
             </v-col>
             <v-col cols="12" md="3">
-              <v-select
-                v-model="filters.schemaId"
-                :items="schemaOptions"
-                :label="$t('views.transactions.filterSchema')"
-                clearable
-                density="compact"
-                variant="outlined"
-              />
-            </v-col>
-            <v-col cols="12" md="3">
               <v-text-field
                 v-model="filters.startDate"
                 :label="$t('views.transactions.filterStartDate')"
@@ -77,30 +67,6 @@
                 density="compact"
                 variant="outlined"
                 clearable
-              />
-            </v-col>
-          </v-row>
-          <v-row align="center">
-            <v-col cols="12" md="3">
-              <v-text-field
-                v-model.number="filters.minAmount"
-                :label="$t('views.transactions.filterMinAmount')"
-                type="number"
-                density="compact"
-                variant="outlined"
-                clearable
-                hide-details
-              />
-            </v-col>
-            <v-col cols="12" md="3">
-              <v-text-field
-                v-model.number="filters.maxAmount"
-                :label="$t('views.transactions.filterMaxAmount')"
-                type="number"
-                density="compact"
-                variant="outlined"
-                clearable
-                hide-details
               />
             </v-col>
             <v-col cols="12" md="6" class="d-flex gap-2">
@@ -124,10 +90,10 @@
           @retry="loadTransactions"
         />
 
-        <!-- Transaction Table -->
-        <v-card v-else variant="outlined">
+        <!-- Transaction Table - Dynamic based on schema -->
+        <v-card v-if="filters.schemaId" variant="outlined">
           <v-data-table
-            :headers="tableHeaders"
+            :headers="dynamicTableHeaders"
             :items="transactions"
             :items-per-page="itemsPerPage"
             :page="currentPage"
@@ -138,35 +104,46 @@
             class="elevation-0"
             server-items-length
           >
+            <!-- Core columns -->
             <template #item.status="{ item }">
               <BaseBadge :variant="getStatusVariant(item.status)">
                 {{ item.status }}
               </BaseBadge>
             </template>
-            <template #item.amount="{ item }">
-              {{ formatCurrency(item.amount, item.currency) }}
-            </template>
             <template #item.created_at="{ item }">
               {{ formatDate(item.created_at) }}
             </template>
+
+
+            <!-- Actions -->
             <template #item.actions="{ item }">
-              <div v-if="item.status === 'in_review'" class="d-flex gap-2">
+              <div class="d-flex gap-2">
                 <BaseButton 
                   size="sm"
-                  variant="primary"
-                  @click="approveTransaction(item.id)"
-                  prepend-icon="fa-check"
+                  variant="ghost"
+                  @click="openDetailModal(item)"
+                  prepend-icon="fa-eye"
                 >
-                  {{ $t('views.transactions.approve') }}
+                  {{ $t('views.transactions.viewDetails') }}
                 </BaseButton>
-                <BaseButton 
-                  size="sm"
-                  variant="danger"
-                  @click="rejectTransaction(item.id)"
-                  prepend-icon="fa-times"
-                >
-                  {{ $t('views.transactions.reject') }}
-                </BaseButton>
+                <div v-if="item.status === 'in_review'" class="d-flex gap-2">
+                  <BaseButton 
+                    size="sm"
+                    variant="primary"
+                    @click="approveTransaction(item.id)"
+                    prepend-icon="fa-check"
+                  >
+                    {{ $t('views.transactions.approve') }}
+                  </BaseButton>
+                  <BaseButton 
+                    size="sm"
+                    variant="danger"
+                    @click="rejectTransaction(item.id)"
+                    prepend-icon="fa-times"
+                  >
+                    {{ $t('views.transactions.reject') }}
+                  </BaseButton>
+                </div>
               </div>
             </template>
           </v-data-table>
@@ -229,11 +206,19 @@
         </BaseButton>
       </template>
     </BaseModal>
+
+    <!-- Transaction Detail Modal -->
+    <TransactionDetailModal
+      v-model="showDetailModal"
+      :transaction="selectedTransaction"
+      @close="closeDetailModal"
+    />
   </v-container>
 </template>
 
 <script setup lang="ts">
 import { ref, reactive, onMounted, onUnmounted, computed, watch } from 'vue'
+import { useRoute } from 'vue-router'
 import { useLocale } from '@/composables/useLocale'
 import { useCurrency } from '@/composables/useCurrency'
 import { useSystemModeStore } from '@/stores/systemMode'
@@ -245,21 +230,38 @@ import BaseModal from '@/components/BaseModal.vue'
 import BaseInput from '@/components/BaseInput.vue'
 import LoadingSpinner from '@/components/LoadingSpinner.vue'
 import ErrorMessage from '@/components/ErrorMessage.vue'
-
-const { t } = useLocale()
-const { formatCurrency } = useCurrency()
-const systemModeStore = useSystemModeStore()
+import TransactionDetailModal from '@/components/TransactionDetailModal.vue'
 
 interface Schema {
   id: string
   name: string
 }
 
+interface ExtractedField {
+  path: string
+  type: string
+  nullable: boolean
+  sample_value?: any
+}
+
+interface EventSchema {
+  id: string
+  name: string
+  description?: string
+  extracted_fields: ExtractedField[]
+  sample_json: Record<string, any>
+}
+
+const route = useRoute()
+const { t } = useLocale()
+const systemModeStore = useSystemModeStore()
+
 const loading = ref(true)
 const error = ref('')
 const transactions = ref<Transaction[]>([])
 const total = ref(0)
 const schemas = ref<Schema[]>([])
+const selectedSchemaData = ref<EventSchema | null>(null)
 const isLive = ref(false)
 const syntheticMode = computed(() => systemModeStore.syntheticMode)
 let pollingInterval: ReturnType<typeof setInterval> | null = null
@@ -277,13 +279,15 @@ const generateCount = ref(10)
 const generating = ref(false)
 const generateResult = ref<{ success: boolean; message: string } | null>(null)
 
+// Transaction detail modal state
+const showDetailModal = ref(false)
+const selectedTransaction = ref<Transaction | null>(null)
+
 const filters = reactive({
-  status: 'pending' as string | null, // Default filter: pending transactions
+  status: null as string | null,
   schemaId: null as string | null,
   startDate: null as string | null,
   endDate: null as string | null,
-  minAmount: null as number | null,
-  maxAmount: null as number | null,
 })
 
 const statusOptions = computed(() => [
@@ -294,40 +298,86 @@ const statusOptions = computed(() => [
   { title: t('views.transactions.statusPending'), value: 'pending' },
 ])
 
-const schemaOptions = computed(() => [
-  { title: t('views.transactions.allSchemas'), value: null },
-  ...schemas.value.map((s: Schema) => ({ title: s.name, value: s.id }))
-])
-
 const generateSchemaOptions = computed(() => 
   schemas.value.map((s: Schema) => ({ title: s.name, value: s.id }))
 )
 
+const selectedSchema = computed(() => {
+  if (!filters.schemaId) return null
+  return schemas.value.find(s => s.id === filters.schemaId) || null
+})
 
+const schemaFields = computed<ExtractedField[]>(() => {
+  if (!selectedSchemaData.value) return []
+  return selectedSchemaData.value.extracted_fields.filter(f => 
+    f.type !== 'object' && f.type !== 'array'
+  ).slice(0, 10) // Limit to 10 most relevant fields
+})
 
-const tableHeaders = computed(() => [
-  { title: t('views.transactions.tableExternalId'), key: 'external_id', sortable: true },
-  { title: t('views.transactions.tableStatus'), key: 'status', sortable: true },
-  { title: t('views.transactions.tableAmount'), key: 'amount', sortable: true },
-  { title: t('views.transactions.tableOrigin'), key: 'origin', sortable: true },
-  { title: t('views.transactions.tableDestination'), key: 'destination', sortable: true },
-  { title: t('views.transactions.tableType'), key: 'type', sortable: true },
-  { title: t('views.transactions.tableCreated'), key: 'created_at', sortable: true },
-  { title: t('views.transactions.tableActions'), key: 'actions', sortable: false },
-])
+// Dynamic table headers based on selected schema
+const dynamicTableHeaders = computed(() => {
+  const headers: Array<{ title: string; key: string; sortable: boolean; value?: (item: Transaction) => any }> = [
+    { title: t('views.transactions.tableStatus'), key: 'status', sortable: true },
+    { title: t('views.transactions.tableCreated'), key: 'created_at', sortable: true },
+  ]
+
+  // If schema selected, show schema fields
+  if (selectedSchema.value && schemaFields.value.length > 0) {
+    // Add schema fields as columns with custom value function
+    schemaFields.value.forEach((field: ExtractedField) => {
+      const safeKey = field.path.replace(/\./g, '_')
+      const fieldName = field.path.split('.').pop() || field.path
+      headers.push({
+        title: fieldName.toUpperCase(),
+        key: `schema_field_${safeKey}`,
+        sortable: false,
+        value: (item: Transaction) => {
+          const val = getSchemaFieldValue(item, field.path)
+          return val !== undefined ? formatSchemaFieldValue(val, field.type) : '-'
+        }
+      })
+    })
+  }
+
+  headers.push({ title: t('views.transactions.tableActions'), key: 'actions', sortable: false })
+  return headers
+})
 
 onMounted(async () => {
   await systemModeStore.loadMode()
-  await Promise.all([loadTransactions(), loadSchemas()])
+  await loadSchemas()
+  
+  // Read schemaId from query parameter
+  const schemaIdFromQuery = route.query.schemaId as string | undefined
+  if (schemaIdFromQuery) {
+    filters.schemaId = schemaIdFromQuery
+    await loadSchemaData(schemaIdFromQuery)
+    await loadTransactions()
+  }
+})
+
+// Watch for query parameter changes
+watch(() => route.query.schemaId, async (newSchemaId) => {
+  const schemaId = typeof newSchemaId === 'string' ? newSchemaId : undefined
+  if (schemaId && schemaId !== filters.schemaId) {
+    filters.schemaId = schemaId
+    await loadSchemaData(schemaId)
+    await loadTransactions()
+  } else if (!schemaId) {
+    filters.schemaId = null
+    selectedSchemaData.value = null
+    transactions.value = []
+    total.value = 0
+  }
 })
 
 // Watch for synthetic mode changes
 watch(() => systemModeStore.syntheticMode, () => {
-  // Modal will be hidden automatically if synthetic mode is disabled
   if (!systemModeStore.syntheticMode && showGenerateModal.value) {
     showGenerateModal.value = false
   }
 })
+
 
 onUnmounted(() => {
   stopLiveUpdates()
@@ -339,6 +389,57 @@ async function loadSchemas() {
     schemas.value = response?.schemas || []
   } catch (e) {
     console.error('Error loading schemas:', e)
+  }
+}
+
+
+async function loadSchemaData(schemaId: string) {
+  try {
+    const response = await api.get<EventSchema>(`/api/v1/schemas/${schemaId}`)
+    selectedSchemaData.value = response
+  } catch (e) {
+    console.error('Error loading schema data:', e)
+    selectedSchemaData.value = null
+  }
+}
+
+function getSchemaFieldValue(transaction: Transaction, fieldPath: string): any {
+  const metadata = transaction.metadata || {}
+  const parts = fieldPath.split('.')
+  let current: any = metadata
+  
+  for (const part of parts) {
+    if (current === null || current === undefined) return undefined
+    current = current[part]
+  }
+  
+  return current
+}
+
+function formatSchemaFieldValue(value: any, type: string): string {
+  if (value === null || value === undefined) return '-'
+  
+  switch (type) {
+    case 'number':
+      return typeof value === 'number' ? value.toLocaleString() : String(value)
+    case 'boolean':
+      return value ? 'Yes' : 'No'
+    case 'datetime':
+      if (typeof value === 'string') {
+        try {
+          const date = new Date(value)
+          if (!isNaN(date.getTime())) {
+            return date.toLocaleString()
+          }
+        } catch {
+          // Fall through to return string value
+        }
+      }
+      return String(value)
+    case 'string':
+      return String(value)
+    default:
+      return String(value)
   }
 }
 
@@ -355,8 +456,6 @@ async function loadTransactions() {
     if (filters.schemaId) params.append('schema_id', filters.schemaId)
     if (filters.startDate) params.append('start_date', new Date(filters.startDate).toISOString())
     if (filters.endDate) params.append('end_date', new Date(filters.endDate).toISOString())
-    if (filters.minAmount) params.append('min_amount', String(filters.minAmount))
-    if (filters.maxAmount) params.append('max_amount', String(filters.maxAmount))
 
     const response = await api.get<{ transactions: Transaction[]; total?: number }>(`/api/v1/transactions?${params.toString()}`)
     transactions.value = response.transactions || []
@@ -376,13 +475,12 @@ function applyFilters() {
 
 function clearFilters() {
   filters.status = null
-  filters.schemaId = null
   filters.startDate = null
   filters.endDate = null
-  filters.minAmount = null
-  filters.maxAmount = null
   currentPage.value = 1
-  loadTransactions()
+  if (filters.schemaId) {
+    loadTransactions()
+  }
 }
 
 // Pagination handlers
@@ -426,7 +524,6 @@ async function handleGenerateEvents() {
       message: response?.message || `Successfully generated ${response?.generated_count || generateCount.value} events`,
     }
 
-    // Reload transactions after a short delay to see the new events
     setTimeout(() => {
       loadTransactions()
     }, 1000)
@@ -451,7 +548,6 @@ function toggleLiveUpdates() {
 function startLiveUpdates() {
   isLive.value = true
   
-  // Try SSE first, fall back to polling
   try {
     const token = localStorage.getItem('token')
     eventSource = new EventSource(`/api/v1/transactions/stream?token=${token}`)
@@ -468,7 +564,6 @@ function startLiveUpdates() {
     }
 
     eventSource.onerror = () => {
-      // Fall back to polling if SSE fails
       if (eventSource) {
         eventSource.close()
         eventSource = null
@@ -476,7 +571,6 @@ function startLiveUpdates() {
       startPolling()
     }
   } catch (e) {
-    // Fall back to polling
     startPolling()
   }
 }
@@ -488,7 +582,7 @@ function startPolling() {
     if (isLive.value) {
       loadTransactions()
     }
-  }, 5000) // Poll every 5 seconds
+  }, 5000)
 }
 
 function stopLiveUpdates() {
@@ -536,6 +630,16 @@ function getStatusVariant(status: string): 'success' | 'danger' | 'warning' | 'i
 function formatDate(dateStr: string): string {
   if (!dateStr) return ''
   return new Date(dateStr).toLocaleString()
+}
+
+function openDetailModal(transaction: Transaction) {
+  selectedTransaction.value = transaction
+  showDetailModal.value = true
+}
+
+function closeDetailModal() {
+  showDetailModal.value = false
+  selectedTransaction.value = null
 }
 </script>
 
