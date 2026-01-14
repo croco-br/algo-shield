@@ -6,10 +6,13 @@ export interface ApiError {
 
 // SECURITY NOTE: Token getter function is injected to avoid circular dependencies
 // The auth store will provide the token via getToken() function
-let tokenGetter: (() => string | null) | null = null;
+// Using an object to store the getter helps with module isolation in tests
+const tokenGetterHolder: { getter: (() => string | null) | null } = {
+	getter: null
+};
 
 export function setTokenGetter(getter: () => string | null): void {
-	tokenGetter = getter;
+	tokenGetterHolder.getter = getter;
 }
 
 // Get synthetic mode from localStorage (synced by systemMode store)
@@ -45,7 +48,7 @@ async function request<T>(
 		throw new Error(`API baseUrl uses container hostname (${uiConfig.api.baseUrl}). Browser cannot resolve container hostnames. Use http://localhost:8080 instead.`);
 	}
 	// SECURITY: Get token from memory-only Pinia store (never localStorage)
-	const token = tokenGetter ? tokenGetter() : null;
+	const token = tokenGetterHolder.getter ? tokenGetterHolder.getter() : null;
 	const syntheticMode = getSyntheticMode();
 	
 	const headers: Record<string, string> = {
@@ -139,7 +142,6 @@ async function request<T>(
 			}
 			// Handle network errors (Failed to fetch, CORS, etc.)
 			if (error.message.includes('Failed to fetch') || error.message.includes('NetworkError')) {
-				const apiUrl = uiConfig.api.baseUrl || 'the API server';
 				throw new Error(`Unable to connect to server.`);
 			}
 			// Re-throw if it's already our formatted error
