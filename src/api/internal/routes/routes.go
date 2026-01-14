@@ -94,6 +94,7 @@ func Setup(app *fiber.App, db *pgxpool.Pool, redis *redis.Client, cfg *config.Co
 	transactionsGroup.Get("/", transactionHandler.ListTransactions)
 	transactionsGroup.Get("/:id", transactionHandler.GetTransaction)
 	transactionsGroup.Patch("/:id/approve", transactionHandler.ApproveTransaction)
+	transactionsGroup.Patch("/:id/reject", transactionHandler.RejectTransaction)
 
 	// Dashboard routes (protected)
 	v1.Get("/dashboard/metrics", dashboardHandler.GetMetrics)

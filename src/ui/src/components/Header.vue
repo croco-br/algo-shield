@@ -32,8 +32,7 @@
         <!-- Synthetic Mode Toggle -->
         <div class="d-flex align-center gap-2">
           <v-chip 
-            v-if="syntheticMode" 
-            color="warning" 
+            :color="syntheticMode ? 'success' : 'grey'" 
             size="small" 
             class="font-weight-bold"
           >

@@ -72,12 +72,18 @@ func (r *PostgresHistoryRepository) CountByFieldInTimeWindow(ctx context.Context
 		return 0, err
 	}
 
+	// Determine table name based on context (check if synthetic mode is set)
+	tableName := "transactions"
+	if isSynthetic, ok := ctx.Value("synthetic_mode").(bool); ok && isSynthetic {
+		tableName = "synthetic_transactions"
+	}
+
 	query := fmt.Sprintf(`
 		SELECT COUNT(*) 
-		FROM transactions 
+		FROM %s 
 		WHERE %s = $1
 		AND created_at > NOW() - INTERVAL '1 second' * $2
-	`, fieldQuery)
+	`, tableName, fieldQuery)
 
 	var count int
 	err = r.db.QueryRow(ctx, query, fieldValue, timeWindowSeconds).Scan(&count)
@@ -99,13 +105,19 @@ func (r *PostgresHistoryRepository) SumFieldByFieldInTimeWindow(ctx context.Cont
 		return 0.0, err
 	}
 
+	// Determine table name based on context (check if synthetic mode is set)
+	tableName := "transactions"
+	if isSynthetic, ok := ctx.Value("synthetic_mode").(bool); ok && isSynthetic {
+		tableName = "synthetic_transactions"
+	}
+
 	query := fmt.Sprintf(`
 		SELECT COALESCE(SUM((%s)::numeric), 0) 
-		FROM transactions 
+		FROM %s 
 		WHERE %s = $1
 		AND created_at > NOW() - INTERVAL '1 second' * $2
 		AND %s IS NOT NULL
-	`, sumFieldQuery, groupFieldQuery, sumFieldQuery)
+	`, sumFieldQuery, tableName, groupFieldQuery, sumFieldQuery)
 
 	var sum float64
 	err = r.db.QueryRow(ctx, query, groupFieldValue, timeWindowSeconds).Scan(&sum)

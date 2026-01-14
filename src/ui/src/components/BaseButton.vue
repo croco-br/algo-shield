@@ -7,7 +7,8 @@
     :color="mappedColor"
     :block="fullWidth"
     :loading="loading"
-    :prepend-icon="prependIcon"
+    :prepend-icon="icon ? undefined : prependIcon"
+    :icon="icon"
     class="base-button"
   >
     <slot />
@@ -25,6 +26,7 @@ interface Props {
   loading?: boolean
   fullWidth?: boolean
   prependIcon?: string
+  icon?: string
 }
 
 const props = withDefaults(defineProps<Props>(), {

@@ -69,13 +69,15 @@
                 clearable
               />
             </v-col>
-            <v-col cols="12" md="3" class="d-flex gap-2 align-center">
-              <BaseButton @click="applyFilters" prepend-icon="fa-filter">
-                {{ $t('views.transactions.applyFilters') }}
-              </BaseButton>
-              <BaseButton variant="ghost" @click="clearFilters" prepend-icon="fa-times">
-                {{ $t('views.transactions.clearFilters') }}
-              </BaseButton>
+            <v-col cols="12" md="3">
+              <div class="d-flex gap-2" style="height: 100%; align-items: flex-end;">
+                <BaseButton size="sm" @click="applyFilters" prepend-icon="fa-filter">
+                  {{ $t('views.transactions.applyFilters') }}
+                </BaseButton>
+                <BaseButton size="sm" variant="ghost" @click="clearFilters" prepend-icon="fa-times">
+                  {{ $t('views.transactions.clearFilters') }}
+                </BaseButton>
+              </div>
             </v-col>
           </v-row>
         </v-card>
@@ -118,31 +120,32 @@
             <!-- Actions -->
             <template #item.actions="{ item }">
               <div class="d-flex gap-2">
-                <v-btn
-                  size="small"
-                  variant="text"
+                <BaseButton
+                  size="sm"
+                  variant="ghost"
                   icon="fa-eye"
                   :title="$t('views.transactions.viewDetails')"
                   @click="openDetailModal(item)"
-                />
-                <v-btn
+                >
+                </BaseButton>
+                <BaseButton
                   v-if="item.status === 'pending'"
-                  size="small"
-                  variant="flat"
-                  color="primary"
+                  size="sm"
+                  variant="primary"
                   icon="fa-check"
                   :title="$t('views.transactions.approve')"
                   @click="approveTransaction(item.id)"
-                />
-                <v-btn
+                >
+                </BaseButton>
+                <BaseButton
                   v-if="item.status === 'pending'"
-                  size="small"
-                  variant="flat"
-                  color="error"
+                  size="sm"
+                  variant="danger"
                   icon="fa-times"
                   :title="$t('views.transactions.reject')"
                   @click="rejectTransaction(item.id)"
-                />
+                >
+                </BaseButton>
               </div>
             </template>
           </v-data-table>
