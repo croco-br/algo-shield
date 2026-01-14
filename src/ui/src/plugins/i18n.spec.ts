@@ -37,29 +37,25 @@ describe('i18n plugin', () => {
     })
 
     it('has pt-BR messages loaded', () => {
-      expect(i18n.global.messages['pt-BR']).toBeDefined()
+      expect(i18n.global.messages.value['pt-BR']).toBeDefined()
     })
 
     it('has en-US messages loaded', () => {
-      expect(i18n.global.messages['en-US']).toBeDefined()
+      expect(i18n.global.messages.value['en-US']).toBeDefined()
     })
 
     it('has en-US as fallback locale', () => {
-      expect(i18n.global.fallbackLocale).toBe('en-US')
-    })
-
-    it('uses legacy mode', () => {
-      expect(i18n.mode).toBe('legacy')
+      expect(i18n.global.fallbackLocale.value).toBe('en-US')
     })
 
     it('translates messages correctly', () => {
-      i18n.global.locale = 'en-US'
+      i18n.global.locale.value = 'en-US'
       const translated = i18n.global.t('common.loading')
       expect(typeof translated).toBe('string')
     })
 
     it('falls back to fallback locale for missing translations', () => {
-      i18n.global.locale = 'pt-BR'
+      i18n.global.locale.value = 'pt-BR'
       const translated = i18n.global.t('nonexistent.key')
       expect(typeof translated).toBe('string')
     })
@@ -67,13 +63,13 @@ describe('i18n plugin', () => {
 
   describe('locale switching', () => {
     it('allows changing locale to pt-BR', () => {
-      i18n.global.locale = 'pt-BR'
-      expect(i18n.global.locale).toBe('pt-BR')
+      i18n.global.locale.value = 'pt-BR'
+      expect(i18n.global.locale.value).toBe('pt-BR')
     })
 
     it('allows changing locale to en-US', () => {
-      i18n.global.locale = 'en-US'
-      expect(i18n.global.locale).toBe('en-US')
+      i18n.global.locale.value = 'en-US'
+      expect(i18n.global.locale.value).toBe('en-US')
     })
   })
 })

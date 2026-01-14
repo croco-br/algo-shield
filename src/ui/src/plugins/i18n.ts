@@ -30,7 +30,7 @@ function getInitialLocale(): string {
 }
 
 export const i18n = createI18n({
-  legacy: true, // Use legacy mode for better compatibility
+  legacy: false, // Use Composition API mode (legacy mode is deprecated in v11 and will be removed in v12)
   locale: getInitialLocale(),
   fallbackLocale: 'en-US',
   messages: {

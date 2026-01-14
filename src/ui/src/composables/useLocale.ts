@@ -24,9 +24,9 @@ export function useLocale() {
   ]
 
   const currentLocale = computed<Locale>({
-    get: () => i18n.global.locale as Locale,
+    get: () => i18n.global.locale.value as Locale,
     set: (value: Locale) => {
-      i18n.global.locale = value
+      i18n.global.locale.value = value
       localStorage.setItem('locale', value)
     },
   })

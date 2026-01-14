@@ -1,6 +1,6 @@
 # Internationalization (i18n) Documentation
 
-This project uses `vue-i18n` v9 for internationalization support.
+This project uses `vue-i18n` v11 for internationalization support.
 
 ## Supported Languages
 
