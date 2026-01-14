@@ -150,7 +150,7 @@
     <!-- View Schema Modal -->
     <BaseModal
       v-model="showViewModal"
-      :title="viewingSchema?.name || 'Schema Details'"
+      :title="viewingSchema?.name || $t('views.schemas.schemaDetails')"
       size="lg"
     >
       <div v-if="viewingSchema" class="mt-4">
@@ -192,7 +192,9 @@
       </div>
 
       <template #footer>
-        <BaseButton variant="ghost" @click="showViewModal = false" prepend-icon="fa-xmark">Close</BaseButton>
+        <BaseButton variant="ghost" @click="showViewModal = false" prepend-icon="fa-xmark">
+          {{ $t('common.close') }}
+        </BaseButton>
       </template>
     </BaseModal>
   </v-container>
@@ -201,6 +203,7 @@
 <script setup lang="ts">
 import { ref, reactive, onMounted, watch } from 'vue'
 import { useRouter } from 'vue-router'
+import { useI18n } from 'vue-i18n'
 import { useAuthStore } from '@/stores/auth'
 import { api } from '@/lib/api'
 import BaseButton from '@/components/BaseButton.vue'
@@ -230,6 +233,7 @@ interface EventSchema {
 
 const router = useRouter()
 const authStore = useAuthStore()
+const { t } = useI18n()
 
 const tableColumns = [
   { key: 'name', label: 'components.schemaTable.name' },
@@ -324,14 +328,14 @@ function parseSampleJson() {
   try {
     const parsed = JSON.parse(sampleJsonText.value)
     if (typeof parsed !== 'object' || Array.isArray(parsed) || parsed === null) {
-      jsonError.value = 'Sample JSON must be an object'
+      jsonError.value = t('views.schemas.validation.jsonMustBeObject')
       extractedFields.value = []
       return
     }
     jsonError.value = ''
     extractedFields.value = extractFieldsFromJson(parsed, '', 0)
   } catch (e) {
-    jsonError.value = 'Invalid JSON format'
+    jsonError.value = t('views.schemas.validation.invalidJsonFormat')
     extractedFields.value = []
   }
 }
@@ -398,7 +402,7 @@ async function handleSubmit() {
   }
 
   if (!sampleJsonText.value.trim() || jsonError.value) {
-    error.value = 'Valid sample JSON is required'
+    error.value = t('views.schemas.validation.sampleJsonRequired')
     return
   }
 
@@ -429,7 +433,7 @@ async function handleSubmit() {
 }
 
 async function deleteSchema(id: string) {
-  if (!confirm('Are you sure you want to delete this schema?')) return
+  if (!confirm(t('views.schemas.deleteConfirmation'))) return
 
   try {
     await api.delete(`/api/v1/schemas/${id}`)

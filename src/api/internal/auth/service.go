@@ -17,12 +17,14 @@ import (
 
 // AuthService defines the interface for authentication operations
 type AuthService interface {
-	RegisterUser(ctx context.Context, email, name, password string) (*models.User, string, error)
-	LoginUser(ctx context.Context, email, password string) (*models.User, string, error)
+	RegisterUser(ctx context.Context, email, name, password string) (*models.User, string, string, error)
+	LoginUser(ctx context.Context, email, password string) (*models.User, string, string, error)
+	RefreshToken(ctx context.Context, refreshToken string) (*models.User, string, error)
 	ValidateToken(tokenString string) (*models.User, error)
 	LogoutUser(ctx context.Context, tokenString string) error
 	RevokeAllUserTokens(ctx context.Context, userID uuid.UUID) error
 	GenerateJWT(user *models.User) (string, error)
+	GenerateRefreshToken(user *models.User) (string, error)
 }
 
 // UserService defines the interface for user operations needed by auth
@@ -46,6 +48,7 @@ type Service struct {
 	userService        UserService
 	jwtSecret          string
 	jwtExpiry          time.Duration
+	jwtRefreshExpiry   time.Duration
 	tokenRevokeService TokenRevokeService
 }
 
@@ -56,60 +59,67 @@ func NewService(cfg *config.Config, userService UserService, tokenRevokeService 
 		userService:        userService,
 		jwtSecret:          cfg.Auth.JWTSecret,
 		jwtExpiry:          time.Duration(cfg.Auth.JWTExpirationHours) * time.Hour,
+		jwtRefreshExpiry:   time.Duration(cfg.Auth.JWTRefreshExpirationHours) * time.Hour,
 		tokenRevokeService: tokenRevokeService,
 	}
 }
 
 // RegisterUser handles user registration with password hashing
-func (s *Service) RegisterUser(ctx context.Context, email, name, password string) (*models.User, string, error) {
+func (s *Service) RegisterUser(ctx context.Context, email, name, password string) (*models.User, string, string, error) {
 	// Check if user already exists
 	existingUser, err := s.userService.GetUserByEmail(ctx, email)
 	if err == nil && existingUser != nil {
-		return nil, "", fmt.Errorf("user with this email already exists")
+		return nil, "", "", fmt.Errorf("user with this email already exists")
 	}
 
 	// Hash password
 	passwordHash, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
 	if err != nil {
-		return nil, "", fmt.Errorf("failed to hash password: %w", err)
+		return nil, "", "", fmt.Errorf("failed to hash password: %w", err)
 	}
 
 	// Create user via user service
 	user, err := s.userService.CreateUser(ctx, email, name, string(passwordHash))
 	if err != nil {
-		return nil, "", fmt.Errorf("failed to create user: %w", err)
+		return nil, "", "", fmt.Errorf("failed to create user: %w", err)
 	}
 
-	// Generate JWT token
+	// Generate JWT access token
 	token, err := s.GenerateJWT(user)
 	if err != nil {
-		return nil, "", fmt.Errorf("failed to generate token: %w", err)
+		return nil, "", "", fmt.Errorf("failed to generate token: %w", err)
 	}
 
-	return user, token, nil
+	// Generate refresh token
+	refreshToken, err := s.GenerateRefreshToken(user)
+	if err != nil {
+		return nil, "", "", fmt.Errorf("failed to generate refresh token: %w", err)
+	}
+
+	return user, token, refreshToken, nil
 }
 
 // LoginUser handles user login with password verification
-func (s *Service) LoginUser(ctx context.Context, email, password string) (*models.User, string, error) {
+func (s *Service) LoginUser(ctx context.Context, email, password string) (*models.User, string, string, error) {
 	// Get user by email with password
 	user, err := s.userService.GetUserByEmailWithPassword(ctx, email)
 	if err != nil {
 		// Use safe error message - don't reveal if email exists
-		return nil, "", apierrors.InvalidCredentials()
+		return nil, "", "", apierrors.InvalidCredentials()
 	}
 
 	// Verify password
 	if user.PasswordHash == nil {
-		return nil, "", apierrors.InvalidCredentials()
+		return nil, "", "", apierrors.InvalidCredentials()
 	}
 
 	err = bcrypt.CompareHashAndPassword([]byte(*user.PasswordHash), []byte(password))
 	if err != nil {
-		return nil, "", apierrors.InvalidCredentials()
+		return nil, "", "", apierrors.InvalidCredentials()
 	}
 
 	if !user.Active {
-		return nil, "", apierrors.UserInactive()
+		return nil, "", "", apierrors.UserInactive()
 	}
 
 	// Update last login (non-critical, don't fail login if this fails)
@@ -118,13 +128,19 @@ func (s *Service) LoginUser(ctx context.Context, email, password string) (*model
 		log.Printf("Failed to update last login for user %s: %v", user.ID, err)
 	}
 
-	// Generate JWT token
+	// Generate JWT access token
 	token, err := s.GenerateJWT(user)
 	if err != nil {
-		return nil, "", apierrors.InternalError("Failed to generate authentication token")
+		return nil, "", "", apierrors.InternalError("Failed to generate authentication token")
 	}
 
-	return user, token, nil
+	// Generate refresh token
+	refreshToken, err := s.GenerateRefreshToken(user)
+	if err != nil {
+		return nil, "", "", apierrors.InternalError("Failed to generate refresh token")
+	}
+
+	return user, token, refreshToken, nil
 }
 
 // GenerateJWT generates a JWT token for a user with proper claims
@@ -139,6 +155,7 @@ func (s *Service) GenerateJWT(user *models.User) (string, error) {
 		"name":    user.Name,
 		"iat":     now.Unix(),       // Issued at
 		"exp":     expiresAt.Unix(), // Expiration time
+		"type":    "access",         // Token type
 	}
 
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
@@ -148,6 +165,104 @@ func (s *Service) GenerateJWT(user *models.User) (string, error) {
 	}
 
 	return tokenString, nil
+}
+
+// GenerateRefreshToken generates a refresh token with longer expiration
+// Refresh tokens are used to obtain new access tokens without re-authentication
+func (s *Service) GenerateRefreshToken(user *models.User) (string, error) {
+	now := time.Now()
+	expiresAt := now.Add(s.jwtRefreshExpiry)
+
+	claims := jwt.MapClaims{
+		"user_id": user.ID.String(),
+		"iat":     now.Unix(),       // Issued at
+		"exp":     expiresAt.Unix(), // Expiration time
+		"type":    "refresh",        // Token type
+	}
+
+	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
+	tokenString, err := token.SignedString([]byte(s.jwtSecret))
+	if err != nil {
+		return "", fmt.Errorf("failed to sign refresh token: %w", err)
+	}
+
+	return tokenString, nil
+}
+
+// RefreshToken validates a refresh token and generates a new access token
+func (s *Service) RefreshToken(ctx context.Context, refreshToken string) (*models.User, string, error) {
+	// Parse and validate JWT signature
+	token, err := jwt.Parse(refreshToken, func(token *jwt.Token) (interface{}, error) {
+		// Validate signing method
+		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
+			return nil, apierrors.TokenInvalid()
+		}
+		return []byte(s.jwtSecret), nil
+	})
+
+	if err != nil {
+		if err.Error() == "token is expired" || err.Error() == "Token is expired" {
+			return nil, "", apierrors.TokenExpired()
+		}
+		return nil, "", apierrors.TokenInvalid()
+	}
+
+	// Extract and validate claims
+	claims, ok := token.Claims.(jwt.MapClaims)
+	if !ok || !token.Valid {
+		return nil, "", apierrors.TokenInvalid()
+	}
+
+	// Verify this is a refresh token
+	tokenType, ok := claims["type"].(string)
+	if !ok || tokenType != "refresh" {
+		return nil, "", apierrors.NewAPIError(apierrors.ErrUnauthorized, "Invalid token type")
+	}
+
+	userIDStr, ok := claims["user_id"].(string)
+	if !ok {
+		return nil, "", apierrors.TokenInvalid()
+	}
+
+	userID, err := uuid.Parse(userIDStr)
+	if err != nil {
+		return nil, "", apierrors.TokenInvalid()
+	}
+
+	// Check if token is revoked
+	isRevoked, err := s.tokenRevokeService.IsTokenRevoked(ctx, refreshToken)
+	if err != nil {
+		log.Printf("Failed to check refresh token revocation status: %v", err)
+	} else if isRevoked {
+		return nil, "", apierrors.TokenRevoked()
+	}
+
+	// Check if all user tokens are revoked
+	userTokensRevoked, err := s.tokenRevokeService.IsUserTokensRevoked(ctx, userID.String())
+	if err != nil {
+		log.Printf("Failed to check user tokens revocation status: %v", err)
+	} else if userTokensRevoked {
+		return nil, "", apierrors.TokenRevoked()
+	}
+
+	// Get user from database
+	user, err := s.userService.GetUserByID(ctx, userID)
+	if err != nil {
+		return nil, "", apierrors.NotFound("User")
+	}
+
+	// Check if user is active
+	if !user.Active {
+		return nil, "", apierrors.UserInactive()
+	}
+
+	// Generate new access token
+	newAccessToken, err := s.GenerateJWT(user)
+	if err != nil {
+		return nil, "", apierrors.InternalError("Failed to generate access token")
+	}
+
+	return user, newAccessToken, nil
 }
 
 // ValidateToken validates a JWT token and returns the user

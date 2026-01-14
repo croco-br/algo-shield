@@ -2,14 +2,12 @@ package schemas
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"time"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
-	"github.com/redis/go-redis/v9"
 )
 
 // MaxNestingDepth is the maximum depth for JSON field extraction
@@ -35,26 +33,25 @@ type ServiceInterface interface {
 	GenerateEvents(ctx context.Context, id uuid.UUID, req *GenerateEventsRequest) (*GenerateEventsResponse, error)
 }
 
-// QueuePusher defines interface for pushing to queue
-type QueuePusher interface {
-	LPush(ctx context.Context, key string, values ...interface{}) *redis.IntCmd
+// TaskEnqueuer defines interface for enqueueing tasks (Asynq)
+// Follows Dependency Inversion Principle
+// Returns any to avoid coupling with asynq.TaskInfo
+type TaskEnqueuer interface {
+	EnqueueTransactionWithPriority(ctx context.Context, event map[string]any, priority string) (any, error)
 }
 
 // Service provides business logic for schema operations
 type Service struct {
-	repo      Repository
-	queuePush QueuePusher
+	repo     Repository
+	enqueuer TaskEnqueuer
 }
 
-// NewService creates a new schema service
-func NewService(repo Repository, queuePush ...QueuePusher) *Service {
-	s := &Service{
-		repo: repo,
+// NewService creates a new schema service with task enqueuer
+func NewService(repo Repository, enqueuer TaskEnqueuer) *Service {
+	return &Service{
+		repo:     repo,
+		enqueuer: enqueuer,
 	}
-	if len(queuePush) > 0 {
-		s.queuePush = queuePush[0]
-	}
-	return s
 }
 
 // Create creates a new event schema from sample JSON
@@ -204,8 +201,8 @@ func (s *Service) ParseSampleJSON(ctx context.Context, id uuid.UUID) (*EventSche
 
 // GenerateEvents generates synthetic events from a schema and queues them for processing
 func (s *Service) GenerateEvents(ctx context.Context, id uuid.UUID, req *GenerateEventsRequest) (*GenerateEventsResponse, error) {
-	if s.queuePush == nil {
-		return nil, errors.New("queue pusher not configured")
+	if s.enqueuer == nil {
+		return nil, errors.New("task enqueuer not configured")
 	}
 
 	schema, err := s.repo.GetByID(ctx, id)
@@ -226,12 +223,10 @@ func (s *Service) GenerateEvents(ctx context.Context, id uuid.UUID, req *Generat
 		// Mark as synthetic event for separate table storage
 		event["_synthetic"] = true
 
-		eventJSON, err := json.Marshal(event)
+		// Enqueue using Asynq (default priority)
+		_, err := s.enqueuer.EnqueueTransactionWithPriority(ctx, event, "default")
 		if err != nil {
-			continue
-		}
-
-		if err := s.queuePush.LPush(ctx, "transaction:queue", eventJSON).Err(); err != nil {
+			// Log error but continue generating other events
 			continue
 		}
 		generated++

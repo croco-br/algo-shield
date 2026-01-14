@@ -27,7 +27,7 @@ func Test_Service_Create_WhenValidRequest_ThenCreatesSchema(t *testing.T) {
 	mockRepo := NewMockRepository(ctrl)
 	mockRepo.EXPECT().GetByName(gomock.Any(), req.Name).Return(nil, pgx.ErrNoRows)
 	mockRepo.EXPECT().Create(gomock.Any(), gomock.Any()).Return(nil)
-	service := NewService(mockRepo)
+	service := NewService(mockRepo, nil)
 
 	schema, err := service.Create(context.Background(), req)
 
@@ -49,7 +49,7 @@ func Test_Service_Create_WhenNameExists_ThenReturnsError(t *testing.T) {
 	existing := &EventSchema{ID: uuid.New(), Name: req.Name}
 	mockRepo := NewMockRepository(ctrl)
 	mockRepo.EXPECT().GetByName(gomock.Any(), req.Name).Return(existing, nil)
-	service := NewService(mockRepo)
+	service := NewService(mockRepo, nil)
 
 	schema, err := service.Create(context.Background(), req)
 
@@ -69,7 +69,7 @@ func Test_Service_Create_WhenRepositoryFails_ThenReturnsError(t *testing.T) {
 	mockRepo := NewMockRepository(ctrl)
 	mockRepo.EXPECT().GetByName(gomock.Any(), req.Name).Return(nil, pgx.ErrNoRows)
 	mockRepo.EXPECT().Create(gomock.Any(), gomock.Any()).Return(errors.New("database error"))
-	service := NewService(mockRepo)
+	service := NewService(mockRepo, nil)
 
 	schema, err := service.Create(context.Background(), req)
 
@@ -85,7 +85,7 @@ func Test_Service_GetByID_WhenSchemaExists_ThenReturnsSchema(t *testing.T) {
 	expected := &EventSchema{ID: id, Name: "test-schema"}
 	mockRepo := NewMockRepository(ctrl)
 	mockRepo.EXPECT().GetByID(gomock.Any(), id).Return(expected, nil)
-	service := NewService(mockRepo)
+	service := NewService(mockRepo, nil)
 
 	schema, err := service.GetByID(context.Background(), id)
 
@@ -100,7 +100,7 @@ func Test_Service_GetByID_WhenSchemaNotFound_ThenReturnsError(t *testing.T) {
 	id := uuid.New()
 	mockRepo := NewMockRepository(ctrl)
 	mockRepo.EXPECT().GetByID(gomock.Any(), id).Return(nil, pgx.ErrNoRows)
-	service := NewService(mockRepo)
+	service := NewService(mockRepo, nil)
 
 	schema, err := service.GetByID(context.Background(), id)
 
@@ -118,7 +118,7 @@ func Test_Service_List_WhenSuccess_ThenReturnsSchemas(t *testing.T) {
 	}
 	mockRepo := NewMockRepository(ctrl)
 	mockRepo.EXPECT().List(gomock.Any()).Return(expected, nil)
-	service := NewService(mockRepo)
+	service := NewService(mockRepo, nil)
 
 	schemas, err := service.List(context.Background())
 
@@ -132,7 +132,7 @@ func Test_Service_List_WhenEmpty_ThenReturnsEmptySlice(t *testing.T) {
 
 	mockRepo := NewMockRepository(ctrl)
 	mockRepo.EXPECT().List(gomock.Any()).Return(nil, nil)
-	service := NewService(mockRepo)
+	service := NewService(mockRepo, nil)
 
 	schemas, err := service.List(context.Background())
 
@@ -160,7 +160,7 @@ func Test_Service_Update_WhenValidRequest_ThenUpdatesSchema(t *testing.T) {
 	mockRepo.EXPECT().GetByID(gomock.Any(), id).Return(existing, nil)
 	mockRepo.EXPECT().GetByName(gomock.Any(), req.Name).Return(nil, pgx.ErrNoRows)
 	mockRepo.EXPECT().Update(gomock.Any(), gomock.Any()).Return(nil)
-	service := NewService(mockRepo)
+	service := NewService(mockRepo, nil)
 
 	schema, err := service.Update(context.Background(), id, req)
 
@@ -177,7 +177,7 @@ func Test_Service_Update_WhenSchemaNotFound_ThenReturnsError(t *testing.T) {
 	req := &UpdateSchemaRequest{Name: "new-name"}
 	mockRepo := NewMockRepository(ctrl)
 	mockRepo.EXPECT().GetByID(gomock.Any(), id).Return(nil, pgx.ErrNoRows)
-	service := NewService(mockRepo)
+	service := NewService(mockRepo, nil)
 
 	schema, err := service.Update(context.Background(), id, req)
 
@@ -196,7 +196,7 @@ func Test_Service_Update_WhenNewNameExists_ThenReturnsError(t *testing.T) {
 	mockRepo := NewMockRepository(ctrl)
 	mockRepo.EXPECT().GetByID(gomock.Any(), id).Return(existing, nil)
 	mockRepo.EXPECT().GetByName(gomock.Any(), req.Name).Return(other, nil)
-	service := NewService(mockRepo)
+	service := NewService(mockRepo, nil)
 
 	schema, err := service.Update(context.Background(), id, req)
 
@@ -214,7 +214,7 @@ func Test_Service_Delete_WhenValid_ThenDeletesSchema(t *testing.T) {
 	mockRepo.EXPECT().GetByID(gomock.Any(), id).Return(existing, nil)
 	mockRepo.EXPECT().HasRulesReferencing(gomock.Any(), id).Return(false, nil)
 	mockRepo.EXPECT().Delete(gomock.Any(), id).Return(nil)
-	service := NewService(mockRepo)
+	service := NewService(mockRepo, nil)
 
 	err := service.Delete(context.Background(), id)
 
@@ -228,7 +228,7 @@ func Test_Service_Delete_WhenSchemaNotFound_ThenReturnsError(t *testing.T) {
 	id := uuid.New()
 	mockRepo := NewMockRepository(ctrl)
 	mockRepo.EXPECT().GetByID(gomock.Any(), id).Return(nil, pgx.ErrNoRows)
-	service := NewService(mockRepo)
+	service := NewService(mockRepo, nil)
 
 	err := service.Delete(context.Background(), id)
 
@@ -244,7 +244,7 @@ func Test_Service_Delete_WhenHasRules_ThenReturnsError(t *testing.T) {
 	mockRepo := NewMockRepository(ctrl)
 	mockRepo.EXPECT().GetByID(gomock.Any(), id).Return(existing, nil)
 	mockRepo.EXPECT().HasRulesReferencing(gomock.Any(), id).Return(true, nil)
-	service := NewService(mockRepo)
+	service := NewService(mockRepo, nil)
 
 	err := service.Delete(context.Background(), id)
 
@@ -404,7 +404,7 @@ func Test_Service_GetRulesReferencingSchema_WhenSchemaHasRules_ThenReturnsRuleNa
 	expectedRules := []string{"rule1", "rule2", "rule3"}
 	mockRepo := NewMockRepository(ctrl)
 	mockRepo.EXPECT().GetRulesReferencingSchema(gomock.Any(), id).Return(expectedRules, nil)
-	service := NewService(mockRepo)
+	service := NewService(mockRepo, nil)
 
 	rules, err := service.GetRulesReferencingSchema(context.Background(), id)
 
@@ -419,7 +419,7 @@ func Test_Service_GetRulesReferencingSchema_WhenNoRules_ThenReturnsEmptySlice(t 
 	id := uuid.New()
 	mockRepo := NewMockRepository(ctrl)
 	mockRepo.EXPECT().GetRulesReferencingSchema(gomock.Any(), id).Return([]string{}, nil)
-	service := NewService(mockRepo)
+	service := NewService(mockRepo, nil)
 
 	rules, err := service.GetRulesReferencingSchema(context.Background(), id)
 
@@ -434,7 +434,7 @@ func Test_Service_GetRulesReferencingSchema_WhenRepositoryFails_ThenReturnsError
 	id := uuid.New()
 	mockRepo := NewMockRepository(ctrl)
 	mockRepo.EXPECT().GetRulesReferencingSchema(gomock.Any(), id).Return(nil, errors.New("database error"))
-	service := NewService(mockRepo)
+	service := NewService(mockRepo, nil)
 
 	rules, err := service.GetRulesReferencingSchema(context.Background(), id)
 
@@ -463,7 +463,7 @@ func Test_Service_ParseSampleJSON_WhenSchemaExists_ThenReExtractsFields(t *testi
 			return nil
 		},
 	)
-	service := NewService(mockRepo)
+	service := NewService(mockRepo, nil)
 
 	schema, err := service.ParseSampleJSON(context.Background(), id)
 
@@ -479,7 +479,7 @@ func Test_Service_ParseSampleJSON_WhenSchemaNotFound_ThenReturnsError(t *testing
 	id := uuid.New()
 	mockRepo := NewMockRepository(ctrl)
 	mockRepo.EXPECT().GetByID(gomock.Any(), id).Return(nil, pgx.ErrNoRows)
-	service := NewService(mockRepo)
+	service := NewService(mockRepo, nil)
 
 	schema, err := service.ParseSampleJSON(context.Background(), id)
 
@@ -500,7 +500,7 @@ func Test_Service_ParseSampleJSON_WhenUpdateFails_ThenReturnsError(t *testing.T)
 	mockRepo := NewMockRepository(ctrl)
 	mockRepo.EXPECT().GetByID(gomock.Any(), id).Return(existing, nil)
 	mockRepo.EXPECT().Update(gomock.Any(), gomock.Any()).Return(errors.New("database error"))
-	service := NewService(mockRepo)
+	service := NewService(mockRepo, nil)
 
 	schema, err := service.ParseSampleJSON(context.Background(), id)
 
@@ -519,7 +519,7 @@ func Test_Service_Create_WhenGetByNameFails_ThenReturnsError(t *testing.T) {
 	}
 	mockRepo := NewMockRepository(ctrl)
 	mockRepo.EXPECT().GetByName(gomock.Any(), req.Name).Return(nil, errors.New("database error"))
-	service := NewService(mockRepo)
+	service := NewService(mockRepo, nil)
 
 	schema, err := service.Create(context.Background(), req)
 
@@ -534,7 +534,7 @@ func Test_Service_GetByID_WhenRepositoryFails_ThenReturnsError(t *testing.T) {
 	id := uuid.New()
 	mockRepo := NewMockRepository(ctrl)
 	mockRepo.EXPECT().GetByID(gomock.Any(), id).Return(nil, errors.New("database error"))
-	service := NewService(mockRepo)
+	service := NewService(mockRepo, nil)
 
 	schema, err := service.GetByID(context.Background(), id)
 
@@ -548,7 +548,7 @@ func Test_Service_List_WhenRepositoryFails_ThenReturnsError(t *testing.T) {
 
 	mockRepo := NewMockRepository(ctrl)
 	mockRepo.EXPECT().List(gomock.Any()).Return(nil, errors.New("database error"))
-	service := NewService(mockRepo)
+	service := NewService(mockRepo, nil)
 
 	schemas, err := service.List(context.Background())
 
@@ -564,7 +564,7 @@ func Test_Service_Update_WhenGetByIDFails_ThenReturnsError(t *testing.T) {
 	req := &UpdateSchemaRequest{Name: "new-name"}
 	mockRepo := NewMockRepository(ctrl)
 	mockRepo.EXPECT().GetByID(gomock.Any(), id).Return(nil, errors.New("database error"))
-	service := NewService(mockRepo)
+	service := NewService(mockRepo, nil)
 
 	schema, err := service.Update(context.Background(), id, req)
 
@@ -582,7 +582,7 @@ func Test_Service_Update_WhenGetByNameFails_ThenReturnsError(t *testing.T) {
 	mockRepo := NewMockRepository(ctrl)
 	mockRepo.EXPECT().GetByID(gomock.Any(), id).Return(existing, nil)
 	mockRepo.EXPECT().GetByName(gomock.Any(), req.Name).Return(nil, errors.New("database error"))
-	service := NewService(mockRepo)
+	service := NewService(mockRepo, nil)
 
 	schema, err := service.Update(context.Background(), id, req)
 
@@ -600,7 +600,7 @@ func Test_Service_Update_WhenUpdateFails_ThenReturnsError(t *testing.T) {
 	mockRepo := NewMockRepository(ctrl)
 	mockRepo.EXPECT().GetByID(gomock.Any(), id).Return(existing, nil)
 	mockRepo.EXPECT().Update(gomock.Any(), gomock.Any()).Return(errors.New("database error"))
-	service := NewService(mockRepo)
+	service := NewService(mockRepo, nil)
 
 	schema, err := service.Update(context.Background(), id, req)
 
@@ -615,7 +615,7 @@ func Test_Service_Delete_WhenGetByIDFails_ThenReturnsError(t *testing.T) {
 	id := uuid.New()
 	mockRepo := NewMockRepository(ctrl)
 	mockRepo.EXPECT().GetByID(gomock.Any(), id).Return(nil, errors.New("database error"))
-	service := NewService(mockRepo)
+	service := NewService(mockRepo, nil)
 
 	err := service.Delete(context.Background(), id)
 
@@ -631,7 +631,7 @@ func Test_Service_Delete_WhenHasRulesReferencingFails_ThenReturnsError(t *testin
 	mockRepo := NewMockRepository(ctrl)
 	mockRepo.EXPECT().GetByID(gomock.Any(), id).Return(existing, nil)
 	mockRepo.EXPECT().HasRulesReferencing(gomock.Any(), id).Return(false, errors.New("database error"))
-	service := NewService(mockRepo)
+	service := NewService(mockRepo, nil)
 
 	err := service.Delete(context.Background(), id)
 
@@ -648,7 +648,7 @@ func Test_Service_Delete_WhenDeleteFails_ThenReturnsError(t *testing.T) {
 	mockRepo.EXPECT().GetByID(gomock.Any(), id).Return(existing, nil)
 	mockRepo.EXPECT().HasRulesReferencing(gomock.Any(), id).Return(false, nil)
 	mockRepo.EXPECT().Delete(gomock.Any(), id).Return(errors.New("database error"))
-	service := NewService(mockRepo)
+	service := NewService(mockRepo, nil)
 
 	err := service.Delete(context.Background(), id)
 

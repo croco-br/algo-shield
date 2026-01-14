@@ -142,6 +142,7 @@
 
 <script setup lang="ts">
 import { ref, computed, watch } from 'vue'
+import { useI18n } from 'vue-i18n'
 import { api } from '@/lib/api'
 import type { Transaction } from '@/types/transaction'
 import BaseModal from '@/components/BaseModal.vue'
@@ -176,6 +177,7 @@ const emit = defineEmits<{
   'close': []
 }>()
 
+const { t } = useI18n()
 
 const isOpen = computed({
   get: () => props.modelValue,
@@ -201,7 +203,7 @@ async function loadSchema(schemaId: string) {
     const response = await api.get<EventSchema>(`/api/v1/schemas/${schemaId}`)
     schema.value = response
   } catch (e: any) {
-    error.value = e.message || 'Failed to load schema'
+    error.value = e.message || t('views.schemas.errorLoadSchema')
     schema.value = null
   } finally {
     loading.value = false

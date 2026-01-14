@@ -62,7 +62,7 @@ func Test_Service_LoginUser_WhenValidCredentials_ThenReturnsUserAndToken(t *test
 		Return(nil)
 
 	// Act
-	user, token, err := service.LoginUser(ctx, email, password)
+	user, token, _, err := service.LoginUser(ctx, email, password)
 
 	// Assert
 	require.NoError(t, err)
@@ -99,7 +99,7 @@ func Test_Service_LoginUser_WhenInvalidEmail_ThenReturnsInvalidCredentialsError(
 		Return(nil, errors.New("user not found"))
 
 	// Act
-	user, token, err := service.LoginUser(ctx, email, password)
+	user, token, _, err := service.LoginUser(ctx, email, password)
 
 	// Assert
 	require.Error(t, err)
@@ -155,7 +155,7 @@ func Test_Service_LoginUser_WhenWrongPassword_ThenReturnsInvalidCredentialsError
 		Return(expectedUser, nil)
 
 	// Act
-	user, token, err := service.LoginUser(ctx, email, wrongPassword)
+	user, token, _, err := service.LoginUser(ctx, email, wrongPassword)
 
 	// Assert
 	require.Error(t, err)
@@ -209,7 +209,7 @@ func Test_Service_LoginUser_WhenUserInactive_ThenReturnsUserInactiveError(t *tes
 		Return(inactiveUser, nil)
 
 	// Act
-	user, token, err := service.LoginUser(ctx, email, password)
+	user, token, _, err := service.LoginUser(ctx, email, password)
 
 	// Assert
 	require.Error(t, err)
@@ -583,7 +583,7 @@ func Test_Service_RegisterUser_WhenValidData_ThenCreatesUserAndToken(t *testing.
 		Return(createdUser, nil)
 
 	// Act
-	user, token, err := service.RegisterUser(ctx, email, name, password)
+	user, token, _, err := service.RegisterUser(ctx, email, name, password)
 
 	// Assert
 	require.NoError(t, err)
@@ -629,7 +629,7 @@ func Test_Service_RegisterUser_WhenEmailExists_ThenReturnsError(t *testing.T) {
 		Return(existingUser, nil)
 
 	// Act
-	user, token, err := service.RegisterUser(ctx, email, name, password)
+	user, token, _, err := service.RegisterUser(ctx, email, name, password)
 
 	// Assert
 	require.Error(t, err)
@@ -668,7 +668,7 @@ func Test_Service_RegisterUser_WhenCreateUserFails_ThenReturnsError(t *testing.T
 		CreateUser(ctx, email, name, gomock.Any()).
 		Return(nil, errors.New("database error"))
 
-	user, token, err := service.RegisterUser(ctx, email, name, password)
+	user, token, _, err := service.RegisterUser(ctx, email, name, password)
 
 	require.Error(t, err)
 	assert.Nil(t, user)
@@ -709,7 +709,7 @@ func Test_Service_LoginUser_WhenPasswordHashIsNil_ThenReturnsInvalidCredentials(
 		GetUserByEmailWithPassword(ctx, email).
 		Return(userWithoutPassword, nil)
 
-	user, token, err := service.LoginUser(ctx, email, password)
+	user, token, _, err := service.LoginUser(ctx, email, password)
 
 	require.Error(t, err)
 	assert.Nil(t, user)

@@ -33,7 +33,10 @@
     "previous": "Anterior",
     "actions": "Ações",
     "select": "Selecionar",
-    "selected": "Selecionado"
+    "selected": "Selecionado",
+    "notAvailable": "N/D",
+    "columns": "colunas",
+    "logo": "Logo"
   },
   "auth": {
     "login": "Login",
@@ -68,6 +71,32 @@
       "registrationFailed": "Registro falhou. Por favor, tente novamente."
     }
   },
+  "errors": {
+    "INVALID_CREDENTIALS": "Email ou senha inválidos",
+    "USER_INACTIVE": "Sua conta está inativa. Entre em contato com o suporte.",
+    "TOKEN_EXPIRED": "Sua sessão expirou. Faça login novamente.",
+    "TOKEN_REVOKED": "Sua sessão foi revogada. Faça login novamente.",
+    "TOKEN_INVALID": "Token de autenticação inválido. Faça login novamente.",
+    "INSUFFICIENT_PERMISSIONS": "Você não tem permissão para executar esta ação",
+    "CANNOT_DEACTIVATE_SELF": "Você não pode desativar sua própria conta. Entre em contato com outro administrador.",
+    "CANNOT_DEACTIVATE_LAST_ADMIN": "Não é possível desativar o último administrador ativo. Ative outro administrador primeiro.",
+    "CANNOT_MODIFY_PROTECTED_USER": "Este usuário está protegido e não pode ser modificado",
+    "RATE_LIMIT_EXCEEDED": "Muitas requisições. Tente novamente mais tarde.",
+    "NOT_FOUND": "O recurso solicitado não foi encontrado",
+    "INTERNAL_ERROR": "Ocorreu um erro interno no servidor. Tente novamente mais tarde.",
+    "BAD_REQUEST": "Requisição inválida. Verifique sua entrada.",
+    "UNAUTHORIZED": "Você não está autorizado a acessar este recurso",
+    "FORBIDDEN": "Acesso a este recurso é proibido",
+    "CONFLICT": "Esta ação conflita com dados existentes",
+    "VALIDATION_ERROR": "Erro de validação. Verifique sua entrada.",
+    "generic": "Ocorreu um erro. Por favor, tente novamente.",
+    "notFound": "Não encontrado",
+    "unauthorized": "Não autorizado",
+    "forbidden": "Acesso negado",
+    "serverError": "Erro do servidor",
+    "networkError": "Erro de rede",
+    "timeout": "Tempo esgotado"
+  },
   "header": {
     "profile": "Perfil",
     "settings": "Configurações",
@@ -91,7 +120,6 @@
       "loading": "Carregando métricas...",
       "errorTitle": "Erro ao carregar métricas",
       "errorRetry": "Falha ao carregar métricas",
-      "escalationNotImplemented": "Recurso de escalação de transação ainda não implementado no backend",
       "refresh": "Atualizar",
       "totalTransactions": "Total de Transações",
       "statusDistribution": "Distribuição por Status",
@@ -99,7 +127,8 @@
       "approved": "Aprovadas",
       "rejected": "Rejeitadas",
       "inReview": "Em Revisão",
-      "pending": "Pendentes"
+      "pending": "Pendentes",
+      "errorLoad": "Falha ao carregar métricas do dashboard"
     },
     "transactions": {
       "title": "Transações",
@@ -121,6 +150,7 @@
       "reject": "Rejeitar",
       "showing": "Mostrando",
       "of": "de",
+      "to": "até",
       "transactions": "transações",
       "statusAll": "Todos",
       "statusApproved": "Aprovadas",
@@ -128,17 +158,8 @@
       "statusInReview": "Em Revisão",
       "statusPending": "Pendentes",
       "allSchemas": "Todos os Schemas",
-      "selectSchemaFilter": "Selecionar Schema para Visualizar Transações",
-      "schemaFilterDescription": "Por favor, selecione um schema para visualizar transações. As colunas da tabela serão geradas dinamicamente com base nos campos do schema selecionado.",
-      "schemaFilterDescriptionSelected": "Visualizando transações do schema: {name}. As colunas da tabela são geradas dinamicamente a partir dos campos do schema.",
-      "clearSchema": "Limpar Seleção",
-      "schemaRequired": "A seleção de schema é obrigatória",
       "noSchemaSelectedTitle": "Nenhum Schema Selecionado",
       "noSchemaSelectedMessage": "Por favor, selecione um schema no filtro acima para visualizar transações. As transações são exibidas com colunas dinâmicas baseadas no schema selecionado.",
-      "selectFirstSchema": "Selecionar Primeiro Schema",
-      "filters": "Filtros",
-      "filtersActive": "{count} filtro(s) ativo(s)",
-      "noFiltersActive": "Nenhum filtro ativo",
       "tableExternalId": "ID Externo",
       "tableSchema": "Schema",
       "tableStatus": "Status",
@@ -150,6 +171,8 @@
       "tableActions": "Ações",
       "noSchema": "Sem Schema",
       "viewDetails": "Ver Detalhes",
+      "filters": "Filtros",
+      "filtersActive": "{count} filtro ativo | {count} filtros ativos",
       "generateSynthetic": "Gerar Dados de Teste",
       "generateSyntheticTitle": "Gerar Eventos de Teste",
       "generateSyntheticDescription": "Gere eventos de transação de teste a partir de um schema. Os eventos serão enfileirados para processamento.",
@@ -157,7 +180,7 @@
       "eventCount": "Número de Eventos",
       "eventCountPlaceholder": "Digite um número (1-1000)",
       "generate": "Gerar Eventos",
-      "to": "até"
+      "errorLoad": "Falha ao carregar transações"
     },
     "profile": {
       "title": "Perfil",
@@ -213,23 +236,10 @@
       "users": "Usuários",
       "roles": "Funções",
       "groups": "Grupos",
-      "createRole": "Criar Função",
-      "editRole": "Editar Função",
-      "deleteRole": "Excluir Função",
-      "assignRole": "Atribuir Função",
-      "roleName": "Nome da Função",
-      "roleDescription": "Descrição da Função",
-      "permissions": "Permissões",
-      "selectPermissions": "Selecionar Permissões",
-      "userManagement": "Gestão de Usuários",
-      "roleManagement": "Gestão de Funções",
       "noUsers": "Nenhum usuário encontrado",
       "emptyText": "Nenhum usuário encontrado",
       "errorLoad": "Falha ao carregar dados",
-      "errorAssignRole": "Falha ao atribuir função",
-      "errorRemoveRole": "Falha ao remover função",
-      "errorToggleStatus": "Falha ao alternar status do usuário",
-      "noRoles": "Nenhuma função encontrada"
+      "assignRoleToUser": "Atribuir Função para {name}"
     },
     "rules": {
       "title": "Regras",
@@ -241,17 +251,8 @@
       "deleteRule": "Excluir Regra",
       "ruleName": "Nome da Regra",
       "ruleDescription": "Descrição da Regra",
-      "ruleType": "Tipo de Regra",
-      "ruleConditions": "Condições",
-      "ruleActions": "Ações",
-      "ruleEnabled": "Habilitada",
-      "ruleDisabled": "Desabilitada",
-      "noRules": "Nenhuma regra encontrada",
       "emptyText": "Nenhuma regra configurada. Crie sua primeira regra para começar.",
-      "errorLoad": "Falha ao carregar regras",
-      "errorSave": "Falha ao salvar regra",
-      "errorDelete": "Falha ao excluir regra",
-      "errorToggle": "Falha ao alternar regra",
+      "deleteConfirmation": "Tem certeza que deseja excluir esta regra?",
       "actions": {
         "allow": "Permitir",
         "block": "Bloquear",
@@ -415,15 +416,8 @@
       "createSchema": "Criar Schema",
       "editSchema": "Editar Schema",
       "deleteSchema": "Excluir Schema",
-      "schemaName": "Nome do Schema",
-      "schemaType": "Tipo do Schema",
-      "schemaVersion": "Versão",
-      "schemaFields": "Campos",
       "noSchemas": "Nenhum schema encontrado",
       "emptyText": "Nenhum schema definido. Crie seu primeiro schema para habilitar avaliação de regras flexível.",
-      "errorLoad": "Falha ao carregar schemas",
-      "errorSave": "Falha ao salvar schema",
-      "errorDelete": "Falha ao excluir schema",
       "modalCreateTitle": "Criar Novo Schema",
       "modalEditTitle": "Editar Schema",
       "modalViewTitle": "Visualizar Schema",
@@ -441,8 +435,6 @@
       "path": "Caminho",
       "type": "Tipo",
       "sampleValue": "Valor de Exemplo",
-      "noDescription": "Sem descrição",
-      "fields": "campos",
       "generateEvents": "Gerar",
       "generateEventsTitle": "Gerar Eventos de Teste",
       "generateEventsDescription": "Gere eventos de transação de teste a partir deste schema. Os eventos serão enfileirados para processamento.",
@@ -451,13 +443,19 @@
       "seed": "Seed (opcional)",
       "seedPlaceholder": "Deixe vazio para aleatório",
       "seedHint": "Use a mesma seed para gerar sequências de eventos idênticas.",
-      "generate": "Gerar Eventos"
+      "generate": "Gerar Eventos",
+      "schemaDetails": "Detalhes do Schema",
+      "deleteConfirmation": "Tem certeza que deseja excluir este schema?",
+      "errorLoadSchema": "Falha ao carregar schema",
+      "validation": {
+        "jsonMustBeObject": "O JSON de exemplo deve ser um objeto",
+        "invalidJsonFormat": "Formato de JSON inválido",
+        "sampleJsonRequired": "JSON de exemplo válido é obrigatório"
+      }
     }
   },
   "components": {
     "table": {
-      "noData": "Nenhum dado disponível",
-      "loading": "Carregando...",
       "rowsPerPage": "Linhas por página",
       "of": "de",
       "page": "Página",
@@ -516,15 +514,6 @@
       "active": "Ativo",
       "addRole": "Adicionar Função"
     },
-    "modal": {
-      "close": "Fechar",
-      "save": "Salvar",
-      "cancel": "Cancelar",
-      "create": "Criar",
-      "update": "Atualizar",
-      "delete": "Excluir",
-      "confirm": "Confirmar"
-    },
     "error": {
       "title": "Erro",
       "retry": "Tentar novamente",
@@ -532,6 +521,10 @@
     },
     "loading": {
       "default": "Carregando..."
+    },
+    "modal": {
+      "cancel": "Cancelar",
+      "save": "Salvar"
     },
     "transactionDetailModal": {
       "title": "Detalhes da Transação",
@@ -557,18 +550,8 @@
       "viewMetadata": "Ver Metadata"
     }
   },
-  "errors": {
-    "generic": "Ocorreu um erro. Por favor, tente novamente.",
-    "notFound": "Não encontrado",
-    "unauthorized": "Não autorizado",
-    "forbidden": "Acesso negado",
-    "serverError": "Erro do servidor",
-    "networkError": "Erro de rede",
-    "timeout": "Tempo esgotado"
-  },
   "languages": {
     "pt-BR": "Português (Brasil)",
     "en-US": "English (US)"
   }
 }
-

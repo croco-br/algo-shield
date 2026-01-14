@@ -53,9 +53,10 @@ func Test_Handler_Register_WhenValidRequest_ThenReturnsUserAndToken(t *testing.T
 		Name:  "Test User",
 	}
 	expectedToken := "test-token-123"
+	expectedRefreshToken := "test-refresh-token-123"
 	mockService.EXPECT().
 		RegisterUser(gomock.Any(), "test@example.com", "Test User", "password123").
-		Return(expectedUser, expectedToken, nil)
+		Return(expectedUser, expectedToken, expectedRefreshToken, nil)
 	redisClient := setupTestRedis(t)
 	handler := NewHandler(mockService, mockUserService, redisClient)
 	app := fiber.New()
@@ -132,9 +133,10 @@ func Test_Handler_Login_WhenValidCredentials_ThenReturnsUserAndToken(t *testing.
 		Name:  "Test User",
 	}
 	expectedToken := "test-token-123"
+	expectedRefreshToken := "test-refresh-token-123"
 	mockService.EXPECT().
 		LoginUser(gomock.Any(), "test@example.com", "password123").
-		Return(expectedUser, expectedToken, nil)
+		Return(expectedUser, expectedToken, expectedRefreshToken, nil)
 	redisClient := setupTestRedis(t)
 	handler := NewHandler(mockService, mockUserService, redisClient)
 	app := fiber.New()

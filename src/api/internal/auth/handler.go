@@ -42,7 +42,7 @@ func (h *Handler) Register(c *fiber.Ctx) error {
 	defer cancel()
 
 	// Register user (handles password hashing and token generation)
-	user, token, err := h.service.RegisterUser(ctx, req.Email, req.Name, req.Password)
+	user, token, refreshToken, err := h.service.RegisterUser(ctx, req.Email, req.Name, req.Password)
 	if err != nil {
 		// Check if it's an APIError
 		if apiErr, ok := err.(*apierrors.APIError); ok {
@@ -68,9 +68,10 @@ func (h *Handler) Register(c *fiber.Ctx) error {
 	}
 
 	return c.JSON(fiber.Map{
-		"token":      token,
-		"user":       user,
-		"csrf_token": csrfToken,
+		"token":         token,
+		"refresh_token": refreshToken,
+		"user":          user,
+		"csrf_token":    csrfToken,
 	})
 }
 
@@ -89,7 +90,7 @@ func (h *Handler) Login(c *fiber.Ctx) error {
 	defer cancel()
 
 	// Login user (handles password verification and token generation)
-	user, token, err := h.service.LoginUser(ctx, req.Email, req.Password)
+	user, token, refreshToken, err := h.service.LoginUser(ctx, req.Email, req.Password)
 	if err != nil {
 		// Check if it's an APIError
 		if apiErr, ok := err.(*apierrors.APIError); ok {
@@ -111,9 +112,10 @@ func (h *Handler) Login(c *fiber.Ctx) error {
 	}
 
 	return c.JSON(fiber.Map{
-		"token":      token,
-		"user":       user,
-		"csrf_token": csrfToken,
+		"token":         token,
+		"refresh_token": refreshToken,
+		"user":          user,
+		"csrf_token":    csrfToken,
 	})
 }
 
@@ -175,4 +177,45 @@ func (h *Handler) Logout(c *fiber.Ctx) error {
 
 func (h *Handler) ValidateToken(tokenString string) (*models.User, error) {
 	return h.service.ValidateToken(tokenString)
+}
+
+func (h *Handler) RefreshToken(c *fiber.Ctx) error {
+	var req RefreshTokenRequest
+	if err := c.BodyParser(&req); err != nil {
+		return apierrors.SendError(c, apierrors.BadRequest("Invalid request body"))
+	}
+
+	// Validate request
+	if err := validation.ValidateStruct(req); err != nil {
+		return apierrors.SendError(c, apierrors.ValidationError(err.Error()))
+	}
+
+	ctx, cancel := context.WithTimeout(c.Context(), internal.GetHandlerTimeout())
+	defer cancel()
+
+	// Refresh token
+	user, newAccessToken, err := h.service.RefreshToken(ctx, req.RefreshToken)
+	if err != nil {
+		// Check if it's an APIError
+		if apiErr, ok := err.(*apierrors.APIError); ok {
+			return apierrors.SendError(c, apiErr)
+		}
+		return apierrors.SendError(c, apierrors.InternalError("Failed to refresh token"))
+	}
+
+	// SECURITY: Generate new CSRF token
+	csrfToken, err := csrf.GenerateToken()
+	if err != nil {
+		return apierrors.SendError(c, apierrors.InternalError("Failed to generate CSRF token"))
+	}
+
+	// Store CSRF token in Redis
+	if err := csrf.StoreToken(ctx, h.redis, user.ID.String(), csrfToken); err != nil {
+		c.Context().Logger().Printf("Failed to store CSRF token: %v", err)
+	}
+
+	return c.JSON(fiber.Map{
+		"token":      newAccessToken,
+		"csrf_token": csrfToken,
+	})
 }

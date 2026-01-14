@@ -87,7 +87,7 @@
 
     <BaseModal
       v-model="showRoleModal"
-      :title="`Assign Role to ${selectedUser?.name || ''}`"
+      :title="$t('views.permissions.assignRoleToUser', { name: selectedUser?.name || '' })"
       size="sm"
     >
       <v-list>

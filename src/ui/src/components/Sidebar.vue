@@ -52,7 +52,7 @@
             :key="schema.id"
             :to="`/transactions?schemaId=${schema.id}`"
             :active="isSchemaActive(schema.id)"
-            :title="`${schema.name} - ${schema.fieldCount} colunas`"
+            :title="`${schema.name} - ${schema.fieldCount} ${$t('common.columns')}`"
             class="mx-2"
             @click="isMobile && closeMobile()"
           />

@@ -12,3 +12,8 @@ type RegisterRequest struct {
 	Password string `json:"password" validate:"required,password"`
 	Name     string `json:"name" validate:"required,min=1,max=255"`
 }
+
+// RefreshTokenRequest represents a refresh token request DTO
+type RefreshTokenRequest struct {
+	RefreshToken string `json:"refresh_token" validate:"required"`
+}

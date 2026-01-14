@@ -31,7 +31,7 @@
       >
       <template #cell-schema="{ row }">
         <span class="text-body-2 font-weight-medium text-grey-darken-2">
-          {{ getSchemaName(row.schema_id) || 'N/A' }}
+          {{ getSchemaName(row.schema_id) || $t('common.notAvailable') }}
         </span>
       </template>
 
@@ -1572,7 +1572,7 @@ function validateAllFieldsExist(expression: string, validFieldPaths: string[]): 
 }
 
 async function deleteRule(id: string) {
-  if (!confirm('Are you sure you want to delete this rule?')) return
+  if (!confirm(t('views.rules.deleteConfirmation'))) return
 
   try {
     await api.delete(`/api/v1/rules/${id}`)

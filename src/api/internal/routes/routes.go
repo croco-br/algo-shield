@@ -58,7 +58,9 @@ func Setup(app *fiber.App, db *pgxpool.Pool, redis *redis.Client, asynqClient *q
 	permissionsService := permissions.NewService(permissionsUserRepo, roleService, groupService)
 	transactionService := transactions.NewService(transactionRepo, asynqClient)
 	brandingService := branding.NewService(brandingRepo)
-	schemaService := schemas.NewService(schemaRepo, redis)
+	// Wrap asynqClient in adapter for schema service
+	schemaTaskEnqueuer := schemas.NewAsynqAdapter(asynqClient)
+	schemaService := schemas.NewService(schemaRepo, schemaTaskEnqueuer)
 	dashboardService := dashboard.NewService(dashboardRepo, redis)
 	systemService := system.NewService(systemRepo)
 
@@ -90,6 +92,10 @@ func Setup(app *fiber.App, db *pgxpool.Pool, redis *redis.Client, asynqClient *q
 		middleware.RateLimiter(redis, middleware.LoginRateLimit),
 		authHandler.Login,
 	)
+	app.Post("/api/v1/auth/refresh",
+		middleware.RateLimiter(redis, middleware.LoginRateLimit),
+		authHandler.RefreshToken,
+	)
 	app.Get("/api/v1/branding", brandingHandler.GetBranding)
 
 	// API v1 (protected)
@@ -97,12 +103,13 @@ func Setup(app *fiber.App, db *pgxpool.Pool, redis *redis.Client, asynqClient *q
 	v1.Use(middleware.AuthMiddleware(authHandler))
 
 	// SECURITY: CSRF Protection for all state-changing requests (POST, PUT, PATCH, DELETE)
-	// Excluded paths: login, register, branding (public GET endpoint)
+	// Excluded paths: login, register, refresh, branding (public GET endpoint)
 	v1.Use(middleware.CSRFProtection(middleware.CSRFConfig{
 		Redis: redis,
 		ExcludedPaths: []string{
 			"/api/v1/auth/login",
 			"/api/v1/auth/register",
+			"/api/v1/auth/refresh",
 			"/api/v1/branding", // Public GET endpoint
 		},
 	}))

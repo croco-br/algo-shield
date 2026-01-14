@@ -67,7 +67,7 @@
           <v-icon icon="fa-database" color="primary" />
           <div class="flex-grow-1">
             <div class="text-caption text-grey-darken-1">{{ $t('views.transactions.filterSchema') }}</div>
-            <div class="text-subtitle-1 font-weight-medium">{{ selectedSchema?.name || 'N/A' }}</div>
+            <div class="text-subtitle-1 font-weight-medium">{{ selectedSchema?.name || $t('common.notAvailable') }}</div>
           </div>
           <div v-if="activeFiltersCount > 0" class="d-flex align-center gap-2">
             <v-icon icon="fa-filter" size="small" color="primary" />
@@ -175,14 +175,13 @@
         <v-data-table
           :headers="dynamicTableHeaders"
           :items="transactions"
-          :items-per-page="itemsPerPage"
-          :page="currentPage"
+          v-model:items-per-page="itemsPerPage"
+          v-model:page="currentPage"
           :items-length="total"
           :items-per-page-options="itemsPerPageOptions"
-          @update:page="handlePageChange"
-          @update:items-per-page="handleItemsPerPageChange"
           class="elevation-0"
           hover
+          :loading="loading"
         >
           <!-- Status Column -->
           <template #item.status="{ item }">
@@ -201,10 +200,10 @@
             <div class="d-flex gap-1">
               <v-tooltip location="top">
                 <template #activator="{ props }">
-                  <BaseButton
+                  <v-btn
                     v-bind="props"
-                    size="sm"
-                    variant="ghost"
+                    size="small"
+                    variant="text"
                     icon="fa-eye"
                     @click="openDetailModal(item)"
                   />
@@ -214,11 +213,12 @@
 
               <v-tooltip v-if="item.status === 'pending'" location="top">
                 <template #activator="{ props }">
-                  <BaseButton
+                  <v-btn
                     v-bind="props"
-                    size="sm"
-                    variant="primary"
+                    size="small"
+                    variant="text"
                     icon="fa-check"
+                    color="success"
                     @click="approveTransaction(item.id)"
                   />
                 </template>
@@ -227,11 +227,12 @@
 
               <v-tooltip v-if="item.status === 'pending'" location="top">
                 <template #activator="{ props }">
-                  <BaseButton
+                  <v-btn
                     v-bind="props"
-                    size="sm"
-                    variant="danger"
+                    size="small"
+                    variant="text"
                     icon="fa-times"
+                    color="error"
                     @click="rejectTransaction(item.id)"
                   />
                 </template>
@@ -326,6 +327,7 @@ import { ref, reactive, onMounted, onUnmounted, computed, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import { useLocale } from '@/composables/useLocale'
 import { useSystemModeStore } from '@/stores/systemMode'
+import { useAuthStore } from '@/stores/auth'
 import { api } from '@/lib/api'
 import type { Transaction } from '@/types/transaction'
 import BaseButton from '@/components/BaseButton.vue'
@@ -359,6 +361,7 @@ interface EventSchema {
 const route = useRoute()
 const { t } = useLocale()
 const systemModeStore = useSystemModeStore()
+const authStore = useAuthStore()
 
 const loading = ref(true)
 const error = ref('')
@@ -504,6 +507,26 @@ watch(() => systemModeStore.syntheticMode, () => {
   }
 })
 
+// Debug watcher for total
+watch(total, (newVal, oldVal) => {
+  console.log('[WATCH] total changed from', oldVal, 'to', newVal)
+})
+
+// Watch for page changes
+watch(currentPage, () => {
+  if (filters.schemaId) {
+    loadTransactions()
+  }
+})
+
+// Watch for items per page changes
+watch(itemsPerPage, () => {
+  if (filters.schemaId) {
+    currentPage.value = 1 // Reset to first page
+    loadTransactions()
+  }
+})
+
 onUnmounted(() => {
   stopLiveUpdates()
 })
@@ -610,16 +633,20 @@ async function loadTransactions() {
     }
 
     const response = await api.get<{ transactions: Transaction[]; total?: number }>(`/api/v1/transactions?${params.toString()}`)
-    transactions.value = response.transactions || []
-    total.value = response.total || transactions.value.length
+    console.log('[Load Transactions] Raw Response:', response)
+    console.log('[Load Transactions] Response.total type:', typeof response.total, 'value:', response.total)
 
+    transactions.value = response.transactions || []
+    total.value = response.total ?? 0
+
+    console.log('[Load Transactions] After assignment - total.value:', total.value)
     console.log('[Load Transactions] Response:', {
       count: transactions.value.length,
       total: total.value,
       transactions: transactions.value
     })
   } catch (e: any) {
-    error.value = e.message || 'Failed to load transactions'
+    error.value = e.message || t('views.transactions.errorLoad')
     console.error('[Load Transactions] Error:', e)
   } finally {
     loading.value = false
@@ -639,18 +666,6 @@ function clearFilters() {
   if (filters.schemaId) {
     loadTransactions()
   }
-}
-
-// Pagination handlers
-function handlePageChange(page: number) {
-  currentPage.value = page
-  loadTransactions()
-}
-
-function handleItemsPerPageChange(newValue: number | string) {
-  itemsPerPage.value = typeof newValue === 'string' ? parseInt(newValue, 10) : newValue
-  currentPage.value = 1
-  loadTransactions()
 }
 
 // Generate synthetic events handlers
@@ -675,7 +690,9 @@ async function handleGenerateEvents() {
     console.log('[Generate Events] Sending request:', {
       schemaId: generateSchemaId.value,
       count: generateCount.value,
-      syntheticMode: syntheticMode.value
+      syntheticMode: syntheticMode.value,
+      hasToken: !!authStore.getToken(),
+      hasCsrfToken: !!authStore.getCsrfToken()
     })
 
     const response = await api.post<{ generated_count: number; message: string }>(
@@ -717,9 +734,29 @@ async function handleGenerateEvents() {
     }
   } catch (e: any) {
     console.error('[Generate Events] Error:', e)
-    generateResult.value = {
-      success: false,
-      message: e.message || 'Failed to generate events',
+
+    // Check if it's a CSRF error (403 Forbidden with CSRF in message)
+    const errorMessage = e.message || 'Failed to generate events'
+    const isCSRFError = errorMessage.includes('CSRF') || errorMessage.includes('403') || errorMessage.includes('Forbidden')
+
+    if (isCSRFError) {
+      console.error('[Generate Events] CSRF token error detected')
+      console.error('This typically happens when:')
+      console.error('  1. User logged in before CSRF system was implemented')
+      console.error('  2. CSRF token expired (24h TTL)')
+      console.error('  3. Redis connection lost')
+      console.error('')
+      console.error('Solution: Please logout and login again to refresh CSRF token')
+
+      generateResult.value = {
+        success: false,
+        message: 'CSRF token error. Please logout and login again.',
+      }
+    } else {
+      generateResult.value = {
+        success: false,
+        message: errorMessage,
+      }
     }
   } finally {
     generating.value = false
@@ -792,7 +829,11 @@ async function approveTransaction(id: string) {
   try {
     error.value = ''
     await api.patch(`/api/v1/transactions/${id}/approve`)
-    await loadTransactions()
+    // Update transaction status locally instead of reloading entire list
+    const transaction = transactions.value.find(t => t.id === id)
+    if (transaction) {
+      transaction.status = 'approved'
+    }
   } catch (e: any) {
     error.value = e.message || 'Failed to approve transaction'
     console.error('Error approving transaction:', e)
@@ -803,7 +844,11 @@ async function rejectTransaction(id: string) {
   try {
     error.value = ''
     await api.patch(`/api/v1/transactions/${id}/reject`)
-    await loadTransactions()
+    // Update the transaction status locally instead of reloading
+    const transaction = transactions.value.find(t => t.id === id)
+    if (transaction) {
+      transaction.status = 'rejected'
+    }
   } catch (e: any) {
     error.value = e.message || 'Failed to reject transaction'
     console.error('Error rejecting transaction:', e)

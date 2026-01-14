@@ -184,7 +184,7 @@
           <div class="d-flex flex-column gap-2">
             <!-- Logo Preview -->
             <div>
-              <h3 class="text-caption font-weight-medium text-grey-darken-1 mb-1">Logo</h3>
+              <h3 class="text-caption font-weight-medium text-grey-darken-1 mb-1">{{ $t('common.logo') }}</h3>
               <v-card variant="tonal" class="pa-2">
                 <div class="d-flex align-center gap-2">
                   <img

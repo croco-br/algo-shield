@@ -126,8 +126,9 @@ type GeneralConfig struct {
 }
 
 type AuthConfig struct {
-	JWTSecret          string
-	JWTExpirationHours int
+	JWTSecret                 string
+	JWTExpirationHours        int
+	JWTRefreshExpirationHours int
 }
 
 func Load() (*Config, error) {
@@ -222,8 +223,9 @@ func Load() (*Config, error) {
 			LogLevel:    getEnv("LOG_LEVEL", "info"),
 		},
 		Auth: AuthConfig{
-			JWTSecret:          jwtSecret,
-			JWTExpirationHours: getEnvInt("JWT_EXPIRATION_HOURS", 24),
+			JWTSecret:                 jwtSecret,
+			JWTExpirationHours:        getEnvInt("JWT_EXPIRATION_HOURS", 24),
+			JWTRefreshExpirationHours: getEnvInt("JWT_REFRESH_EXPIRATION_HOURS", 168), // Default: 7 days (168 hours)
 		},
 	}
 

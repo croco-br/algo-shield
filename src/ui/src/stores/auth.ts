@@ -21,15 +21,20 @@ export interface User {
 export const useAuthStore = defineStore('auth', () => {
 	const user = ref<User | null>(null);
 	const loading = ref(true);
-	// SECURITY: Store token in memory only (never localStorage to prevent XSS attacks)
-	// This means token will be lost on page reload, requiring re-authentication
+	// SECURITY: Store access token in memory only (XSS protection)
+	// Refresh token in localStorage is safer as it's only used for getting new access tokens
 	const token = ref<string | null>(null);
-	// SECURITY: CSRF token stored in memory alongside JWT token
 	const csrfToken = ref<string | null>(null);
+	const refreshToken = ref<string | null>(localStorage.getItem('refresh_token'));
 
 	async function loadUserFromToken() {
 		try {
 			if (!token.value) {
+				// Try to use refresh token if available
+				if (refreshToken.value) {
+					await refreshAccessToken();
+					return;
+				}
 				user.value = null;
 				loading.value = false;
 				return;
@@ -38,17 +43,57 @@ export const useAuthStore = defineStore('auth', () => {
 			const userData = await api.get<User>('/api/v1/auth/me');
 			user.value = userData;
 		} catch (e) {
-			// Token invalid, clear it
-			token.value = null;
-			user.value = null;
+			// Token invalid, try refresh
+			if (refreshToken.value) {
+				try {
+					await refreshAccessToken();
+				} catch (refreshError) {
+					// Refresh failed, clear everything
+					clearTokens();
+				}
+			} else {
+				clearTokens();
+			}
 		} finally {
 			loading.value = false;
 		}
 	}
 
-	async function setToken(newToken: string, newCsrfToken?: string) {
+	async function refreshAccessToken() {
+		try {
+			const response = await api.post<{ token: string; csrf_token?: string }>('/api/v1/auth/refresh', {
+				refresh_token: refreshToken.value
+			});
+			token.value = response.token;
+			csrfToken.value = response.csrf_token || null;
+
+			// Load user data with new token
+			const userData = await api.get<User>('/api/v1/auth/me');
+			user.value = userData;
+		} catch (e) {
+			clearTokens();
+			throw e;
+		}
+	}
+
+	function clearTokens() {
+		token.value = null;
+		csrfToken.value = null;
+		refreshToken.value = null;
+		user.value = null;
+		localStorage.removeItem('refresh_token');
+	}
+
+	async function setToken(newToken: string, newCsrfToken?: string, newRefreshToken?: string) {
 		token.value = newToken;
 		csrfToken.value = newCsrfToken || null;
+
+		// Only persist refresh token (safer than access token)
+		if (newRefreshToken) {
+			refreshToken.value = newRefreshToken;
+			localStorage.setItem('refresh_token', newRefreshToken);
+		}
+
 		await loadUserFromToken();
 	}
 
@@ -58,9 +103,7 @@ export const useAuthStore = defineStore('auth', () => {
 		} catch (e) {
 			// Ignore errors on logout
 		}
-		user.value = null;
-		token.value = null;
-		csrfToken.value = null;
+		clearTokens();
 	}
 
 	async function refresh() {

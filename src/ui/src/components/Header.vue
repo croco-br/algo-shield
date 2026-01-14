@@ -66,16 +66,8 @@
               color="white"
               class="d-flex align-center gap-2"
             >
-              <v-avatar size="32">
-                <v-img
-                  v-if="user.picture_url"
-                  :src="user.picture_url"
-                  :alt="user.name"
-                  cover
-                />
-                <span v-else class="text-white">
-                  {{ user.name.charAt(0).toUpperCase() }}
-                </span>
+              <v-avatar color="primary" size="32">
+                <v-icon icon="fa-user" color="white" />
               </v-avatar>
               <v-icon icon="fa-chevron-down" size="small" />
             </v-btn>
@@ -140,6 +132,8 @@ import { useAuthStore } from '@/stores/auth'
 import { useBrandingStore } from '@/stores/branding'
 import { useSystemModeStore } from '@/stores/systemMode'
 import { useLocale } from '@/composables/useLocale'
+import { getErrorMessage } from '@/lib/error-handler'
+import { useI18n } from 'vue-i18n'
 
 const router = useRouter()
 const route = useRoute()
@@ -147,8 +141,10 @@ const authStore = useAuthStore()
 const brandingStore = useBrandingStore()
 const systemModeStore = useSystemModeStore()
 const { locale, availableLocales, setLocale } = useLocale()
+const { t } = useI18n()
 
 const showUserMenu = ref(false)
+const errorMessage = ref<string | null>(null)
 
 const user = computed(() => authStore.user)
 const isLoginPage = computed(() => route.path.startsWith('/login'))
@@ -172,11 +168,22 @@ onMounted(async () => {
 
 const handleSyntheticModeChange = async (enabled: boolean | null) => {
   if (enabled === null) return
+  errorMessage.value = null
   try {
     await systemModeStore.setMode(enabled)
-    // Reload the page to refresh all data with the new mode
-    window.location.reload()
-  } catch {
+    // Navigate to dashboard to ensure a fresh state without losing authentication
+    // This approach preserves the JWT token in memory while refreshing the UI
+    if (route.path !== '/dashboard') {
+      await router.push('/dashboard')
+    } else {
+      // If already on dashboard, force a component refresh by navigating away and back
+      await router.push('/').then(() => router.push('/dashboard'))
+    }
+  } catch (error) {
+    // Extract and display user-friendly error message
+    errorMessage.value = getErrorMessage(error)
+    // Show error as alert
+    alert(t('errors.FORBIDDEN') + '\n\n' + errorMessage.value)
     // Revert on error - sync back with store
     syntheticMode.value = systemModeStore.syntheticMode
   }

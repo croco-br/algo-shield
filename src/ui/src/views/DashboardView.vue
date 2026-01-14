@@ -155,8 +155,6 @@ const selectedPeriod = ref('24h')
 let autoRefreshInterval: ReturnType<typeof setInterval> | null = null
 
 const statusCards = computed(() => {
-  if (!metrics.value?.status_distribution) return []
-  
   const statusConfig: Record<string, { color: string; icon: string; labelKey: string }> = {
     approved: { color: 'success', icon: 'fa-check', labelKey: 'views.dashboard.approved' },
     rejected: { color: 'error', icon: 'fa-times', labelKey: 'views.dashboard.rejected' },
@@ -164,16 +162,49 @@ const statusCards = computed(() => {
     pending: { color: 'info', icon: 'fa-hourglass', labelKey: 'views.dashboard.pending' },
   }
 
-  return metrics.value.status_distribution.map(item => {
-    const config = statusConfig[item.status] || { color: 'grey', icon: 'fa-question', labelKey: '' }
-    return {
-      name: item.status,
-      count: item.count,
-      color: config.color,
-      icon: config.icon,
-      label: config.labelKey ? t(config.labelKey) : item.status
+  // Garantir que approved e rejected sempre apareçam
+  const requiredStatuses = ['approved', 'rejected']
+  const distribution = metrics.value?.status_distribution || []
+
+  // Criar um mapa dos status existentes
+  const statusMap = new Map(distribution.map(item => [item.status, item.count]))
+
+  // Garantir que os status obrigatórios existam
+  requiredStatuses.forEach(status => {
+    if (!statusMap.has(status)) {
+      statusMap.set(status, 0)
     }
   })
+
+  // Adicionar outros status que possam existir
+  distribution.forEach(item => {
+    if (!statusMap.has(item.status)) {
+      statusMap.set(item.status, item.count)
+    }
+  })
+
+  // Converter para array e ordenar (approved, rejected, depois outros)
+  return Array.from(statusMap.entries())
+    .map(([status, count]) => {
+      const config = statusConfig[status] || { color: 'grey', icon: 'fa-question', labelKey: '' }
+      return {
+        name: status,
+        count: count,
+        color: config.color,
+        icon: config.icon,
+        label: config.labelKey ? t(config.labelKey) : status
+      }
+    })
+    .sort((a, b) => {
+      // Ordem: approved, rejected, depois outros
+      const order = ['approved', 'rejected', 'in_review', 'pending']
+      const indexA = order.indexOf(a.name)
+      const indexB = order.indexOf(b.name)
+      if (indexA !== -1 && indexB !== -1) return indexA - indexB
+      if (indexA !== -1) return -1
+      if (indexB !== -1) return 1
+      return a.name.localeCompare(b.name)
+    })
 })
 
 const temporalData = computed(() => {
@@ -215,7 +246,7 @@ async function loadMetrics() {
     responseTime.value = response.response_time_ms
     lastUpdated.value = new Date()
   } catch (e: any) {
-    error.value = e.message || 'Failed to load dashboard metrics'
+    error.value = e.message || t('views.dashboard.errorLoad')
     console.error('Error loading metrics:', e)
   } finally {
     loading.value = false

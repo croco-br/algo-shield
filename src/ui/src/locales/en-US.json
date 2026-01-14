@@ -33,7 +33,10 @@
     "previous": "Previous",
     "actions": "Actions",
     "select": "Select",
-    "selected": "Selected"
+    "selected": "Selected",
+    "notAvailable": "N/A",
+    "columns": "columns",
+    "logo": "Logo"
   },
   "auth": {
     "login": "Login",
@@ -68,6 +71,32 @@
       "registrationFailed": "Registration failed. Please try again."
     }
   },
+  "errors": {
+    "INVALID_CREDENTIALS": "Invalid email or password",
+    "USER_INACTIVE": "Your account is inactive. Please contact support.",
+    "TOKEN_EXPIRED": "Your session has expired. Please log in again.",
+    "TOKEN_REVOKED": "Your session has been revoked. Please log in again.",
+    "TOKEN_INVALID": "Invalid authentication token. Please log in again.",
+    "INSUFFICIENT_PERMISSIONS": "You don't have permission to perform this action",
+    "CANNOT_DEACTIVATE_SELF": "You cannot deactivate your own account. Please contact another administrator.",
+    "CANNOT_DEACTIVATE_LAST_ADMIN": "Cannot deactivate the last active administrator. Please activate another administrator first.",
+    "CANNOT_MODIFY_PROTECTED_USER": "This user is protected and cannot be modified",
+    "RATE_LIMIT_EXCEEDED": "Too many requests. Please try again later.",
+    "NOT_FOUND": "The requested resource was not found",
+    "INTERNAL_ERROR": "An internal server error occurred. Please try again later.",
+    "BAD_REQUEST": "Invalid request. Please check your input.",
+    "UNAUTHORIZED": "You are not authorized to access this resource",
+    "FORBIDDEN": "Access to this resource is forbidden",
+    "CONFLICT": "This action conflicts with existing data",
+    "VALIDATION_ERROR": "Validation error. Please check your input.",
+    "generic": "An error occurred. Please try again.",
+    "notFound": "Not found",
+    "unauthorized": "Unauthorized",
+    "forbidden": "Access denied",
+    "serverError": "Server error",
+    "networkError": "Network error",
+    "timeout": "Timeout"
+  },
   "header": {
     "profile": "Profile",
     "settings": "Settings",
@@ -91,7 +120,6 @@
       "loading": "Loading metrics...",
       "errorTitle": "Error loading metrics",
       "errorRetry": "Failed to load metrics",
-      "escalationNotImplemented": "Transaction escalation feature not yet implemented in backend",
       "refresh": "Refresh",
       "totalTransactions": "Total Transactions",
       "statusDistribution": "Status Distribution",
@@ -99,7 +127,8 @@
       "approved": "Approved",
       "rejected": "Rejected",
       "inReview": "In Review",
-      "pending": "Pending"
+      "pending": "Pending",
+      "errorLoad": "Failed to load dashboard metrics"
     },
     "transactions": {
       "title": "Transactions",
@@ -121,6 +150,7 @@
       "reject": "Reject",
       "showing": "Showing",
       "of": "of",
+      "to": "to",
       "transactions": "transactions",
       "statusAll": "All",
       "statusApproved": "Approved",
@@ -128,17 +158,8 @@
       "statusInReview": "In Review",
       "statusPending": "Pending",
       "allSchemas": "All Schemas",
-      "selectSchemaFilter": "Select Schema to View Transactions",
-      "schemaFilterDescription": "Please select a schema to view transactions. The table columns will be dynamically generated based on the selected schema's fields.",
-      "schemaFilterDescriptionSelected": "Viewing transactions for schema: {name}. Table columns are dynamically generated from schema fields.",
-      "clearSchema": "Clear Selection",
-      "schemaRequired": "Schema selection is required",
       "noSchemaSelectedTitle": "No Schema Selected",
       "noSchemaSelectedMessage": "Please select a schema from the filter above to view transactions. Transactions are displayed with dynamic columns based on the selected schema.",
-      "selectFirstSchema": "Select First Schema",
-      "filters": "Filters",
-      "filtersActive": "{count} filter(s) active",
-      "noFiltersActive": "No filters active",
       "tableExternalId": "External ID",
       "tableSchema": "Schema",
       "tableStatus": "Status",
@@ -150,6 +171,8 @@
       "tableActions": "Actions",
       "noSchema": "No Schema",
       "viewDetails": "View Details",
+      "filters": "Filters",
+      "filtersActive": "{count} active filter | {count} active filters",
       "generateSynthetic": "Generate Test Data",
       "generateSyntheticTitle": "Generate Test Events",
       "generateSyntheticDescription": "Generate test transaction events from a schema. Events will be queued for processing.",
@@ -157,7 +180,7 @@
       "eventCount": "Number of Events",
       "eventCountPlaceholder": "Enter number (1-1000)",
       "generate": "Generate Events",
-      "to": "to"
+      "errorLoad": "Failed to load transactions"
     },
     "profile": {
       "title": "Profile",
@@ -213,23 +236,10 @@
       "users": "Users",
       "roles": "Roles",
       "groups": "Groups",
-      "createRole": "Create Role",
-      "editRole": "Edit Role",
-      "deleteRole": "Delete Role",
-      "assignRole": "Assign Role",
-      "roleName": "Role Name",
-      "roleDescription": "Role Description",
-      "permissions": "Permissions",
-      "selectPermissions": "Select Permissions",
-      "userManagement": "User Management",
-      "roleManagement": "Role Management",
       "noUsers": "No users found",
       "emptyText": "No users found",
       "errorLoad": "Failed to load data",
-      "errorAssignRole": "Failed to assign role",
-      "errorRemoveRole": "Failed to remove role",
-      "errorToggleStatus": "Failed to toggle user status",
-      "noRoles": "No roles found"
+      "assignRoleToUser": "Assign Role to {name}"
     },
     "rules": {
       "title": "Rules",
@@ -241,17 +251,8 @@
       "deleteRule": "Delete Rule",
       "ruleName": "Rule Name",
       "ruleDescription": "Rule Description",
-      "ruleType": "Rule Type",
-      "ruleConditions": "Conditions",
-      "ruleActions": "Actions",
-      "ruleEnabled": "Enabled",
-      "ruleDisabled": "Disabled",
-      "noRules": "No rules found",
       "emptyText": "No rules configured. Create your first rule to get started.",
-      "errorLoad": "Failed to load rules",
-      "errorSave": "Failed to save rule",
-      "errorDelete": "Failed to delete rule",
-      "errorToggle": "Failed to toggle rule",
+      "deleteConfirmation": "Are you sure you want to delete this rule?",
       "actions": {
         "allow": "Allow",
         "block": "Block",
@@ -415,15 +416,8 @@
       "createSchema": "Create Schema",
       "editSchema": "Edit Schema",
       "deleteSchema": "Delete Schema",
-      "schemaName": "Schema Name",
-      "schemaType": "Schema Type",
-      "schemaVersion": "Version",
-      "schemaFields": "Fields",
       "noSchemas": "No schemas found",
       "emptyText": "No schemas defined. Create your first schema to enable flexible rule evaluation.",
-      "errorLoad": "Failed to load schemas",
-      "errorSave": "Failed to save schema",
-      "errorDelete": "Failed to delete schema",
       "modalCreateTitle": "Create New Schema",
       "modalEditTitle": "Edit Schema",
       "modalViewTitle": "View Schema",
@@ -441,8 +435,6 @@
       "path": "Path",
       "type": "Type",
       "sampleValue": "Sample Value",
-      "noDescription": "No description",
-      "fields": "fields",
       "generateEvents": "Generate",
       "generateEventsTitle": "Generate Test Events",
       "generateEventsDescription": "Generate test transaction events from this schema. Events will be queued for processing.",
@@ -451,13 +443,19 @@
       "seed": "Seed (optional)",
       "seedPlaceholder": "Leave empty for random",
       "seedHint": "Use the same seed to generate identical event sequences.",
-      "generate": "Generate Events"
+      "generate": "Generate Events",
+      "schemaDetails": "Schema Details",
+      "deleteConfirmation": "Are you sure you want to delete this schema?",
+      "errorLoadSchema": "Failed to load schema",
+      "validation": {
+        "jsonMustBeObject": "Sample JSON must be an object",
+        "invalidJsonFormat": "Invalid JSON format",
+        "sampleJsonRequired": "Valid sample JSON is required"
+      }
     }
   },
   "components": {
     "table": {
-      "noData": "No data available",
-      "loading": "Loading...",
       "rowsPerPage": "Rows per page",
       "of": "of",
       "page": "Page",
@@ -516,15 +514,6 @@
       "active": "Active",
       "addRole": "Add Role"
     },
-    "modal": {
-      "close": "Close",
-      "save": "Save",
-      "cancel": "Cancel",
-      "create": "Create",
-      "update": "Update",
-      "delete": "Delete",
-      "confirm": "Confirm"
-    },
     "error": {
       "title": "Error",
       "retry": "Retry",
@@ -532,6 +521,10 @@
     },
     "loading": {
       "default": "Loading..."
+    },
+    "modal": {
+      "cancel": "Cancel",
+      "save": "Save"
     },
     "transactionDetailModal": {
       "title": "Transaction Details",
@@ -557,18 +550,8 @@
       "viewMetadata": "View Metadata"
     }
   },
-  "errors": {
-    "generic": "An error occurred. Please try again.",
-    "notFound": "Not found",
-    "unauthorized": "Unauthorized",
-    "forbidden": "Access denied",
-    "serverError": "Server error",
-    "networkError": "Network error",
-    "timeout": "Timeout"
-  },
   "languages": {
     "pt-BR": "Português (Brasil)",
     "en-US": "English (US)"
   }
 }
-
