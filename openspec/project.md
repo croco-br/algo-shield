@@ -21,15 +21,15 @@ AlgoShield is an open-source, high-performance fraud detection and anti-money la
 - **Expression Engine**: expr-lang/expr v1.17.7 (custom rule expressions)
 
 ### Frontend (Vue.js 3)
-- **Framework**: Vue 3.5+ with Composition API
-- **Language**: TypeScript 5.9
-- **State Management**: Pinia 3.0
-- **Routing**: Vue Router 4.6
-- **UI Components**: Vuetify 3.7 (Material Design)
-- **Icons**: Font Awesome 6.5 (free solid icons)
+- **Framework**: Vue 3.5.26 with Composition API
+- **Language**: TypeScript 5.9.3
+- **State Management**: Pinia 3.0.4
+- **Routing**: Vue Router 4.6.4
+- **UI Components**: Vuetify 3.11.6 (Material Design)
+- **Icons**: Font Awesome 7.1.0 (free solid icons)
 - **Syntax Highlighting**: Prism.js 1.30
-- **Styling**: Tailwind CSS 4.1 (with PostCSS)
-- **Build Tool**: Vite 7.2 (with chunk optimization)
+- **Styling**: Tailwind CSS 4.1.18 (with PostCSS)
+- **Build Tool**: Vite 7.3.1 (with chunk optimization)
 - **Dev Tools**: Vue DevTools, vue-tsc
 
 ### Infrastructure
@@ -39,12 +39,14 @@ AlgoShield is an open-source, high-performance fraud detection and anti-money la
 - **Deployment**: Multi-stage Docker builds
 
 ### Internationalization (i18n)
-- **Library**: vue-i18n v9
+- **Library**: vue-i18n v11.2.8
+- **API Mode**: Composition API mode (legacy mode removed as of January 2026)
 - **Supported Languages**: Portuguese (pt-BR), English (en-US)
 - **Default Language**: English (en-US)
 - **Locale Files**: `src/ui/src/locales/*.json`
 - **Configuration**: `src/ui/src/plugins/i18n.ts`
 - **Composable**: `src/ui/src/composables/useLocale.ts`
+- **Note**: Migrated from legacy mode to Composition API mode for better performance and future compatibility
 
 ## Project Conventions
 
@@ -748,6 +750,33 @@ AlgoShield provides a comprehensive fraud detection and AML platform with the fo
 ## Project Evolution & Decisions
 
 This section documents key architectural decisions and evolution history to provide context for future development and AI agents.
+
+### Dependency Updates (January 2026)
+
+**Decision**: Updated all major dependencies to their latest stable versions
+
+**Key Changes**:
+- Updated Vue.js from 3.5.25 to 3.5.26
+- Updated vue-i18n from 11.0.0 to 11.2.8 and migrated from legacy mode to Composition API mode
+- Updated Vuetify from 3.7.0 to 3.11.6 (major version bump with new features)
+- Updated Font Awesome from 6.5.1 to 7.1.0 (major version bump)
+- Updated Vite from 7.2.4 to 7.3.1
+- Updated TypeScript from 5.9.0 to 5.9.3
+- Updated vue-router from 4.6.3 to 4.6.4
+
+**Rationale**:
+- Keep dependencies up to date for security and performance improvements
+- Remove deprecated legacy mode from vue-i18n before v12 release
+- Take advantage of new features and bug fixes in latest versions
+- Font Awesome 7 brings new icons and better performance
+- Vuetify 3.11 brings significant UI improvements and bug fixes
+
+**Impact**:
+- All 408 tests passing after migration
+- No breaking changes to existing functionality
+- Better TypeScript support with Composition API mode
+- Improved build performance with latest Vite
+- See `docs/dependency-updates-2026-01.md` for complete details
 
 ### Frontend Framework Migration
 
