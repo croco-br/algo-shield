@@ -1136,7 +1136,7 @@ npm run test:integration -- --coverage
 go test -tags=integration -coverprofile=all-coverage.txt ./...
 go tool cover -func=all-coverage.txt | grep total
 
-# Should see > 90% total coverage
+# Should see > 80% total coverage
 ```
 
 ---

@@ -215,6 +215,7 @@ func (s *Service) GenerateEvents(ctx context.Context, id uuid.UUID, req *Generat
 
 	generator := NewEventGenerator()
 	generated := 0
+	failed := 0
 
 	for i := 0; i < req.Count; i++ {
 		event := generator.GenerateEvent(schema)
@@ -226,16 +227,26 @@ func (s *Service) GenerateEvents(ctx context.Context, id uuid.UUID, req *Generat
 		// Enqueue using Asynq (default priority)
 		_, err := s.enqueuer.EnqueueTransactionWithPriority(ctx, event, "default")
 		if err != nil {
-			// Log error but continue generating other events
+			// TODO: Add structured logging when available
+			// log.Warn("Failed to enqueue synthetic event", "error", err, "index", i, "schema_id", id)
+			failed++
 			continue
 		}
 		generated++
 	}
 
+	var message string
+	if failed == 0 {
+		message = fmt.Sprintf("Successfully generated and queued %d events", generated)
+	} else {
+		message = fmt.Sprintf("Generated %d events (%d succeeded, %d failed)", req.Count, generated, failed)
+	}
+
 	return &GenerateEventsResponse{
 		SchemaID:       id,
 		GeneratedCount: generated,
-		Message:        fmt.Sprintf("Successfully generated and queued %d events", generated),
+		FailedCount:    failed,
+		Message:        message,
 	}, nil
 }
 

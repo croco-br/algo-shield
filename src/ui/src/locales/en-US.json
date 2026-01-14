@@ -178,8 +178,11 @@
       "generateSyntheticDescription": "Generate test transaction events from a schema. Events will be queued for processing.",
       "selectSchema": "Select Schema",
       "eventCount": "Number of Events",
-      "eventCountPlaceholder": "Enter number (1-1000)",
+      "eventCountPlaceholder": "Enter number (1-10000)",
       "generate": "Generate Events",
+      "generateSuccess": "Successfully generated {count} events",
+      "generatePartial": "Generated {total} events: {success} succeeded, {failed} failed",
+      "generateFailed": "Failed to generate events",
       "errorLoad": "Failed to load transactions"
     },
     "profile": {

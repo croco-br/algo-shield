@@ -4,16 +4,16 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-AlgoShield is an open-source, high-performance fraud detection and AML transaction analysis system. It processes transactions with ultra-low latency (<50ms) using a custom expression-based rules engine powered by expr-lang. The system supports both real-time fraud prevention (pre-transaction) and post-transaction AML monitoring.
+AlgoShield is an open-source, high-performance fraud detection and AML transaction analysis system. It processes transactions with ultra-low latency (<50ms) using a custom expression-based rules engine powered by expr-lang.
 
 **Key Capabilities:**
-- Real-time transaction processing with <50ms latency target
+- Real-time transaction processing (<50ms latency)
 - Custom rules engine with hot-reload support
 - Event schema management with automatic field extraction
 - Risk scoring and transaction classification
-- JWT-based authentication with role-based access control (RBAC)
+- JWT-based authentication with RBAC
 - White-label branding customization
-- Synthetic event generation for testing
+- Synthetic event generation
 
 ## Tech Stack
 
@@ -76,38 +76,29 @@ cd src/ui && npm run dev
 ### Testing
 
 ```bash
-# Run all tests (API + UI)
-make test
+# Run all tests
+make test                    # API + UI
+make test-api                # API only with race detector
 
-# Run API tests only (with race detector)
-make test-api
-
-# Run API tests with gotestsum (better output)
+# Run with better output
 gotestsum --format testdox -- -race -parallel 8 ./src/...
 
-# Run specific test file
+# Run specific tests
 go test -race ./src/api/internal/auth/service_test.go
-
-# Run specific test function
 go test -race -run TestServiceName ./src/api/internal/auth/...
 
-# Run integration tests (requires Docker containers)
+# Integration tests (requires Docker)
 gotestsum --format testdox -- -tags=integration -race -parallel 2 ./src/api/... ./src/workers/...
 
-# Check for flaky tests
+# Check flaky tests
 go test -count=50 ./src/...
 
-# Run UI tests
-make test-ui
-cd src/ui && npm test
+# UI tests
+make test-ui                 # Run tests
+cd src/ui && npm run test:coverage  # With coverage
+cd src/ui && npm run test:ui        # Interactive
 
-# Run UI tests with coverage
-cd src/ui && npm run test:coverage
-
-# Run UI tests interactively
-cd src/ui && npm run test:ui
-
-# Run benchmarks (rules engine)
+# Benchmarks
 make bench
 go test -bench=. -benchmem -benchtime=5s -run=^$$ ./src/workers/internal/rules/...
 ```
@@ -214,148 +205,66 @@ The project follows clean architecture principles with clear dependency boundari
 
 ### Dependency Injection
 
-All handlers and services use **dependency injection** following SOLID principles:
+All handlers/services use **DI** following SOLID:
 
 ```go
-// Service depends on interface (not concrete type)
-type Service struct {
-    repo Repository  // Interface, not *PostgresRepository
-}
+type Service struct { repo Repository }  // Interface, not concrete type
+type Handler struct { service ServiceInterface }
 
-// Handler depends on interface
-type Handler struct {
-    service ServiceInterface  // Interface, not *Service
-}
-
-// Wiring happens in routes.go
+// Wiring in routes.go
 func Setup(app *fiber.App, db *pgxpool.Pool, redis *redis.Client, ...) {
-    // Create repositories (infrastructure layer)
-    userRepo := user.NewPostgresUserRepository(db)
-
-    // Create services with dependency injection (business layer)
-    userService := user.NewService(userRepo, roleRepo, txManager, roleService, groupService)
-
-    // Create handlers with dependency injection (presentation layer)
-    userHandler := user.NewHandler(userService)
+    userRepo := user.NewPostgresUserRepository(db)  // Infrastructure
+    userService := user.NewService(userRepo, ...)    // Business
+    userHandler := user.NewHandler(userService)      // Presentation
 }
 ```
-
-See `src/api/internal/routes/routes.go` for the complete dependency wiring.
+See `src/api/internal/routes/routes.go` for complete wiring.
 
 ### Message Queue Architecture (Asynq)
 
-AlgoShield uses **Asynq** (Redis-based task queue) for async transaction processing:
+**Flow:** API → Enqueue (`LPUSH`) → Redis Queue → Worker (`BRPOP`) → Process → Update DB
 
-```
-API → Enqueue Transaction → Redis Queue → Worker → Process Transaction → Update DB
-```
+- **3 priority levels**: critical, default, low | **Configurable**: concurrency, retries, timeouts, batch size
+- **Queue timeout**: 5s (returns `ErrTimeout` if no events - expected)
+- **Batch processing**: Collects up to `batchSize`, processes in parallel (semaphore-controlled)
 
-- **API**: Enqueues transactions to Redis via `LPUSH`
-- **Worker**: Processes transactions from queue via `BRPOP` (blocking pop)
-- **Three priority levels**: critical, default, low
-- **Configurable**: Concurrency, retries, timeouts, batch size
-- **Queue timeout**: 5s default (returns `ErrTimeout` if no events - expected behavior)
-- **Batch processing**: Workers collect up to `batchSize` transactions and process in parallel
-
-**Worker Processing Flow:**
-1. Worker pops transaction(s) from Redis queue (`BRPOP` - blocking)
-2. For batch mode: Collects up to `batchSize` transactions
-3. Processes transactions in parallel (controlled concurrency via semaphore)
-4. Each transaction evaluated against all enabled rules
-5. Result saved to database with status, matched rules, processing time
-6. Metrics recorded (success/failure, duration)
-7. Worker continues to next batch (infinite loop until context cancellation)
+**Worker Flow:** Pop (`BRPOP`) → Collect batch → Parallel processing → Evaluate rules → Save result (status, matched rules, time) → Record metrics → Continue
 
 ### Rules Engine
 
-The rules engine uses **expr-lang** for flexible expression evaluation:
+**expr-lang** for flexible evaluation. Hot-reload every 10s, expression cache (cleared on schema changes).
 
-**Architecture:**
-- Rules defined as custom expressions (e.g., `amount > 10000`)
-- Rules associated with event schemas for type safety
-- Schemas define the structure of transaction events
-- Hot-reload support: rules and schemas reload every 10s (configurable)
-- Expression cache for performance (cleared on schema changes)
-- Helper functions: `pointInPolygon()`, `velocityCount()`, `velocitySum()`
+**Flow:** Transaction → Schema Validation → Rule Evaluation → Risk Score → Action
+**Actions:** `allow` (approved) | `block` (rejected, highest priority) | `review` (in_review)
 
-**Evaluation Flow:**
-```
-Transaction → Schema Validation → Rule Evaluation → Risk Score → Action (allow/block/review)
-```
+**Helpers:**
+- `velocityCount(fieldPath, timeWindow)` - Count transactions by field
+- `velocitySum(fieldPath, [sumField,] timeWindow)` - Sum numeric field
+- `pointInPolygon(lat, lon, polygon)` - Point in polygon (ray casting)
 
-**Rule Actions:**
-- `allow`: Sets status to `approved`
-- `block`: Sets status to `rejected` (highest priority)
-- `review`: Sets status to `in_review`
-
-**Helper Functions:**
-- `velocityCount(fieldPath, timeWindowSeconds)`: Count transactions by field within time window
-- `velocitySum(fieldPath, timeWindowSeconds)`: Sum numeric field (auto-detected) by field
-- `velocitySum(fieldPath, sumFieldPath, timeWindowSeconds)`: Sum specified field
-- `pointInPolygon(lat, lon, polygon)`: Check if point is inside polygon (ray casting)
-
-**Security:** Field paths validated (only alphanumeric, underscore, dot) to prevent SQL injection.
+**Security:** Field paths validated (`^[a-zA-Z0-9_.]+$`) to prevent SQL injection.
 
 ### Caching Strategy
 
-- **Rules Cache**: Redis-backed with TTL (default: 5 minutes)
-- **Schema Cache**: In-memory + Redis pub/sub for invalidation
-- **Dashboard Metrics**: Redis-backed with 30s TTL (separate keys for synthetic/real modes)
-- **Branding Cache**: Redis-backed with TTL
-- **CSRF Tokens**: Redis-backed with 24-hour expiration
-- **Token Revocation**: Redis sets for blacklisting JWT tokens
+- **Rules**: Redis, 5min TTL | **Schema**: In-memory + Redis pub/sub | **Dashboard**: Redis, 30s TTL (synthetic/real)
+- **Branding**: Redis with TTL | **CSRF**: Redis, 24h | **Token Revocation**: Redis sets (JWT blacklist)
 
 ### Authentication & Authorization
 
-**JWT-based authentication:**
-- Access tokens: 24 hours (configurable via JWT_EXPIRATION_HOURS)
-- Refresh tokens: 7 days / 168 hours (configurable via JWT_REFRESH_EXPIRATION_HOURS)
-- Token revocation: Redis-backed blacklist
-- CSRF protection: Required for all state-changing requests (POST/PUT/PATCH/DELETE)
-- Rate limiting: Applied to login/registration endpoints
+**JWT:** Access 24h, Refresh 168h (configurable), Redis revocation, CSRF for state-changing ops, rate limiting on auth endpoints
 
-**Role-based access control (RBAC):**
-- **admin**: Full system access
-- **rule_editor**: Can create/update/delete rules and schemas
-- **viewer**: Read-only access
+**RBAC:** admin (full access) | rule_editor (rules/schemas CRUD) | viewer (read-only)
+**Groups:** Users → multiple groups → roles → inherited permissions
 
-**Group-based permissions:**
-- Users can belong to multiple groups
-- Groups can have roles assigned
-- Users inherit roles from groups
-
-**Security Flow:**
-```
-Login → JWT + Refresh Token + CSRF Token → Store in Redis → Return to Client
-Request → Validate JWT → Check Revocation → Verify CSRF → Process
-Logout → Add Token to Blacklist → Expire CSRF Token
-```
+**Flow:** Login → JWT+Refresh+CSRF → Redis → Client | Request → Validate JWT → Check revocation → Verify CSRF → Process | Logout → Blacklist token
 
 ### Transaction Processing
 
-**Transaction Statuses:**
-- `pending`: Awaiting processing (synthetic events only)
-- `approved`: Transaction approved (no blocking rules matched)
-- `rejected`: Transaction blocked (block action matched)
-- `in_review`: Transaction flagged for manual review
+**Statuses:** `pending` (synthetic only) | `approved` (no blocks) | `rejected` (blocked) | `in_review` (flagged)
 
-**Transaction Lifecycle:**
-1. Transaction submitted via API (`POST /api/v1/transactions`)
-2. Event validated (must be non-empty JSON object)
-3. Event queued in Redis
-4. API returns `202 Accepted` immediately
-5. Worker picks up event from queue (FIFO via `BRPOP`)
-6. Rules engine evaluates event against all enabled rules
-7. Result saved to database with status, matched rules, processing time
-8. Full event stored in `metadata` JSONB column
-9. Transactions in `in_review` or `pending` can be manually approved/rejected
+**Lifecycle:** Submit (`POST /api/v1/transactions`) → Validate → Queue Redis → `202 Accepted` → Worker picks (`BRPOP`) → Evaluate rules → Save (status, matched rules, time, metadata JSONB) → Manual review if `in_review`/`pending`
 
-**Synthetic Mode:**
-- Separate tables: `transactions` (real) and `transactions_synthetic` (synthetic)
-- Synthetic transactions marked with `_synthetic: true`
-- Synthetic transactions always have `pending` status (not processed by rules)
-- Mode controlled via `X-Synthetic-Mode` header or system config
-- Dashboard metrics separated by mode
+**Synthetic Mode:** Separate tables (`transactions` vs `transactions_synthetic`), marked `_synthetic: true`, always `pending` (not rule-processed), controlled via `X-Synthetic-Mode` header, separate dashboard metrics
 
 ## Key Conventions
 
@@ -392,59 +301,33 @@ Logout → Add Token to Blacklist → Expire CSRF Token
 
 ### Internationalization (i18n)
 
-**CRITICAL: All user-facing text MUST use translation keys. No hardcoded strings in components.**
+**CRITICAL: All user-facing text MUST use translation keys. No hardcoded strings.**
 
-**Usage in templates:**
-```vue
-<template>
-  <div>{{ $t('common.save') }}</div>
-</template>
-```
+**Usage:** `{{ $t('common.save') }}` in templates, `const { t } = useI18n()` in scripts
 
-**Usage in scripts:**
-```vue
-<script setup lang="ts">
-import { useI18n } from 'vue-i18n'
+**Key naming (dot-notation):**
+- `common.*` - Shared (buttons, actions, labels)
+- `auth.*`, `header.*`, `sidebar.*` - Auth/layout
+- `views.<viewName>.*` - View-specific
+- `components.<componentName>.*` - Component-specific
+- `errors.*`, `languages.*` - Errors and language names
 
-const { t } = useI18n()
-const message = t('common.save')
-</script>
-```
+**Adding translations:**
+1. Add to BOTH `pt-BR.json` AND `en-US.json`
+2. Descriptive paths: `auth.errors.invalidCredentials` not `err1`
+3. Use parameters: `{{ $t('welcome', { name: user.name }) }}`
 
-**Key naming convention (dot-notation hierarchy):**
-- `common.*` - Shared translations (buttons, actions, labels)
-- `auth.*` - Authentication-related
-- `header.*` / `sidebar.*` - Layout component translations
-- `views.<viewName>.*` - View-specific translations
-- `components.<componentName>.*` - Component-specific translations
-- `errors.*` - Error messages
-- `languages.*` - Language names
-
-**Adding new translations:**
-1. Add the key to BOTH `src/ui/src/locales/pt-BR.json` AND `src/ui/src/locales/en-US.json`
-2. Use descriptive key paths: `auth.errors.invalidCredentials` not `err1`
-3. Use parameters for dynamic text: `{{ $t('welcome', { name: user.name }) }}`
-
-**Supported languages:** Portuguese (pt-BR), English (en-US)
-**Default language:** English (en-US)
-**For detailed i18n documentation:** See `src/ui/src/locales/README.md`
+**Languages:** pt-BR, en-US (default: en-US) | **Details:** `src/ui/src/locales/README.md`
 
 ### Database
 
-- Migrations are SQL files in `scripts/migrations/`
-- Migration order: `001_schema.sql` → `002_indexes.sql` → `003_test_data.sql`
-- Use `pgxpool` for connection pooling (not `database/sql`)
-- **All queries MUST use parameterized statements** (prevent SQL injection)
-- Transaction support via `pgx.Tx` for atomic operations
-- Example (GOOD):
-  ```go
-  query := "SELECT * FROM users WHERE email = $1"
-  row := db.QueryRow(ctx, query, userEmail)
-  ```
-- Example (BAD - NEVER DO THIS):
-  ```go
-  query := fmt.Sprintf("SELECT * FROM users WHERE email = '%s'", userEmail) // VULNERABLE!
-  ```
+- Migrations: SQL files in `scripts/migrations/` (`001_schema.sql` → `002_indexes.sql` → `003_test_data.sql`)
+- Use `pgxpool` for connection pooling, `pgx.Tx` for atomic operations
+- **ALWAYS parameterized queries** (`$1, $2, $3`) - NEVER concatenate user input
+```go
+// ✅ query := "SELECT * FROM users WHERE email = $1"
+// ❌ query := fmt.Sprintf("SELECT * FROM users WHERE email = '%s'", userEmail)
+```
 
 ### Environment Variables
 
@@ -460,34 +343,20 @@ const message = t('common.save')
 
 ### Test Strategy
 
-AlgoShield uses spec-driven testing with comprehensive documentation:
-
-- **Unit Tests**: Follow `docs/agents/unit-test.md` strictly
-- **Integration Tests**: Follow `docs/agents/integration-test.md` strictly
-- **Coverage target**: **80% minimum** for new code
-- **Race detection**: Always run tests with `-race` flag
-- **Flaky test detection**: Run `go test -count=50` to verify deterministic tests
-- **AAA Pattern**: Arrange-Act-Assert (without comments)
+- **Unit Tests**: Follow `docs/agents/unit-test.md` | **Integration Tests**: Follow `docs/agents/integration-test.md`
+- **Coverage**: 80% minimum | **Race detection**: `-race` flag | **Flaky tests**: `-count=50` (Go), `--repeat=20` (Vue)
+- **AAA Pattern**: No comments, use blank lines | **Lint**: All tests must pass linters
 
 ### Unit Tests (Go)
 
-- Mock dependencies using interfaces (see `mock_*_test.go` files)
-- Test services in isolation from repositories
-- Test handlers in isolation from services
-- Use table-driven tests for multiple scenarios
-- Always run with `-race` flag to detect race conditions
-
-**Example structure:**
+- Mock dependencies (interfaces), test in isolation, table-driven for multiple scenarios, `-race` flag, 80%+ coverage
 ```go
 func TestServiceOperation(t *testing.T) {
-    // Arrange: setup mocks
     mockRepo := &MockRepository{}
     service := NewService(mockRepo)
 
-    // Act: call the function
     result, err := service.Operation(ctx, input)
 
-    // Assert: verify results
     assert.NoError(t, err)
     assert.Equal(t, expected, result)
 }
@@ -495,90 +364,213 @@ func TestServiceOperation(t *testing.T) {
 
 ### Integration Tests (Go)
 
-- Use build tag `//go:build integration`
-- Require Docker containers (postgres, redis)
-- Test actual database operations
-- Use `testcontainers-go` for isolated environments
-- See `*_integration_test.go` files
+- Build tag `//go:build integration`, Docker containers, testcontainers-go, <500ms per test
+- **Isolation:** Transactions (fastest) → Truncate tables (moderate) → Recreate DB (slowest)
 
 ### UI Tests (Vue/TypeScript)
 
-- Use Vitest for unit tests
-- Use Vue Test Utils for component testing
-- Mock API calls with test fixtures
-- Test user interactions and state management
+- Vitest + Vue Test Utils, Mock API with MSW, test interactions/state, `flushPromises()` for async, <300ms per test
+
+### Coverage & Quality Verification
+
+```bash
+# Go: Lint then coverage
+go vet ./... && golangci-lint run ./...
+go test -coverprofile=coverage.txt -covermode=atomic ./...
+go tool cover -func=coverage.txt | grep total  # ≥80%
+
+# Vue: Lint then coverage
+npm run lint && npm run test:coverage  # ≥80%
+
+# Flaky test detection
+go test -count=50 ./...           # Go
+npm run test -- --repeat=20       # Vue
+
+# Race conditions (MANDATORY)
+go test -race ./...
+go test -tags=integration -race ./...
+```
 
 ## Important Patterns and Gotcas
 
 ### Security
 
-**CRITICAL SECURITY REQUIREMENTS:**
+**CRITICAL: OWASP Top 10 Compliance Required**
 
-1. **SQL Injection Prevention**:
-   - ALWAYS use parameterized queries with `$1, $2, $3` placeholders
-   - NEVER concatenate user input into SQL queries
+#### 1. SQL Injection Prevention
+- **ALWAYS** use parameterized queries (`$1, $2, $3`)
+- **NEVER** concatenate user input into SQL
+```go
+// ✅ GOOD: query := "SELECT * FROM users WHERE email = $1"
+// ❌ BAD: query := fmt.Sprintf("SELECT * FROM users WHERE email = '%s'", userEmail)
+```
 
-2. **CSRF Protection**:
-   - System uses CSRF tokens for all state-changing requests (POST/PUT/PATCH/DELETE)
-   - **Backend**: Tokens generated on login/register, stored in Redis (24h TTL), validated via middleware
-   - **Frontend**: Tokens stored in memory (Pinia), automatically added to requests via API client
-   - **Common issue**: Users must logout and login after CSRF implementation (to get token)
-   - **All views must use API client**: Never use `fetch()` or `axios` directly - always use `api.post()`, `api.put()`, etc.
-   - **Troubleshooting**: Check if `X-CSRF-Token` header is present in DevTools Network tab
+#### 2. XSS Prevention
+**Backend:** Validate all input, set `Content-Type: application/json`, sanitize HTML with bluemonday
+**Frontend:** Vue auto-escapes `{{ }}`, NEVER use `v-html` with user input, avoid `eval()`, use CSP headers
 
-3. **Authentication**:
-   - JWT tokens must be validated on every request
-   - Passwords MUST be hashed with bcrypt (never log or return password hashes)
-   - Implement token expiration (24h default for access tokens, 7 days for refresh tokens)
-   - Support token revocation via Redis
+#### 3. Command Injection Prevention
+- Use `exec.Command("ls", "-l", dir)` with separate args
+- NEVER `exec.Command("sh", "-c", "ls " + userInput)`
 
-4. **TLS/HTTPS**:
-   - **TLS is required in production** (enforced at startup)
-   - Configure via `TLS_ENABLE`, `TLS_CERT_PATH`, `TLS_KEY_PATH`
+#### 4. Expression Injection (Rules Engine)
+- Validate field paths: `^[a-zA-Z0-9_.]+$`
+- Use expr-lang type safety
 
-5. **CORS**:
-   - Never use `*` in production - specify allowed origins
-   - Configure via `CORS_ALLOWED_ORIGINS` environment variable
+#### 5. CSRF Protection (Implemented)
+- Tokens in Redis (24h TTL), auto-added via API client
+- **MUST use** `api.post()` not `fetch()` directly
 
-6. **Rate Limiting**:
-   - Applied to auth endpoints to prevent brute force
-   - Redis-backed for distributed rate limiting
+#### 6. Authentication
+**JWT:** Strong secrets (32+ bytes), expiration (24h access/168h refresh), Redis revocation
+**Passwords:** bcrypt (cost 12+), never log hashes, rate limit login
 
-7. **Request Body Size Limit**:
-   - Default 4MB (configurable via `API_BODY_LIMIT`)
-   - Prevents DoS attacks via large payloads
+#### 7. Sensitive Data
+- NEVER log passwords, tokens, PII
+- Use HTTPS/TLS in production
+- Filter sensitive fields from API responses
 
-8. **Sensitive Data**:
-   - NEVER log sensitive data (passwords, tokens, PII)
-   - Mask sensitive fields in logs and error messages
-   - Filter sensitive fields from API responses
+#### 8. Access Control
+- RBAC on ALL endpoints via middleware
+- Verify user owns resource (prevent horizontal escalation)
+- Admins can't deactivate themselves or last admin
+
+#### 9. Security Misconfiguration
+**Headers (MANDATORY):**
+```go
+c.Set("X-Content-Type-Options", "nosniff")
+c.Set("X-Frame-Options", "DENY")
+c.Set("X-XSS-Protection", "1; mode=block")
+c.Set("Strict-Transport-Security", "max-age=31536000")
+c.Set("Content-Security-Policy", "default-src 'self'")
+```
+
+#### 10. CSP
+- Strict CSP: `default-src 'self'; script-src 'self'`
+- No inline scripts (use nonces if needed)
+
+#### 11. Dependency Vulnerabilities
+**Scan regularly:**
+```bash
+govulncheck ./...          # Go
+npm audit && npm audit fix # Frontend
+gitleaks detect --source . # Secrets
+semgrep --config auto      # SAST
+```
+
+#### 12. Security Logging
+- Log auth attempts, authorization failures, critical ops
+- Include correlation IDs, structured JSON format
+
+#### 13-14. Rate Limiting & Resource Limits
+- Rate limit auth endpoints (Redis-backed)
+- Limit body size (4MB default), set query/Redis timeouts
+
+#### 15. TLS/HTTPS
+- **MANDATORY in production** (`TLS_ENABLE=true`)
+- HSTS headers, secure cookies
+
+#### 16. CORS
+- NEVER `*` in production
+- Configure via `CORS_ALLOWED_ORIGINS`
+
+#### 17. Token Storage
+- Store in Pinia (memory), NEVER localStorage
+- Clear on logout
 
 ### Performance
 
-- **Connection pooling**: Always use `pgxpool.Pool`, never create new connections per request
-- **Redis pipelining**: Use for bulk operations
-- **Caching**: Rules are cached (check TTL before modifying cache logic)
-- **Hot-reload**: Rules and schemas reload automatically (default: 10s interval)
-- **Expression compilation**: Cached per schema to avoid recompilation overhead
-- **Race detector**: Always run tests with `-race` flag
-- **Target latency**: <50ms per transaction (from queue to database)
-- **Batch processing**: Configurable batch size for efficient worker processing
-- **Concurrent processing**: Controlled concurrency via semaphore to prevent resource exhaustion
+- **Connection pooling** (`pgxpool.Pool`), **Redis pipelining** (bulk ops), **Caching** (rules 5min TTL)
+- **Hot-reload** (10s interval), **Expression compilation** (cached per schema), **Race detector** (`-race`)
+- **Target**: <50ms per transaction, batch processing with controlled concurrency (semaphore)
 
-### Error Handling
+### Error Handling & Transaction Flow
 
-- API errors use custom error types (see `src/pkg/errors/`)
-- Handlers should return appropriate HTTP status codes
-- Always log errors with context for debugging
-- Worker errors trigger Asynq retries (configurable max attempts)
-- Return generic error messages to clients (don't expose stack traces)
+- Custom error types (`src/pkg/errors/`), appropriate HTTP codes, log with context
+- Worker errors → Asynq retries, generic client messages (no stack traces)
+- **Status flow:** `queued` → `approved`/`in_review`/`rejected`
+- **Risk levels:** Low (0-49), Medium (50-79), High (80-100)
+- **Actions:** `allow`, `block` (highest priority), `review`
 
-### Transaction Processing
+## Testing Anti-Patterns
 
-- Transactions processed asynchronously via Asynq
-- Status flow: `queued` → `approved`/`in_review`/`rejected`
-- Risk levels: Low (0-49), Medium (50-79), High (80-100)
-- Actions: `allow`, `block`, `review` (block takes precedence)
+**AI agents must avoid generating useless tests.**
+
+### What NOT to Test
+
+1. **Trivial Constructors** - Don't test constructors that only assign fields (no logic)
+2. **Interface Implementation** - Compiler already validates
+3. **Duplicate Validation** - Test validation ONCE at service layer, not at handler/private function layers
+4. **Repetitive Tests** - Use table-driven tests instead of separate functions for similar scenarios
+5. **Component Existence Only** - Verify actual prop values, not just `exists()`
+
+### Decision Tree
+
+```
+Constructor only assigns fields? → ❌ Don't test
+Test only verifies interface impl? → ❌ Don't test (compiler checks)
+Validation tested in another layer? → ❌ Don't duplicate
+3+ similar tests with same assertions? → ⚠️  Consolidate to table-driven
+Test only checks exists() without props? → ❌ Verify actual values
+Test verifies actual behavior/logic? → ✅ Write it
+```
+
+### Cleanup Checklist
+
+- [ ] No trivial constructor/interface tests
+- [ ] No duplicate validation across layers
+- [ ] Repetitive tests consolidated (table-driven)
+- [ ] Component tests verify props not just existence
+- [ ] Tests pass linting and `-count=50` (Go) or `--repeat=20` (Vue)
+- [ ] Coverage ≥80%
+
+**Details:** See `docs/agents/unit-test.md` section 7
+
+## Regression Prevention Rules
+
+**CRITICAL: Follow when adding new features to prevent regressions.**
+
+### Pre-Implementation Checklist
+
+1. **OpenSpec Compliance** - Create proposal if required, validate with `openspec validate --strict`
+2. **Impact Analysis** - Identify affected modules, document breaking changes with migration plan
+3. **Test Coverage** - Plan unit (80%+), integration, API, frontend, E2E tests; run with `-race` and `-count=50`
+
+### Mandatory Test Categories
+
+1. **Unit Tests** - All functions, edge cases, mocked dependencies, deterministic, 80%+ coverage
+2. **Integration Tests** - Real DB/Redis (testcontainers-go), transaction flows, rules engine, velocity functions
+3. **API Tests** - Endpoints, auth/authz, validation, errors, status codes
+4. **Frontend Tests** - Components, views, stores, router guards, i18n keys
+5. **Regression Tests** - Existing tests pass, APIs work, UI renders, rules evaluate correctly
+
+### Performance Requirements
+
+- Transaction processing <50ms
+- Optimized queries with indexes
+- No N+1 queries
+- Connection pool limits respected
+
+### Pre-Merge Validation
+
+**Code Quality:** Linters pass, tests pass, no race conditions, 80%+ coverage, security scans clean
+**Documentation:** Update README, API docs, `.env.example`, archive OpenSpec proposals
+**Integration:** Tests pass with real DBs, Docker builds, CI/CD passes
+**Manual Testing:** Feature works, existing features work, i18n correct, performance acceptable
+
+### AI Agent Requirements
+
+**Before:** OpenSpec proposal, impact analysis, identify modules, plan tests
+**During:** Write tests with code (TDD), run tests frequently, check for race conditions
+**After:** Run full suite, verify coverage ≥80%, check linters, update docs
+**Before Completion:** Verify rules followed, no breaking changes (or documented), backward compatible, <50ms latency
+
+### Enforcement
+
+**MANDATORY** - CI/CD automated checks, code review verification, pre-merge hooks
+**Violations:** Missing tests/docs rejected, breaking changes without migration rejected, performance regressions block deployment
+
+**Details:** See `openspec/project.md` "Regression Prevention Rules"
 
 ## Development Workflow
 
@@ -608,71 +600,22 @@ func TestServiceOperation(t *testing.T) {
 
 ## AI Agent Guidelines
 
-**MANDATORY REQUIREMENTS FOR AI AGENTS:**
+**MANDATORY REQUIREMENTS:**
 
-1. **Code Generation**:
-   - Follow SOLID principles strictly
-   - Use vertical slice architecture
-   - Implement proper dependency injection
-   - Ensure interfaces follow ISP (not too large)
-   - Avoid unnecessary complexity
-   - Use fundamental abstractions to simplify complex logic
-   - Refactor magic numbers to named constants
-
-2. **Validation**:
-   - Always add validation to handlers - it's **mandatory**
-
-3. **Environment Variables**:
-   - Always update `.env.example` when adding new environment variables
-   - Group related variables with clear documentation
-   - All timeout values MUST be configurable (no hardcoded timeouts)
-
-4. **Testing** (STRICTLY FOLLOW):
-   - **Unit Tests**: Follow `docs/agents/unit-test.md`
-   - **Integration Tests**: Follow `docs/agents/integration-test.md`
-   - Use race condition flags (`-race`)
-   - Minimum coverage: 80% for new code
-   - Run `go test -count=50` to detect flaky tests
-   - Use `testcontainers-go` for integration tests with databases
-
-5. **Internationalization**:
-   - **NEVER hardcode user-facing strings** - always use translation keys
-   - Add translations to BOTH `pt-BR.json` AND `en-US.json` simultaneously
-   - Use hierarchical key naming: `views.dashboard.title`, `errors.notFound`
-   - Test UI with both languages to ensure text fits properly
-
-6. **CSRF Protection**:
-   - All state-changing operations MUST use `api.post/put/patch/delete`
-   - Never use `fetch()` directly - it won't include CSRF token
-   - Test with DevTools to verify `X-CSRF-Token` header is sent
-
-7. **Code Quality**:
-   - Remove unused files and code regularly
-   - Fix concurrent issues and race conditions immediately
-   - Standardize base components in front-end
-   - Keep codebase clean and maintainable
-
-8. **Documentation**:
-   - Use OpenSpec for spec-driven development (see `openspec/AGENTS.md`)
-   - Update README.md when adding significant features
-   - Document architectural decisions in project.md
-
-9. **Mandatory Code Review and Testing Verification**:
-   - **REQUIRED**: When the user requests a correction or analysis, perform a comprehensive scan to verify:
-     - Project adheres to all guidelines in this document
-     - All related tests have been generated or updated
-     - Code changes follow established patterns
-     - Test coverage meets 80% minimum for new/modified code
-     - Tests follow guidelines in `docs/agents/unit-test.md` and `docs/agents/integration-test.md`
-   - This verification MUST be performed proactively
-   - If violations or missing tests are found, address them before completing the task
-
-10. **Regression Prevention**:
-    - **CRITICAL**: When adding new features, follow "Regression Prevention Rules" in `openspec/project.md`
-    - Complete all pre-implementation, mandatory test categories, and pre-merge checklists
-    - Verify no breaking changes (or properly documented with migration plans)
-    - Ensure backward compatibility maintained
-    - Validate performance requirements met (<50ms latency target)
+1. **Code Generation** - SOLID principles, vertical slice architecture, dependency injection, ISP compliance, avoid complexity, refactor magic numbers
+2. **Validation** - Always add validation to handlers (mandatory)
+3. **Environment Variables** - Update `.env.example`, group related vars, no hardcoded timeouts
+4. **Testing** - Follow `docs/agents/unit-test.md` & `docs/agents/integration-test.md`, use `-race`, 80%+ coverage, `-count=50` for flaky tests, testcontainers-go for integration
+5. **i18n** - NEVER hardcode strings, add to BOTH `pt-BR.json` AND `en-US.json`, hierarchical keys (`views.dashboard.title`)
+6. **CSRF** - Use `api.post/put/patch/delete` ONLY (never `fetch()` directly), verify `X-CSRF-Token` header
+7. **Code Quality** - Remove unused code, fix race conditions immediately, standardize base components
+8. **Documentation** - OpenSpec for spec-driven dev, update README for significant features
+9. **Code Review** - Proactively scan: guidelines adherence, tests generated/updated, patterns followed, 80%+ coverage
+10. **Regression Prevention** - Follow "Regression Prevention Rules", complete checklists, verify no breaking changes, <50ms latency
+11. **Security** - OWASP Top 10, security headers, never log PII, parameterized queries, validate all input, rate limiting, run scanners (`govulncheck`, `npm audit`, `gitleaks`, `semgrep`), CSP, TLS in production
+12. **Anti-Patterns** - No trivial constructor tests, no interface tests, no duplicate validation, consolidate to table-driven, verify behavior not existence
+13. **Coverage** - 80% minimum, verify with `go test -coverprofile=coverage.txt` and `npm run test:coverage`
+14. **Lint** - All tests pass linters, fix ALL errors, no unused vars/imports/debugging code
 
 ## Additional Resources
 

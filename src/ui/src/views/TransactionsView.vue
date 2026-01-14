@@ -172,6 +172,11 @@
 
       <!-- Transaction Table -->
       <v-card v-else variant="outlined" class="overflow-hidden">
+        <!-- Debug Info -->
+        <div class="pa-2 bg-grey-lighten-4 text-caption">
+          Debug: total={{ total }}, page={{ currentPage }}, itemsPerPage={{ itemsPerPage }},
+          transactions.length={{ transactions.length }}
+        </div>
         <v-data-table
           :headers="dynamicTableHeaders"
           :items="transactions"
@@ -182,6 +187,7 @@
           class="elevation-0"
           hover
           :loading="loading"
+          show-current-page
         >
           <!-- Status Column -->
           <template #item.status="{ item }">
@@ -248,6 +254,40 @@
               <p class="text-body-1 text-grey-darken-1 mb-0">{{ $t('common.noData') }}</p>
             </div>
           </template>
+
+          <!-- Custom Footer -->
+          <template #bottom>
+            <div class="v-data-table-footer pa-4 d-flex align-center justify-space-between">
+              <div class="text-body-2">
+                <template v-if="total > 0">
+                  Showing {{ ((currentPage - 1) * itemsPerPage) + 1 }} to {{ Math.min(currentPage * itemsPerPage, total) }} of {{ total }} entries
+                </template>
+                <template v-else>
+                  No entries
+                </template>
+              </div>
+              <div class="d-flex align-center gap-4">
+                <div class="d-flex align-center gap-2">
+                  <span class="text-body-2">Items per page:</span>
+                  <v-select
+                    v-model="itemsPerPage"
+                    :items="itemsPerPageOptions"
+                    density="compact"
+                    variant="outlined"
+                    hide-details
+                    style="width: 100px"
+                  />
+                </div>
+                <v-pagination
+                  v-if="total > 0"
+                  v-model="currentPage"
+                  :length="Math.max(1, Math.ceil(total / itemsPerPage))"
+                  :total-visible="7"
+                  size="small"
+                />
+              </div>
+            </div>
+          </template>
         </v-data-table>
       </v-card>
     </template>
@@ -305,7 +345,7 @@
         <BaseButton
           @click="handleGenerateEvents"
           :loading="generating"
-          :disabled="!generateSchemaId || !generateCount || generateCount < 1 || generateCount > 1000"
+          :disabled="!generateSchemaId || !generateCount || generateCount < 1 || generateCount > 10000"
           prepend-icon="fa-bolt"
         >
           {{ $t('views.transactions.generate') }}
@@ -377,7 +417,13 @@ let eventSource: EventSource | null = null
 // Pagination state
 const currentPage = ref(1)
 const itemsPerPage = ref(50)
-const itemsPerPageOptions = [10, 25, 50, 100, 200]
+const itemsPerPageOptions = [
+  { value: 10, title: '10' },
+  { value: 25, title: '25' },
+  { value: 50, title: '50' },
+  { value: 100, title: '100' },
+  { value: 200, title: '200' }
+]
 
 // Generate synthetic events state
 const showGenerateModal = ref(false)
@@ -513,17 +559,26 @@ watch(total, (newVal, oldVal) => {
 })
 
 // Watch for page changes
-watch(currentPage, () => {
-  if (filters.schemaId) {
+watch(currentPage, (newPage, oldPage) => {
+  if (filters.schemaId && newPage !== oldPage) {
+    console.log('[Watch] currentPage changed from', oldPage, 'to', newPage)
     loadTransactions()
   }
 })
 
 // Watch for items per page changes
-watch(itemsPerPage, () => {
-  if (filters.schemaId) {
-    currentPage.value = 1 // Reset to first page
-    loadTransactions()
+watch(itemsPerPage, (newValue, oldValue) => {
+  if (filters.schemaId && newValue !== oldValue) {
+    console.log('[Watch] itemsPerPage changed from', oldValue, 'to', newValue)
+    // Reset to first page but don't trigger currentPage watcher if already on page 1
+    const wasOnFirstPage = currentPage.value === 1
+    currentPage.value = 1
+
+    // Only call loadTransactions if we were already on page 1
+    // (otherwise the currentPage watcher will handle it)
+    if (wasOnFirstPage) {
+      loadTransactions()
+    }
   }
 })
 
@@ -593,6 +648,11 @@ function formatSchemaFieldValue(value: any, type: string): string {
 async function loadTransactions() {
   if (!filters.schemaId) return
 
+  // Ensure currentPage is valid (at least 1)
+  if (currentPage.value < 1) {
+    currentPage.value = 1
+  }
+
   loading.value = true
   error.value = ''
   try {
@@ -640,11 +700,22 @@ async function loadTransactions() {
     total.value = response.total ?? 0
 
     console.log('[Load Transactions] After assignment - total.value:', total.value)
+    console.log('[Load Transactions] transactions.value.length:', transactions.value.length)
+    console.log('[Load Transactions] First transaction:', transactions.value[0])
     console.log('[Load Transactions] Response:', {
       count: transactions.value.length,
       total: total.value,
       transactions: transactions.value
     })
+    console.log('[Load Transactions] dynamicTableHeaders:', dynamicTableHeaders.value)
+
+    // If currentPage is beyond available pages, adjust it
+    const maxPage = Math.ceil(total.value / itemsPerPage.value)
+    if (maxPage > 0 && currentPage.value > maxPage) {
+      console.log('[Load Transactions] currentPage', currentPage.value, 'exceeds maxPage', maxPage, '- adjusting')
+      currentPage.value = maxPage
+      // Don't call loadTransactions here to avoid infinite loop - the watcher will handle it
+    }
   } catch (e: any) {
     error.value = e.message || t('views.transactions.errorLoad')
     console.error('[Load Transactions] Error:', e)
@@ -695,16 +766,28 @@ async function handleGenerateEvents() {
       hasCsrfToken: !!authStore.getCsrfToken()
     })
 
-    const response = await api.post<{ generated_count: number; message: string }>(
+    const response = await api.post<{ generated_count: number; failed_count: number; message: string }>(
       `/api/v1/schemas/${generateSchemaId.value}/generate-events`,
       payload
     )
 
     console.log('[Generate Events] Response:', response)
 
+    // Use i18n messages based on success/failure counts
+    let message: string
+    if (response?.failed_count === 0) {
+      message = t('views.transactions.generateSuccess', { count: response.generated_count })
+    } else {
+      message = t('views.transactions.generatePartial', {
+        total: (response?.generated_count || 0) + (response?.failed_count || 0),
+        success: response?.generated_count || 0,
+        failed: response?.failed_count || 0
+      })
+    }
+
     generateResult.value = {
-      success: true,
-      message: response?.message || `Successfully generated ${response?.generated_count || generateCount.value} events`,
+      success: response?.failed_count === 0,
+      message: message,
     }
 
     // Worker should process in <50ms per project SLA

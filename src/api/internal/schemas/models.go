@@ -59,12 +59,13 @@ type SchemaListResponse struct {
 
 // GenerateEventsRequest is the request body for generating synthetic events
 type GenerateEventsRequest struct {
-	Count int `json:"count" validate:"required,min=1,max=1000"`
+	Count int `json:"count" validate:"required,min=1,max=10000"`
 }
 
 // GenerateEventsResponse is the response for synthetic event generation
 type GenerateEventsResponse struct {
 	SchemaID       uuid.UUID `json:"schema_id"`
 	GeneratedCount int       `json:"generated_count"`
+	FailedCount    int       `json:"failed_count"`
 	Message        string    `json:"message"`
 }

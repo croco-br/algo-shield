@@ -178,8 +178,11 @@
       "generateSyntheticDescription": "Gere eventos de transação de teste a partir de um schema. Os eventos serão enfileirados para processamento.",
       "selectSchema": "Selecionar Schema",
       "eventCount": "Número de Eventos",
-      "eventCountPlaceholder": "Digite um número (1-1000)",
+      "eventCountPlaceholder": "Digite um número (1-10000)",
       "generate": "Gerar Eventos",
+      "generateSuccess": "Gerado com sucesso {count} eventos",
+      "generatePartial": "Gerados {total} eventos: {success} com sucesso, {failed} falharam",
+      "generateFailed": "Falha ao gerar eventos",
       "errorLoad": "Falha ao carregar transações"
     },
     "profile": {
