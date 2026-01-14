@@ -46,7 +46,7 @@
                 v-model="syntheticMode"
                 :loading="syntheticModeLoading"
                 :disabled="syntheticModeLoading || !isAdmin"
-                color="warning"
+                :color="syntheticMode ? 'success' : 'grey'"
                 hide-details
                 density="compact"
                 @update:model-value="handleSyntheticModeChange"

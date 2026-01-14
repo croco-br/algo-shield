@@ -14,11 +14,15 @@ help: ## Show this help message
 	@echo '${BLUE}Available commands:${RESET}'
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "  ${GREEN}%-15s${RESET} %s\n", $$1, $$2}'
 
-install: ## Install all dependencies (Go + npm)
+install: ## Install all dependencies (Go + npm + golangci-lint)
 	@echo "${YELLOW}Installing Go dependencies...${RESET}"
 	@go mod download
 	@echo "${YELLOW}Installing UI dependencies (npm)...${RESET}"
 	@cd src/ui && npm install
+	@if ! command -v golangci-lint >/dev/null 2>&1; then \
+		echo "${YELLOW}golangci-lint not found. Installing...${RESET}"; \
+		curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b $$(go env GOPATH)/bin latest; \
+	fi
 	@echo "${GREEN}✓ All dependencies installed!${RESET}"
 
 up: ## Start all services in Docker (API + Worker + UI + infra)
@@ -48,16 +52,12 @@ down: ## Stop all services
 logs: ## View service logs
 	@docker-compose logs -f
 
-lint: ## Run linters (golangci-lint)
+lint: install ## Run linters (golangci-lint)
 	@echo "${YELLOW}Running linters...${RESET}"
-	@if ! command -v golangci-lint >/dev/null 2>&1; then \
-		echo "${YELLOW}golangci-lint not found. Installing...${RESET}"; \
-		curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b $$(go env GOPATH)/bin latest; \
-	fi
 	@golangci-lint run ./src/...
 	@echo "${GREEN}✓ Lint completed!${RESET}"
 
-test: test-api test-ui ## Run all tests (API + UI)
+test: install test-api test-ui ## Run all tests (API + UI)
 	@echo "${GREEN}✓ All tests completed!${RESET}"
 
 test-api: gotestsum ## Run API tests with race detector

@@ -235,13 +235,63 @@ const additionalMetadata = computed(() => {
   const metadata = props.transaction.metadata || {}
   const additional: Record<string, any> = {}
   
-  for (const [key, value] of Object.entries(metadata)) {
-    if (!schemaFieldPaths.has(key)) {
-      additional[key] = value
+  // Helper function to check if a key is part of any schema field path
+  const isSchemaField = (key: string): boolean => {
+    // Check exact match
+    if (schemaFieldPaths.has(key)) {
+      return true
     }
+    // Check if this key is a prefix of any schema field path (for nested fields)
+    // e.g., "user" matches "user.created_at" or "user.id"
+    for (const path of schemaFieldPaths) {
+      if (path.startsWith(key + '.')) {
+        return true
+      }
+    }
+    return false
   }
   
-  return additional
+  // Recursively filter out schema fields from metadata
+  const filterSchemaFields = (obj: any, currentPath: string = ''): any => {
+    if (obj === null || obj === undefined) {
+      return obj
+    }
+    
+    // If current path matches a schema field exactly, exclude it
+    if (currentPath && schemaFieldPaths.has(currentPath)) {
+      return undefined
+    }
+    
+    // If it's an object, recursively check nested properties
+    if (typeof obj === 'object' && !Array.isArray(obj)) {
+      const filtered: Record<string, any> = {}
+      for (const [key, value] of Object.entries(obj)) {
+        const fullPath = currentPath ? `${currentPath}.${key}` : key
+        
+        // Skip if this path is a schema field
+        if (isSchemaField(fullPath)) {
+          continue
+        }
+        
+        // Recursively filter nested objects
+        const filteredValue = filterSchemaFields(value, fullPath)
+        if (filteredValue !== undefined) {
+          filtered[key] = filteredValue
+        }
+      }
+      return Object.keys(filtered).length > 0 ? filtered : undefined
+    }
+    
+    // For non-object values, check if current path is a schema field
+    if (currentPath && isSchemaField(currentPath)) {
+      return undefined
+    }
+    
+    return obj
+  }
+  
+  const filtered = filterSchemaFields(metadata)
+  return filtered && typeof filtered === 'object' ? filtered : {}
 })
 
 function getNestedValue(obj: any, path: string): any {

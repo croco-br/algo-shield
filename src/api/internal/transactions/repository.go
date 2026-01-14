@@ -9,6 +9,7 @@ import (
 	"github.com/algo-shield/algo-shield/src/api/internal/shared"
 	"github.com/algo-shield/algo-shield/src/pkg/models"
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
@@ -195,9 +196,6 @@ func (r *PostgresRepository) ListTransactionsWithFilter(ctx context.Context, fil
 			continue
 		}
 		transaction.SchemaName = schemaName
-		if err != nil {
-			continue
-		}
 		transactions = append(transactions, transaction)
 	}
 
@@ -210,12 +208,16 @@ func (r *PostgresRepository) ApproveTransaction(ctx context.Context, id uuid.UUI
 	updateQuery := fmt.Sprintf(`
 		UPDATE %s 
 		SET status = $1, processed_at = $2
-		WHERE id = $3 AND status = $4
+		WHERE id = $3 AND (status = $4 OR status = $5)
 	`, tableName)
 
-	_, err := r.db.Exec(ctx, updateQuery, models.StatusApproved, now, id, models.StatusInReview)
+	result, err := r.db.Exec(ctx, updateQuery, models.StatusApproved, now, id, models.StatusPending, models.StatusInReview)
 	if err != nil {
 		return nil, err
+	}
+
+	if result.RowsAffected() == 0 {
+		return nil, pgx.ErrNoRows
 	}
 
 	selectQuery := fmt.Sprintf(`
@@ -253,12 +255,16 @@ func (r *PostgresRepository) RejectTransaction(ctx context.Context, id uuid.UUID
 	updateQuery := fmt.Sprintf(`
 		UPDATE %s 
 		SET status = $1, processed_at = $2
-		WHERE id = $3 AND status = $4
+		WHERE id = $3 AND (status = $4 OR status = $5)
 	`, tableName)
 
-	_, err := r.db.Exec(ctx, updateQuery, models.StatusRejected, now, id, models.StatusInReview)
+	result, err := r.db.Exec(ctx, updateQuery, models.StatusRejected, now, id, models.StatusPending, models.StatusInReview)
 	if err != nil {
 		return nil, err
+	}
+
+	if result.RowsAffected() == 0 {
+		return nil, pgx.ErrNoRows
 	}
 
 	selectQuery := fmt.Sprintf(`

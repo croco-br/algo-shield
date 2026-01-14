@@ -2,6 +2,7 @@ package transactions
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	"github.com/algo-shield/algo-shield/src/api/internal"
@@ -119,14 +120,22 @@ func (h *Handler) ListTransactions(c *fiber.Ctx) error {
 		}
 	}
 	if startDate := c.Query("start_date"); startDate != "" {
-		if t, err := time.Parse(time.RFC3339, startDate); err == nil {
-			filter.StartDate = &t
+		t, err := time.Parse(time.RFC3339, startDate)
+		if err != nil {
+			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+				"error": fmt.Sprintf("Invalid start_date format. Expected RFC3339 (e.g., 2006-01-02T15:04:05Z), got: %s", startDate),
+			})
 		}
+		filter.StartDate = &t
 	}
 	if endDate := c.Query("end_date"); endDate != "" {
-		if t, err := time.Parse(time.RFC3339, endDate); err == nil {
-			filter.EndDate = &t
+		t, err := time.Parse(time.RFC3339, endDate)
+		if err != nil {
+			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+				"error": fmt.Sprintf("Invalid end_date format. Expected RFC3339 (e.g., 2006-01-02T15:04:05Z), got: %s", endDate),
+			})
 		}
+		filter.EndDate = &t
 	}
 
 	// Always use filtered method to get total count
@@ -161,7 +170,7 @@ func (h *Handler) ApproveTransaction(c *fiber.Ctx) error {
 	if err != nil {
 		if err == pgx.ErrNoRows {
 			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-				"error": "Transaction not found or not in review status",
+				"error": "Transaction not found or not in pending/in_review status",
 			})
 		}
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
@@ -189,7 +198,7 @@ func (h *Handler) RejectTransaction(c *fiber.Ctx) error {
 	if err != nil {
 		if err == pgx.ErrNoRows {
 			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-				"error": "Transaction not found or not in review status",
+				"error": "Transaction not found or not in pending/in_review status",
 			})
 		}
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{

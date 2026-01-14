@@ -7,6 +7,8 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"sort"
+	"strings"
 	"testing"
 	"time"
 
@@ -98,29 +100,45 @@ func runMigrations(t *testing.T, pool *pgxpool.Pool) {
 	t.Helper()
 	ctx := context.Background()
 
-	migrationFiles := []string{
-		"001_initial_schema.sql",
-		"002_auth_schema.sql",
-		"003_local_auth.sql",
-		"005_branding_config.sql",
-		"006_add_header_color.sql",
-		"007_event_schemas.sql",
-	}
-
 	basePath := "../../../../scripts/migrations"
 
+	// Read all .sql files from the migrations directory
+	entries, err := os.ReadDir(basePath)
+	if err != nil {
+		t.Fatalf("Failed to read migrations directory: %v", err)
+	}
+
+	// Collect all .sql files
+	var migrationFiles []string
+	for _, entry := range entries {
+		if !entry.IsDir() && strings.HasSuffix(entry.Name(), ".sql") {
+			// Skip the migrations.sh script file if it exists
+			if entry.Name() != "migrations.sh" {
+				migrationFiles = append(migrationFiles, entry.Name())
+			}
+		}
+	}
+
+	// Sort files by name to ensure correct execution order
+	sort.Strings(migrationFiles)
+
+	if len(migrationFiles) == 0 {
+		t.Fatalf("No migration files found in %s", basePath)
+	}
+
+	// Execute migrations in order
 	for _, filename := range migrationFiles {
 		filePath := filepath.Join(basePath, filename)
 		content, err := os.ReadFile(filePath)
 		if err != nil {
-			t.Logf("Warning: could not read migration file %s: %v", filename, err)
-			continue
+			t.Fatalf("Failed to read migration file %s: %v", filename, err)
 		}
 
 		_, err = pool.Exec(ctx, string(content))
 		if err != nil {
 			t.Fatalf("Failed to run migration %s: %v", filename, err)
 		}
+		t.Logf("Successfully executed migration: %s", filename)
 	}
 }
 

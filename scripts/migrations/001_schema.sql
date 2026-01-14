@@ -51,10 +51,28 @@ CREATE TABLE IF NOT EXISTS rules (
     priority INTEGER DEFAULT 0,
     enabled BOOLEAN DEFAULT true,
     conditions JSONB DEFAULT '{}',
-    schema_id UUID REFERENCES event_schemas(id),
+    schema_id UUID,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
+
+-- Add schema_id foreign key constraint if table already exists
+DO $$
+BEGIN
+    IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'rules') THEN
+        -- Add column if it doesn't exist
+        IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'rules' AND column_name = 'schema_id') THEN
+            ALTER TABLE rules ADD COLUMN schema_id UUID;
+        END IF;
+        -- Add foreign key constraint if it doesn't exist
+        IF NOT EXISTS (
+            SELECT 1 FROM information_schema.table_constraints 
+            WHERE constraint_name = 'rules_schema_id_fkey' AND table_name = 'rules'
+        ) THEN
+            ALTER TABLE rules ADD CONSTRAINT rules_schema_id_fkey FOREIGN KEY (schema_id) REFERENCES event_schemas(id);
+        END IF;
+    END IF;
+END $$;
 
 -- ----------------------------------------------------------------------------
 -- Authentication & Authorization Tables

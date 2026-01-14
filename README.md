@@ -103,25 +103,15 @@ export POSTGRES_PASSWORD=algoshield_secret
 export POSTGRES_DB=algoshield
 
 # Run all migrations in order
-psql -h localhost -U algoshield -d algoshield -f scripts/migrations/001_initial_schema.sql
-psql -h localhost -U algoshield -d algoshield -f scripts/migrations/002_auth_schema.sql
-psql -h localhost -U algoshield -d algoshield -f scripts/migrations/003_local_auth.sql
-psql -h localhost -U algoshield -d algoshield -f scripts/migrations/004_insert_admin.sql
-psql -h localhost -U algoshield -d algoshield -f scripts/migrations/005_branding_config.sql
-psql -h localhost -U algoshield -d algoshield -f scripts/migrations/006_add_header_color.sql
-psql -h localhost -U algoshield -d algoshield -f scripts/migrations/007_event_schemas.sql
-psql -h localhost -U algoshield -d algoshield -f scripts/migrations/008_test_data.sql
+psql -h localhost -U algoshield -d algoshield -f scripts/migrations/001_schema.sql
+psql -h localhost -U algoshield -d algoshield -f scripts/migrations/002_indexes.sql
+psql -h localhost -U algoshield -d algoshield -f scripts/migrations/003_test_data.sql
 ```
 
-**Note**: The migrations script (`migrations.sh`) is designed for Docker environments. For local development, run migrations manually as shown above. The project includes 8 migration files:
-- `001_initial_schema.sql` - Initial database schema
-- `002_auth_schema.sql` - Authentication tables
-- `003_local_auth.sql` - Local authentication setup
-- `004_insert_admin.sql` - Default admin user
-- `005_branding_config.sql` - Branding configuration
-- `006_add_header_color.sql` - Header color customization
-- `007_event_schemas.sql` - Event schema management
-- `008_test_data.sql` - Test data (optional)
+**Note**: The migrations script (`migrations.sh`) is designed for Docker environments. For local development, run migrations manually as shown above. The project includes 3 migration files:
+- `001_schema.sql` - Complete database schema (tables, relationships, and constraints)
+- `002_indexes.sql` - Database indexes for performance optimization
+- `003_test_data.sql` - Test data including default roles, admin user, branding config, and system config
 
 5. Start the API:
 ```bash

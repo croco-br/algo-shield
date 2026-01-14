@@ -437,3 +437,13 @@ This section documents key architectural decisions and evolution history to prov
     - Use hierarchical key naming: `views.dashboard.title`, `errors.notFound`
     - Test UI with both languages to ensure text fits properly
     - Refer to `src/ui/src/locales/README.md` for detailed guidelines
+
+13. **Mandatory Code Review and Testing Verification**:
+    - **REQUIRED**: Whenever the user requests a correction or analysis, AI agents MUST perform a comprehensive scan to verify:
+      - The project adheres to all guidelines defined in this document
+      - All related tests have been generated or updated appropriately
+      - Code changes follow the established patterns and conventions
+      - Test coverage meets the minimum 90% requirement for new/modified code
+      - Tests follow the guidelines in `docs/agents/unit-test.md` and `docs/agents/integration-test.md`
+    - This verification MUST be performed proactively, not just when explicitly requested
+    - If any guideline violations or missing tests are found, they MUST be addressed before considering the task complete

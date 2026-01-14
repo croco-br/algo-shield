@@ -69,7 +69,7 @@
                 clearable
               />
             </v-col>
-            <v-col cols="12" md="6" class="d-flex gap-2">
+            <v-col cols="12" md="3" class="d-flex gap-2 align-center">
               <BaseButton @click="applyFilters" prepend-icon="fa-filter">
                 {{ $t('views.transactions.applyFilters') }}
               </BaseButton>
@@ -118,32 +118,31 @@
             <!-- Actions -->
             <template #item.actions="{ item }">
               <div class="d-flex gap-2">
-                <BaseButton 
-                  size="sm"
-                  variant="ghost"
+                <v-btn
+                  size="small"
+                  variant="text"
+                  icon="fa-eye"
+                  :title="$t('views.transactions.viewDetails')"
                   @click="openDetailModal(item)"
-                  prepend-icon="fa-eye"
-                >
-                  {{ $t('views.transactions.viewDetails') }}
-                </BaseButton>
-                <div v-if="item.status === 'in_review'" class="d-flex gap-2">
-                  <BaseButton 
-                    size="sm"
-                    variant="primary"
-                    @click="approveTransaction(item.id)"
-                    prepend-icon="fa-check"
-                  >
-                    {{ $t('views.transactions.approve') }}
-                  </BaseButton>
-                  <BaseButton 
-                    size="sm"
-                    variant="danger"
-                    @click="rejectTransaction(item.id)"
-                    prepend-icon="fa-times"
-                  >
-                    {{ $t('views.transactions.reject') }}
-                  </BaseButton>
-                </div>
+                />
+                <v-btn
+                  v-if="item.status === 'pending'"
+                  size="small"
+                  variant="flat"
+                  color="primary"
+                  icon="fa-check"
+                  :title="$t('views.transactions.approve')"
+                  @click="approveTransaction(item.id)"
+                />
+                <v-btn
+                  v-if="item.status === 'pending'"
+                  size="small"
+                  variant="flat"
+                  color="error"
+                  icon="fa-times"
+                  :title="$t('views.transactions.reject')"
+                  @click="rejectTransaction(item.id)"
+                />
               </div>
             </template>
           </v-data-table>
@@ -316,19 +315,17 @@ const schemaFields = computed<ExtractedField[]>(() => {
 
 // Dynamic table headers based on selected schema
 const dynamicTableHeaders = computed(() => {
-  const headers: Array<{ title: string; key: string; sortable: boolean; value?: (item: Transaction) => any }> = [
-    { title: t('views.transactions.tableStatus'), key: 'status', sortable: true },
-    { title: t('views.transactions.tableCreated'), key: 'created_at', sortable: true },
-  ]
+  const headers: Array<{ title: string; key: string; sortable: boolean; value?: (item: Transaction) => any }> = []
 
-  // If schema selected, show schema fields
+  // If schema selected, show schema fields first
   if (selectedSchema.value && schemaFields.value.length > 0) {
     // Add schema fields as columns with custom value function
     schemaFields.value.forEach((field: ExtractedField) => {
       const safeKey = field.path.replace(/\./g, '_')
-      const fieldName = field.path.split('.').pop() || field.path
+      // Use the full path and convert to UPPER_CASE, replacing dots with underscores
+      const fieldName = field.path.replace(/\./g, '_').toUpperCase()
       headers.push({
-        title: fieldName.toUpperCase(),
+        title: fieldName,
         key: `schema_field_${safeKey}`,
         sortable: false,
         value: (item: Transaction) => {
@@ -339,7 +336,14 @@ const dynamicTableHeaders = computed(() => {
     })
   }
 
-  headers.push({ title: t('views.transactions.tableActions'), key: 'actions', sortable: false })
+  // Add transaction columns after schema fields
+  headers.push(
+    { title: t('views.transactions.tableStatus').toUpperCase(), key: 'status', sortable: true },
+    { title: t('views.transactions.tableCreated').toUpperCase(), key: 'created_at', sortable: true }
+  )
+
+  // Actions column always last
+  headers.push({ title: t('views.transactions.tableActions').toUpperCase(), key: 'actions', sortable: false })
   return headers
 })
 
@@ -368,6 +372,14 @@ watch(() => route.query.schemaId, async (newSchemaId) => {
     selectedSchemaData.value = null
     transactions.value = []
     total.value = 0
+  }
+})
+
+// Watch for status filter changes to auto-reload
+watch(() => filters.status, () => {
+  if (filters.schemaId) {
+    currentPage.value = 1
+    loadTransactions()
   }
 })
 
@@ -454,8 +466,28 @@ async function loadTransactions() {
 
     if (filters.status) params.append('status', filters.status)
     if (filters.schemaId) params.append('schema_id', filters.schemaId)
-    if (filters.startDate) params.append('start_date', new Date(filters.startDate).toISOString())
-    if (filters.endDate) params.append('end_date', new Date(filters.endDate).toISOString())
+    if (filters.startDate && filters.startDate.trim() !== '') {
+      try {
+        // Convert date string (YYYY-MM-DD) to RFC3339 format with start of day in UTC
+        const startDate = new Date(filters.startDate + 'T00:00:00Z')
+        if (!isNaN(startDate.getTime())) {
+          params.append('start_date', startDate.toISOString())
+        }
+      } catch (e) {
+        console.error('Error parsing start date:', e)
+      }
+    }
+    if (filters.endDate && filters.endDate.trim() !== '') {
+      try {
+        // Convert date string (YYYY-MM-DD) to RFC3339 format with end of day in UTC
+        const endDate = new Date(filters.endDate + 'T23:59:59.999Z')
+        if (!isNaN(endDate.getTime())) {
+          params.append('end_date', endDate.toISOString())
+        }
+      } catch (e) {
+        console.error('Error parsing end date:', e)
+      }
+    }
 
     const response = await api.get<{ transactions: Transaction[]; total?: number }>(`/api/v1/transactions?${params.toString()}`)
     transactions.value = response.transactions || []
@@ -601,19 +633,23 @@ function stopLiveUpdates() {
 
 async function approveTransaction(id: string) {
   try {
+    error.value = ''
     await api.patch(`/api/v1/transactions/${id}/approve`)
     await loadTransactions()
   } catch (e: any) {
     error.value = e.message || 'Failed to approve transaction'
+    console.error('Error approving transaction:', e)
   }
 }
 
 async function rejectTransaction(id: string) {
   try {
+    error.value = ''
     await api.patch(`/api/v1/transactions/${id}/reject`)
     await loadTransactions()
   } catch (e: any) {
     error.value = e.message || 'Failed to reject transaction'
+    console.error('Error rejecting transaction:', e)
   }
 }
 

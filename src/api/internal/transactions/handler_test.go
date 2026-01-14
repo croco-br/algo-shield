@@ -7,6 +7,7 @@ import (
 	"io"
 	"net/http/httptest"
 	"testing"
+	"time"
 
 	"github.com/algo-shield/algo-shield/src/pkg/models"
 	"github.com/gofiber/fiber/v2"
@@ -351,4 +352,89 @@ func Test_Handler_ListTransactions_WhenServiceFails_ThenReturnsInternalError(t *
 	require.NoError(t, err)
 
 	assert.Equal(t, fiber.StatusInternalServerError, resp.StatusCode)
+}
+
+func Test_Handler_ListTransactions_WhenInvalidStartDate_ThenReturnsBadRequest(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	mockService := NewMockTransactionService(ctrl)
+	handler := NewHandler(mockService)
+
+	app := fiber.New()
+	app.Get("/transactions", handler.ListTransactions)
+
+	req := httptest.NewRequest("GET", "/transactions?start_date=invalid-date", nil)
+
+	resp, err := app.Test(req)
+	require.NoError(t, err)
+
+	assert.Equal(t, fiber.StatusBadRequest, resp.StatusCode)
+
+	body, _ := io.ReadAll(resp.Body)
+	var result map[string]string
+	err = json.Unmarshal(body, &result)
+	require.NoError(t, err)
+
+	assert.Contains(t, result["error"], "Invalid start_date format")
+}
+
+func Test_Handler_ListTransactions_WhenInvalidEndDate_ThenReturnsBadRequest(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	mockService := NewMockTransactionService(ctrl)
+	handler := NewHandler(mockService)
+
+	app := fiber.New()
+	app.Get("/transactions", handler.ListTransactions)
+
+	req := httptest.NewRequest("GET", "/transactions?end_date=invalid-date", nil)
+
+	resp, err := app.Test(req)
+	require.NoError(t, err)
+
+	assert.Equal(t, fiber.StatusBadRequest, resp.StatusCode)
+
+	body, _ := io.ReadAll(resp.Body)
+	var result map[string]string
+	err = json.Unmarshal(body, &result)
+	require.NoError(t, err)
+
+	assert.Contains(t, result["error"], "Invalid end_date format")
+}
+
+func Test_Handler_ListTransactions_WhenValidDateFilters_ThenUsesFilters(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	mockService := NewMockTransactionService(ctrl)
+	handler := NewHandler(mockService)
+
+	app := fiber.New()
+	app.Get("/transactions", handler.ListTransactions)
+
+	startDate := time.Date(2025, 1, 1, 0, 0, 0, 0, time.UTC)
+	endDate := time.Date(2025, 1, 31, 23, 59, 59, 999999999, time.UTC)
+
+	expectedTransactions := []models.Transaction{
+		{ID: uuid.New(), Status: models.StatusApproved, Metadata: map[string]any{"external_id": "tx-1", "amount": 100.0}},
+	}
+
+	mockService.EXPECT().
+		ListTransactionsWithFilter(gomock.Any(), gomock.Any(), 50, 0).
+		DoAndReturn(func(ctx interface{}, filter TransactionFilter, limit, offset int) ([]models.Transaction, int, error) {
+			assert.NotNil(t, filter.StartDate)
+			assert.NotNil(t, filter.EndDate)
+			assert.WithinDuration(t, startDate, *filter.StartDate, time.Second)
+			assert.WithinDuration(t, endDate, *filter.EndDate, time.Second)
+			return expectedTransactions, 1, nil
+		})
+
+	req := httptest.NewRequest("GET", "/transactions?start_date=2025-01-01T00:00:00Z&end_date=2025-01-31T23:59:59.999Z", nil)
+
+	resp, err := app.Test(req)
+	require.NoError(t, err)
+
+	assert.Equal(t, fiber.StatusOK, resp.StatusCode)
 }
