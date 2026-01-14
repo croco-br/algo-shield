@@ -17,7 +17,7 @@ AlgoShield is an open-source, high-performance fraud detection and AML transacti
 
 ## Tech Stack
 
-**Backend (Go 1.25.4):**
+**Backend (Go 1.25.5):**
 - Fiber v2 (web framework)
 - pgx v5 (PostgreSQL driver with connection pooling)
 - go-redis v9 (Redis client)

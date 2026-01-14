@@ -25,7 +25,7 @@ on:
       - '.github/workflows/backend.yml'
 
 env:
-  GO_VERSION: '1.25.4'
+  GO_VERSION: '1.25.5'
   DOCKER_BUILDKIT: 1
 
 jobs:
