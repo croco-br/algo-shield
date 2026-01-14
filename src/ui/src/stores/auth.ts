@@ -1,6 +1,6 @@
 import { defineStore } from 'pinia';
 import { ref, computed } from 'vue';
-import { api, setTokenGetter } from '@/lib/api';
+import { api, setTokenGetter, setCsrfTokenGetter } from '@/lib/api';
 
 export interface Role {
 	id: string;
@@ -24,6 +24,8 @@ export const useAuthStore = defineStore('auth', () => {
 	// SECURITY: Store token in memory only (never localStorage to prevent XSS attacks)
 	// This means token will be lost on page reload, requiring re-authentication
 	const token = ref<string | null>(null);
+	// SECURITY: CSRF token stored in memory alongside JWT token
+	const csrfToken = ref<string | null>(null);
 
 	async function loadUserFromToken() {
 		try {
@@ -44,8 +46,9 @@ export const useAuthStore = defineStore('auth', () => {
 		}
 	}
 
-	async function setToken(newToken: string) {
+	async function setToken(newToken: string, newCsrfToken?: string) {
 		token.value = newToken;
+		csrfToken.value = newCsrfToken || null;
 		await loadUserFromToken();
 	}
 
@@ -57,6 +60,7 @@ export const useAuthStore = defineStore('auth', () => {
 		}
 		user.value = null;
 		token.value = null;
+		csrfToken.value = null;
 	}
 
 	async function refresh() {
@@ -67,13 +71,18 @@ export const useAuthStore = defineStore('auth', () => {
 		return token.value;
 	}
 
+	function getCsrfToken(): string | null {
+		return csrfToken.value;
+	}
+
 	const isAdmin = computed(() => {
 		return user.value?.roles?.some((role) => role.name === 'admin') || false;
 	});
 
-	// SECURITY: Register token getter with API module to avoid circular dependencies
-	// This allows api.ts to get the token from memory without importing the store
+	// SECURITY: Register token getters with API module to avoid circular dependencies
+	// This allows api.ts to get the tokens from memory without importing the store
 	setTokenGetter(getToken);
+	setCsrfTokenGetter(getCsrfToken);
 
 	// Initialize on store creation (token will be null on page load)
 	loadUserFromToken();
@@ -85,6 +94,7 @@ export const useAuthStore = defineStore('auth', () => {
 		logout,
 		refresh,
 		getToken,
+		getCsrfToken,
 		isAdmin,
 	};
 });

@@ -1892,3 +1892,43 @@ These rules are **MANDATORY** and must be enforced:
     - Ensure backward compatibility maintained
     - Validate performance requirements met (<50ms latency target)
     - See "Regression Prevention Rules" section for complete checklist and requirements
+
+15. **CSRF Protection**:
+    - **CRITICAL**: The system uses CSRF tokens for all state-changing requests (POST, PUT, PATCH, DELETE)
+    - **Backend Implementation**:
+      - CSRF tokens generated on login/register (`src/api/internal/auth/handler.go`)
+      - Tokens stored in Redis with 24-hour TTL (`src/pkg/csrf/csrf.go`)
+      - Middleware validates `X-CSRF-Token` header on all non-GET requests (`src/api/internal/shared/middleware/csrf.go`)
+      - Excluded paths: `/api/v1/auth/login`, `/api/v1/auth/register`, `/api/v1/branding` (public GET)
+    - **Frontend Implementation**:
+      - Auth store stores both JWT and CSRF tokens in memory (`src/ui/src/stores/auth.ts`)
+      - API client automatically adds `X-CSRF-Token` header to POST/PUT/PATCH/DELETE requests (`src/ui/src/lib/api.ts`)
+      - Login/Register views extract `csrf_token` from response (`src/ui/src/views/LoginView.vue`)
+      - CSRF token cleared on logout
+    - **Common Issues and Solutions**:
+      - **403 "CSRF token missing"**: User must logout and login again after CSRF implementation
+      - **All views use API client**: Never use `fetch()` or `axios` directly - always use `api.post()`, `api.put()`, etc.
+      - **Stores use API client**: Pinia stores (like `branding.ts`, `systemMode.ts`) must use `api` from `@/lib/api`
+      - **Token in memory only**: CSRF token is NOT in localStorage - stored in memory for security
+    - **Troubleshooting CSRF Issues**:
+      1. Check if user logged in after CSRF implementation (token issued at login)
+      2. Verify `X-CSRF-Token` header in browser DevTools Network tab
+      3. Check backend logs for "CSRF token missing" or "Invalid CSRF token"
+      4. Ensure all state-changing operations use `api.post/put/patch/delete`
+      5. Verify `csrfTokenGetterHolder.getter` is registered in `api.ts`
+    - **When Adding New Features**:
+      - Use `api.post()`, `api.put()`, `api.patch()`, `api.delete()` for all HTTP requests
+      - Never use `fetch()` directly - it won't include CSRF token
+      - Test with browser DevTools to verify `X-CSRF-Token` header is sent
+      - Verify backend accepts the request (200/201 status, not 403)
+    - **Testing CSRF Protection**:
+      - Manual test: Open DevTools → Network → Try POST/PUT operation → Check Request Headers
+      - Should see: `X-CSRF-Token: <base64-token>`
+      - Backend should return 200/201, not 403
+    - **CSRF Token Lifecycle**:
+      1. User logs in → Backend generates CSRF token → Returns in response
+      2. Frontend stores token in memory (auth store)
+      3. Frontend registers token getter with API client
+      4. API client adds token to headers on POST/PUT/PATCH/DELETE
+      5. Backend validates token on each request
+      6. User logs out → Token cleared from memory and Redis

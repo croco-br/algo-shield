@@ -18,6 +18,7 @@ vi.mock('@/lib/api', () => ({
     put: vi.fn(),
   },
   setTokenGetter: vi.fn(),
+  setCsrfTokenGetter: vi.fn(),
   setSyntheticModeStorage: vi.fn(),
 }))
 
@@ -471,11 +472,13 @@ describe('PermissionsView', () => {
         },
       ],
     }
-    const mockRoles = [
-      { id: '1', name: 'admin', description: 'Administrator' },
-      { id: '2', name: 'user', description: 'User' },
-      { id: '3', name: 'editor', description: 'Editor' },
-    ]
+    const mockRoles = {
+      roles: [
+        { id: '1', name: 'admin', description: 'Administrator' },
+        { id: '2', name: 'user', description: 'User' },
+        { id: '3', name: 'editor', description: 'Editor' },
+      ],
+    }
 
     vi.mocked(api.get).mockImplementation((url: string) => {
       if (url === '/api/v1/permissions/users') {

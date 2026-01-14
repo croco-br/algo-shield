@@ -176,10 +176,10 @@ async function loadData() {
 		error.value = ''
 		const [usersResponse, rolesResponse] = await Promise.all([
 			api.get<{ users: User[] }>('/api/v1/permissions/users'),
-			api.get<Role[]>('/api/v1/roles'),
+			api.get<{ roles: Role[] }>('/api/v1/roles'),
 		])
 		users.value = usersResponse?.users || []
-		roles.value = rolesResponse || []
+		roles.value = rolesResponse?.roles || []
 	} catch (e: any) {
 		error.value = e.message || (window as any).$i18n?.global?.t?.('views.permissions.errorLoad') || 'Failed to load data'
 		console.error('Error loading data:', e)

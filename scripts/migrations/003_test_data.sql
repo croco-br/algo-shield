@@ -13,33 +13,105 @@ INSERT INTO roles (id, name, description) VALUES
 ON CONFLICT (name) DO NOTHING;
 
 -- ----------------------------------------------------------------------------
--- Default Admin User
--- Email: admin@admin.com
--- Password: admin@123
+-- Test Users with Different Roles
+-- All users have password: admin@123
 -- ----------------------------------------------------------------------------
 DO $$
 DECLARE
     admin_user_id UUID;
+    editor_user_id UUID;
+    viewer_user_id UUID;
+    multi_role_user_id UUID;
+    no_role_user_id UUID;
     admin_role_id UUID;
-    admin_email VARCHAR(255) := 'admin@admin.com';
+    editor_role_id UUID;
+    viewer_role_id UUID;
 BEGIN
+    -- Get role IDs
     SELECT id INTO admin_role_id FROM roles WHERE name = 'admin';
-    IF admin_role_id IS NULL THEN
-        RAISE EXCEPTION 'Admin role not found. Please ensure roles have been inserted.';
+    SELECT id INTO editor_role_id FROM roles WHERE name = 'rule_editor';
+    SELECT id INTO viewer_role_id FROM roles WHERE name = 'viewer';
+
+    IF admin_role_id IS NULL OR editor_role_id IS NULL OR viewer_role_id IS NULL THEN
+        RAISE EXCEPTION 'One or more roles not found. Please ensure roles have been inserted.';
     END IF;
-    SELECT id INTO admin_user_id FROM users WHERE email = admin_email;
+
+    -- 1. Admin User
+    SELECT id INTO admin_user_id FROM users WHERE email = 'admin@admin.com';
     IF admin_user_id IS NULL THEN
         admin_user_id := gen_random_uuid();
         INSERT INTO users (id, email, name, password_hash, auth_type, active, created_at, updated_at)
-        VALUES (admin_user_id, admin_email, 'Administrator', '$2a$10$IIbu/Hx8lQJanbd0Rr3OeunWWVDF.m6PdRErfcFpZbaJkSsNoJX0.', 'local', true, NOW(), NOW());
-        RAISE NOTICE 'Admin user created successfully with email: % and password: admin@123', admin_email;
-    ELSE
-        RAISE NOTICE 'Admin user already exists, ensuring admin role is assigned';
+        VALUES (admin_user_id, 'admin@admin.com', 'Administrator', '$2a$10$IIbu/Hx8lQJanbd0Rr3OeunWWVDF.m6PdRErfcFpZbaJkSsNoJX0.', 'local', true, NOW(), NOW());
+        RAISE NOTICE 'Admin user created: admin@admin.com';
     END IF;
     INSERT INTO user_roles (user_id, role_id, assigned_at)
     VALUES (admin_user_id, admin_role_id, NOW())
     ON CONFLICT (user_id, role_id) DO NOTHING;
-    RAISE NOTICE 'Admin role assigned to user with email: %', admin_email;
+
+    -- 2. Rule Editor User
+    SELECT id INTO editor_user_id FROM users WHERE email = 'editor@test.com';
+    IF editor_user_id IS NULL THEN
+        editor_user_id := gen_random_uuid();
+        INSERT INTO users (id, email, name, password_hash, auth_type, active, created_at, updated_at)
+        VALUES (editor_user_id, 'editor@test.com', 'John Editor', '$2a$10$IIbu/Hx8lQJanbd0Rr3OeunWWVDF.m6PdRErfcFpZbaJkSsNoJX0.', 'local', true, NOW(), NOW());
+        RAISE NOTICE 'Editor user created: editor@test.com';
+    END IF;
+    INSERT INTO user_roles (user_id, role_id, assigned_at)
+    VALUES (editor_user_id, editor_role_id, NOW())
+    ON CONFLICT (user_id, role_id) DO NOTHING;
+
+    -- 3. Viewer User
+    SELECT id INTO viewer_user_id FROM users WHERE email = 'viewer@test.com';
+    IF viewer_user_id IS NULL THEN
+        viewer_user_id := gen_random_uuid();
+        INSERT INTO users (id, email, name, password_hash, auth_type, active, created_at, updated_at)
+        VALUES (viewer_user_id, 'viewer@test.com', 'Jane Viewer', '$2a$10$IIbu/Hx8lQJanbd0Rr3OeunWWVDF.m6PdRErfcFpZbaJkSsNoJX0.', 'local', true, NOW(), NOW());
+        RAISE NOTICE 'Viewer user created: viewer@test.com';
+    END IF;
+    INSERT INTO user_roles (user_id, role_id, assigned_at)
+    VALUES (viewer_user_id, viewer_role_id, NOW())
+    ON CONFLICT (user_id, role_id) DO NOTHING;
+
+    -- 4. Multi-Role User (Admin + Rule Editor)
+    SELECT id INTO multi_role_user_id FROM users WHERE email = 'multi@test.com';
+    IF multi_role_user_id IS NULL THEN
+        multi_role_user_id := gen_random_uuid();
+        INSERT INTO users (id, email, name, password_hash, auth_type, active, created_at, updated_at)
+        VALUES (multi_role_user_id, 'multi@test.com', 'Bob Multi-Role', '$2a$10$IIbu/Hx8lQJanbd0Rr3OeunWWVDF.m6PdRErfcFpZbaJkSsNoJX0.', 'local', true, NOW(), NOW());
+        RAISE NOTICE 'Multi-role user created: multi@test.com';
+    END IF;
+    INSERT INTO user_roles (user_id, role_id, assigned_at)
+    VALUES
+        (multi_role_user_id, admin_role_id, NOW()),
+        (multi_role_user_id, editor_role_id, NOW())
+    ON CONFLICT (user_id, role_id) DO NOTHING;
+
+    -- 5. User Without Roles (to test adding roles)
+    SELECT id INTO no_role_user_id FROM users WHERE email = 'norole@test.com';
+    IF no_role_user_id IS NULL THEN
+        no_role_user_id := gen_random_uuid();
+        INSERT INTO users (id, email, name, password_hash, auth_type, active, created_at, updated_at)
+        VALUES (no_role_user_id, 'norole@test.com', 'Alice No-Role', '$2a$10$IIbu/Hx8lQJanbd0Rr3OeunWWVDF.m6PdRErfcFpZbaJkSsNoJX0.', 'local', true, NOW(), NOW());
+        RAISE NOTICE 'No-role user created: norole@test.com';
+    END IF;
+    -- No roles assigned to this user
+
+    -- 6. Inactive User
+    DECLARE inactive_user_id UUID;
+    BEGIN
+        SELECT id INTO inactive_user_id FROM users WHERE email = 'inactive@test.com';
+        IF inactive_user_id IS NULL THEN
+            inactive_user_id := gen_random_uuid();
+            INSERT INTO users (id, email, name, password_hash, auth_type, active, created_at, updated_at)
+            VALUES (inactive_user_id, 'inactive@test.com', 'Charlie Inactive', '$2a$10$IIbu/Hx8lQJanbd0Rr3OeunWWVDF.m6PdRErfcFpZbaJkSsNoJX0.', 'local', false, NOW(), NOW());
+            RAISE NOTICE 'Inactive user created: inactive@test.com';
+        END IF;
+        INSERT INTO user_roles (user_id, role_id, assigned_at)
+        VALUES (inactive_user_id, viewer_role_id, NOW())
+        ON CONFLICT (user_id, role_id) DO NOTHING;
+    END;
+
+    RAISE NOTICE 'All test users created successfully with password: admin@123';
 END $$;
 
 -- ----------------------------------------------------------------------------

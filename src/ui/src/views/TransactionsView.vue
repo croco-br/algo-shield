@@ -277,7 +277,7 @@
           :label="$t('views.transactions.eventCount')"
           type="number"
           min="1"
-          max="1000"
+          max="10000"
           :placeholder="$t('views.transactions.eventCountPlaceholder')"
           prepend-inner-icon="fa-hashtag"
           class="mb-4"

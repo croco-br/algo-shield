@@ -119,3 +119,28 @@ func Test_CORS_WithSpecificOrigins_ThenAllowsOnlySpecifiedOrigins(t *testing.T) 
 	// Fiber CORS middleware returns the requested origin if it's in the allowed list
 	assert.Equal(t, "https://example.com", resp.Header.Get("Access-Control-Allow-Origin"))
 }
+
+// Test_CORS_WithCSRFToken_ThenAllowsCSRFTokenHeader tests that X-CSRF-Token header is allowed in CORS
+func Test_CORS_WithCSRFToken_ThenAllowsCSRFTokenHeader(t *testing.T) {
+	middleware := CORS("*")
+
+	app := fiber.New()
+	app.Use(middleware)
+	app.Post("/test", func(c *fiber.Ctx) error {
+		return c.SendString("success")
+	})
+
+	// Simulate preflight request
+	req := httptest.NewRequest("OPTIONS", "/test", nil)
+	req.Header.Set("Origin", "http://localhost:3000")
+	req.Header.Set("Access-Control-Request-Method", "POST")
+	req.Header.Set("Access-Control-Request-Headers", "X-CSRF-Token")
+
+	resp, err := app.Test(req)
+
+	require.NoError(t, err)
+	assert.Equal(t, fiber.StatusNoContent, resp.StatusCode)
+	// Verify that X-CSRF-Token is in the allowed headers
+	allowedHeaders := resp.Header.Get("Access-Control-Allow-Headers")
+	assert.Contains(t, allowedHeaders, "X-CSRF-Token")
+}

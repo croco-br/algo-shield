@@ -17,6 +17,7 @@ vi.mock('@/lib/api', () => ({
     patch: vi.fn(),
   },
   setTokenGetter: vi.fn(),
+  setCsrfTokenGetter: vi.fn(),
   setSyntheticModeStorage: vi.fn(),
 }))
 

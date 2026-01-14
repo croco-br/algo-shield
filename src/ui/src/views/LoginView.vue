@@ -157,7 +157,7 @@ async function handleLogin() {
   error.value = ''
 
   try {
-    const response = await api.post<{ token: string; user: any }>('/api/v1/auth/login', {
+    const response = await api.post<{ token: string; user: any; csrf_token?: string }>('/api/v1/auth/login', {
       email: email.value,
       password: password.value,
     })
@@ -167,7 +167,7 @@ async function handleLogin() {
       return
     }
 
-    await authStore.setToken(response.token)
+    await authStore.setToken(response.token, response.csrf_token)
     router.push('/')
   } catch (e: any) {
     console.error('Login error:', e)
@@ -204,7 +204,7 @@ async function handleRegister() {
   error.value = ''
 
   try {
-    const response = await api.post<{ token: string; user: any }>('/api/v1/auth/register', {
+    const response = await api.post<{ token: string; user: any; csrf_token?: string }>('/api/v1/auth/register', {
       email: email.value,
       password: password.value,
       name: name.value,
@@ -215,7 +215,7 @@ async function handleRegister() {
       return
     }
 
-    await authStore.setToken(response.token)
+    await authStore.setToken(response.token, response.csrf_token)
     router.push('/')
   } catch (e: any) {
     console.error('Registration error:', e)

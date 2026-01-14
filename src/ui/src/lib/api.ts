@@ -4,15 +4,23 @@ export interface ApiError {
 	error: string;
 }
 
-// SECURITY NOTE: Token getter function is injected to avoid circular dependencies
-// The auth store will provide the token via getToken() function
-// Using an object to store the getter helps with module isolation in tests
+// SECURITY NOTE: Token getter functions are injected to avoid circular dependencies
+// The auth store will provide the tokens via getToken() and getCsrfToken() functions
+// Using objects to store the getters helps with module isolation in tests
 const tokenGetterHolder: { getter: (() => string | null) | null } = {
+	getter: null
+};
+
+const csrfTokenGetterHolder: { getter: (() => string | null) | null } = {
 	getter: null
 };
 
 export function setTokenGetter(getter: () => string | null): void {
 	tokenGetterHolder.getter = getter;
+}
+
+export function setCsrfTokenGetter(getter: () => string | null): void {
+	csrfTokenGetterHolder.getter = getter;
 }
 
 // Get synthetic mode from localStorage (synced by systemMode store)
@@ -47,10 +55,11 @@ async function request<T>(
 	if (uiConfig.api.baseUrl.includes('://api:') || uiConfig.api.baseUrl.includes('://postgres:') || uiConfig.api.baseUrl.includes('://redis:')) {
 		throw new Error(`API baseUrl uses container hostname (${uiConfig.api.baseUrl}). Browser cannot resolve container hostnames. Use http://localhost:8080 instead.`);
 	}
-	// SECURITY: Get token from memory-only Pinia store (never localStorage)
+	// SECURITY: Get tokens from memory-only Pinia store (never localStorage)
 	const token = tokenGetterHolder.getter ? tokenGetterHolder.getter() : null;
+	const csrfToken = csrfTokenGetterHolder.getter ? csrfTokenGetterHolder.getter() : null;
 	const syntheticMode = getSyntheticMode();
-	
+
 	const headers: Record<string, string> = {
 		'Content-Type': 'application/json',
 		'X-Synthetic-Mode': String(syntheticMode),
@@ -59,6 +68,13 @@ async function request<T>(
 
 	if (token) {
 		headers['Authorization'] = `Bearer ${token}`;
+	}
+
+	// SECURITY: Add CSRF token for state-changing requests (POST, PUT, PATCH, DELETE)
+	// The CSRF middleware on backend validates this token for all non-GET requests
+	const method = options.method?.toUpperCase();
+	if (csrfToken && method && ['POST', 'PUT', 'PATCH', 'DELETE'].includes(method)) {
+		headers['X-CSRF-Token'] = csrfToken;
 	}
 
 	// Create AbortController for timeout
