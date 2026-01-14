@@ -5,7 +5,6 @@ import (
 	"os/signal"
 	"strconv"
 	"syscall"
-	"time"
 
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
@@ -87,7 +86,7 @@ func main() {
 			queue.QueueDefault:  queueDefaultWeight,
 			queue.QueueLow:      queueLowWeight,
 		},
-		ShutdownTimeout: 30 * time.Second,
+		ShutdownTimeout: cfg.Worker.Asynq.ShutdownTimeout,
 	}
 
 	// Create Asynq worker
@@ -111,17 +110,21 @@ func main() {
 	workerErrChan := make(chan error, 1)
 	go func() {
 		log.Info().Msg("Starting Asynq worker server")
-		if err := worker.Run(); err != nil {
-			workerErrChan <- err
-		}
+		err := worker.Run()
+		// Always signal completion, even if nil (graceful shutdown)
+		workerErrChan <- err
 	}()
 
-	// Wait for shutdown signal or worker error
+	// Wait for shutdown signal or worker completion
 	select {
 	case sig := <-sigChan:
 		log.Info().Str("signal", sig.String()).Msg("Received shutdown signal")
 	case err := <-workerErrChan:
-		log.Error().Err(err).Msg("Worker stopped with error")
+		if err != nil {
+			log.Error().Err(err).Msg("Worker stopped with error")
+		} else {
+			log.Info().Msg("Worker stopped gracefully")
+		}
 	}
 
 	// Graceful shutdown

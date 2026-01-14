@@ -41,7 +41,7 @@ func main() {
 
 	// Initialize Asynq client (for job enqueueing)
 	redisQueueAddr := getEnvOrDefault("REDIS_QUEUE_HOST", "localhost") + ":" + getEnvOrDefault("REDIS_QUEUE_PORT", "6379")
-	asynqClient, err := queue.NewAsynqClient(redisQueueAddr)
+	asynqClient, err := queue.NewAsynqClient(redisQueueAddr, cfg.Worker.AsynqConfig())
 	if err != nil {
 		log.Fatalf("Failed to create Asynq client: %v", err)
 	}

@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"time"
 
+	"github.com/algo-shield/algo-shield/src/api/internal"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/redis/go-redis/v9"
 )
@@ -12,7 +13,6 @@ import (
 const (
 	syntheticModeKey      = "synthetic_mode"
 	syntheticModeCacheKey = "system:synthetic_mode"
-	cacheTTL              = 5 * time.Minute
 )
 
 // Repository defines the interface for system configuration data access
@@ -120,5 +120,5 @@ func (r *PostgresRepository) setCache(ctx context.Context, config *SyntheticMode
 		return err
 	}
 
-	return r.redis.Set(ctx, syntheticModeCacheKey, data, cacheTTL).Err()
+	return r.redis.Set(ctx, syntheticModeCacheKey, data, internal.GetCacheTTL("system")).Err()
 }

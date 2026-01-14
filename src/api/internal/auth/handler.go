@@ -34,7 +34,7 @@ func (h *Handler) Register(c *fiber.Ctx) error {
 		return apierrors.SendError(c, apierrors.ValidationError(err.Error()))
 	}
 
-	ctx, cancel := context.WithTimeout(c.Context(), internal.DEFAULT_TIMEOUT)
+	ctx, cancel := context.WithTimeout(c.Context(), internal.GetHandlerTimeout())
 	defer cancel()
 
 	// Register user (handles password hashing and token generation)
@@ -68,7 +68,7 @@ func (h *Handler) Login(c *fiber.Ctx) error {
 		return apierrors.SendError(c, apierrors.ValidationError(err.Error()))
 	}
 
-	ctx, cancel := context.WithTimeout(c.Context(), internal.DEFAULT_TIMEOUT)
+	ctx, cancel := context.WithTimeout(c.Context(), internal.GetHandlerTimeout())
 	defer cancel()
 
 	// Login user (handles password verification and token generation)
@@ -94,7 +94,7 @@ func (h *Handler) GetCurrentUser(c *fiber.Ctx) error {
 	}
 
 	// Get fresh user data from service (with roles and groups loaded)
-	ctx, cancel := context.WithTimeout(c.Context(), internal.DEFAULT_TIMEOUT)
+	ctx, cancel := context.WithTimeout(c.Context(), internal.GetHandlerTimeout())
 	defer cancel()
 	freshUser, err := h.userService.GetUserByID(ctx, user.ID)
 	if err != nil {
@@ -119,7 +119,7 @@ func (h *Handler) Logout(c *fiber.Ctx) error {
 
 	token := parts[1]
 
-	ctx, cancel := context.WithTimeout(c.Context(), internal.DEFAULT_TIMEOUT)
+	ctx, cancel := context.WithTimeout(c.Context(), internal.GetHandlerTimeout())
 	defer cancel()
 
 	// Revoke the token

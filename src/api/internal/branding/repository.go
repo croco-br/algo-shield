@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"time"
 
+	"github.com/algo-shield/algo-shield/src/api/internal"
 	"github.com/algo-shield/algo-shield/src/pkg/models"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/redis/go-redis/v9"
@@ -68,8 +69,8 @@ func (r *PostgresRepository) Get(ctx context.Context) (*models.BrandingConfig, e
 	if r.redis != nil {
 		configJSON, err := json.Marshal(config)
 		if err == nil {
-			// Cache for 10 minutes (branding changes infrequently)
-			r.redis.Set(ctx, "branding:config", configJSON, 10*time.Minute)
+			// Cache with configured TTL
+			r.redis.Set(ctx, "branding:config", configJSON, internal.GetCacheTTL("branding"))
 		}
 	}
 

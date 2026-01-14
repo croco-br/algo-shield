@@ -39,6 +39,8 @@ type APIConfig struct {
 	TLSEnable bool
 	TLSCert   string // Path to TLS certificate file
 	TLSKey    string // Path to TLS private key file
+	Timeouts  APITimeouts
+	Cache     APICacheConfig
 }
 
 type WorkerConfig struct {
@@ -48,6 +50,12 @@ type WorkerConfig struct {
 	Retry       RetryConfig
 	Queue       QueueConfig
 	RulesReload RulesReloadConfig
+	Asynq       AsynqConfig
+}
+
+// AsynqConfigAccessor provides access to Asynq configuration for the queue package
+func (wc *WorkerConfig) AsynqConfig() AsynqConfig {
+	return wc.Asynq
 }
 
 type WorkerTimeouts struct {
@@ -68,6 +76,46 @@ type QueueConfig struct {
 
 type RulesReloadConfig struct {
 	Interval time.Duration
+}
+
+type AsynqConfig struct {
+	DefaultTimeout     time.Duration // Default task timeout
+	DefaultRetention   time.Duration // Default task retention period
+	CriticalTimeout    time.Duration // Timeout for critical priority tasks
+	LowPriorityTimeout time.Duration // Timeout for low priority tasks
+	ShutdownTimeout    time.Duration // Worker shutdown timeout
+}
+
+// GetDefaultTimeout implements AsynqConfigProvider interface from queue package
+func (ac AsynqConfig) GetDefaultTimeout() time.Duration {
+	return ac.DefaultTimeout
+}
+
+// GetDefaultRetention implements AsynqConfigProvider interface from queue package
+func (ac AsynqConfig) GetDefaultRetention() time.Duration {
+	return ac.DefaultRetention
+}
+
+// GetCriticalTimeout implements AsynqConfigProvider interface from queue package
+func (ac AsynqConfig) GetCriticalTimeout() time.Duration {
+	return ac.CriticalTimeout
+}
+
+// GetLowPriorityTimeout implements AsynqConfigProvider interface from queue package
+func (ac AsynqConfig) GetLowPriorityTimeout() time.Duration {
+	return ac.LowPriorityTimeout
+}
+
+type APITimeouts struct {
+	HandlerTimeout time.Duration // Default timeout for API handlers
+	HealthCheck    time.Duration // Timeout for health check endpoints
+}
+
+type APICacheConfig struct {
+	DashboardTTL time.Duration // Dashboard metrics cache TTL
+	BrandingTTL  time.Duration // Branding cache TTL
+	SystemTTL    time.Duration // System config cache TTL
+	RulesTTL     time.Duration // Rules cache TTL
 }
 
 type GeneralConfig struct {
@@ -127,6 +175,16 @@ func Load() (*Config, error) {
 			TLSEnable: getEnv("TLS_ENABLE", "") == "true",
 			TLSCert:   getEnv("TLS_CERT_PATH", ""),
 			TLSKey:    getEnv("TLS_KEY_PATH", ""),
+			Timeouts: APITimeouts{
+				HandlerTimeout: getEnvDuration("API_TIMEOUT_HANDLER", 500*time.Millisecond),
+				HealthCheck:    getEnvDuration("API_TIMEOUT_HEALTH", 2*time.Second),
+			},
+			Cache: APICacheConfig{
+				DashboardTTL: getEnvDuration("API_CACHE_DASHBOARD_TTL", 30*time.Second),
+				BrandingTTL:  getEnvDuration("API_CACHE_BRANDING_TTL", 10*time.Minute),
+				SystemTTL:    getEnvDuration("API_CACHE_SYSTEM_TTL", 5*time.Minute),
+				RulesTTL:     getEnvDuration("API_CACHE_RULES_TTL", 5*time.Minute),
+			},
 		},
 		Worker: WorkerConfig{
 			Concurrency: getEnvInt("WORKER_CONCURRENCY", 10),
@@ -146,6 +204,13 @@ func Load() (*Config, error) {
 			},
 			RulesReload: RulesReloadConfig{
 				Interval: getEnvDuration("WORKER_RULES_RELOAD_INTERVAL", 10*time.Second),
+			},
+			Asynq: AsynqConfig{
+				DefaultTimeout:     getEnvDuration("WORKER_ASYNQ_DEFAULT_TIMEOUT", 5*time.Minute),
+				DefaultRetention:   getEnvDuration("WORKER_ASYNQ_DEFAULT_RETENTION", 24*time.Hour),
+				CriticalTimeout:    getEnvDuration("WORKER_ASYNQ_CRITICAL_TIMEOUT", 30*time.Second),
+				LowPriorityTimeout: getEnvDuration("WORKER_ASYNQ_LOW_PRIORITY_TIMEOUT", 10*time.Minute),
+				ShutdownTimeout:    getEnvDuration("WORKER_ASYNQ_SHUTDOWN_TIMEOUT", 30*time.Second),
 			},
 		},
 		General: GeneralConfig{

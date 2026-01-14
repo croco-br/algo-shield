@@ -187,7 +187,7 @@ func (s *Service) ValidateToken(tokenString string) (*models.User, error) {
 	}
 
 	// Check if token is revoked (individual token blacklist)
-	ctx, cancel := context.WithTimeout(context.Background(), internal.DEFAULT_TIMEOUT)
+	ctx, cancel := context.WithTimeout(context.Background(), internal.GetHandlerTimeout())
 	defer cancel()
 
 	isRevoked, err := s.tokenRevokeService.IsTokenRevoked(ctx, tokenString)

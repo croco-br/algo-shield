@@ -12,6 +12,15 @@ import (
 	"github.com/algo-shield/algo-shield/src/pkg/models"
 )
 
+// AsynqConfigProvider defines an interface for providing Asynq configuration
+// This allows the queue package to work with config without importing it directly
+type AsynqConfigProvider interface {
+	GetDefaultTimeout() time.Duration
+	GetDefaultRetention() time.Duration
+	GetCriticalTimeout() time.Duration
+	GetLowPriorityTimeout() time.Duration
+}
+
 const (
 	// TaskTypeProcessTransaction is the task type for transaction processing
 	TaskTypeProcessTransaction = "transaction:process"
@@ -21,7 +30,7 @@ const (
 	QueueDefault  = "default"
 	QueueLow      = "low"
 
-	// Default values
+	// Default values (fallback if config not provided)
 	defaultMaxRetry  = 3
 	defaultTimeout   = 5 * time.Minute
 	defaultRetention = 24 * time.Hour
@@ -30,12 +39,17 @@ const (
 // AsynqClient wraps the Asynq client for enqueueing transaction jobs
 // Follows Interface Segregation Principle (ISP) - single responsibility: enqueueing jobs
 type AsynqClient struct {
-	client *asynq.Client
+	client             *asynq.Client
+	defaultTimeout     time.Duration
+	defaultRetention   time.Duration
+	criticalTimeout    time.Duration
+	lowPriorityTimeout time.Duration
 }
 
 // NewAsynqClient creates a new Asynq client with the provided Redis address
 // Uses dependency injection pattern for better testability
-func NewAsynqClient(redisAddr string) (*AsynqClient, error) {
+// asynqConfig is optional - if nil, uses default values
+func NewAsynqClient(redisAddr string, asynqConfig interface{}) (*AsynqClient, error) {
 	if redisAddr == "" {
 		return nil, fmt.Errorf("redis address cannot be empty")
 	}
@@ -45,12 +59,39 @@ func NewAsynqClient(redisAddr string) (*AsynqClient, error) {
 		DB:   0,
 	})
 
+	// Extract config values if provided
+	var taskTimeout, taskRetention, critTimeout, lowTimeout time.Duration
+	if cfg, ok := asynqConfig.(AsynqConfigProvider); ok {
+		taskTimeout = cfg.GetDefaultTimeout()
+		taskRetention = cfg.GetDefaultRetention()
+		critTimeout = cfg.GetCriticalTimeout()
+		lowTimeout = cfg.GetLowPriorityTimeout()
+	}
+
+	// Fallback to package defaults if zero or not provided
+	if taskTimeout == 0 {
+		taskTimeout = defaultTimeout
+	}
+	if taskRetention == 0 {
+		taskRetention = defaultRetention
+	}
+	if critTimeout == 0 {
+		critTimeout = 30 * time.Second
+	}
+	if lowTimeout == 0 {
+		lowTimeout = 10 * time.Minute
+	}
+
 	log.Info().
 		Str("redis_addr", redisAddr).
 		Msg("Asynq client initialized")
 
 	return &AsynqClient{
-		client: client,
+		client:             client,
+		defaultTimeout:     taskTimeout,
+		defaultRetention:   taskRetention,
+		criticalTimeout:    critTimeout,
+		lowPriorityTimeout: lowTimeout,
 	}, nil
 }
 
@@ -64,12 +105,12 @@ type EnqueueTransactionOpts struct {
 }
 
 // DefaultEnqueueOpts returns sensible defaults following project conventions
-func DefaultEnqueueOpts() EnqueueTransactionOpts {
+func (c *AsynqClient) DefaultEnqueueOpts() EnqueueTransactionOpts {
 	return EnqueueTransactionOpts{
 		Queue:     QueueDefault,
 		MaxRetry:  defaultMaxRetry,
-		Timeout:   defaultTimeout,
-		Retention: defaultRetention,
+		Timeout:   c.defaultTimeout,
+		Retention: c.defaultRetention,
 		ProcessIn: 0, // Immediate processing
 	}
 }
@@ -85,7 +126,7 @@ func (c *AsynqClient) EnqueueTransaction(ctx context.Context, event models.Event
 
 	// Use default options if not provided
 	if opts == nil {
-		defaultOpts := DefaultEnqueueOpts()
+		defaultOpts := c.DefaultEnqueueOpts()
 		opts = &defaultOpts
 	}
 
@@ -143,16 +184,16 @@ func (c *AsynqClient) EnqueueTransaction(ctx context.Context, event models.Event
 // EnqueueTransactionWithPriority is a helper for priority-based enqueueing
 // Automatically selects queue based on priority level
 func (c *AsynqClient) EnqueueTransactionWithPriority(ctx context.Context, event models.Event, priority string) (*asynq.TaskInfo, error) {
-	opts := DefaultEnqueueOpts()
+	opts := c.DefaultEnqueueOpts()
 
 	// Map priority to queue and timeout
 	switch priority {
 	case "critical":
 		opts.Queue = QueueCritical
-		opts.Timeout = 30 * time.Second // Lower timeout for critical
+		opts.Timeout = c.criticalTimeout
 	case "low":
 		opts.Queue = QueueLow
-		opts.Timeout = 10 * time.Minute // Higher timeout for low priority
+		opts.Timeout = c.lowPriorityTimeout
 	default:
 		opts.Queue = QueueDefault
 	}

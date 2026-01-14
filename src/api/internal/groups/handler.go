@@ -20,7 +20,7 @@ func NewHandler(service Service) *Handler {
 
 // ListGroups returns all available groups
 func (h *Handler) ListGroups(c *fiber.Ctx) error {
-	ctx, cancel := context.WithTimeout(c.Context(), internal.DEFAULT_TIMEOUT)
+	ctx, cancel := context.WithTimeout(c.Context(), internal.GetHandlerTimeout())
 	defer cancel()
 	groups, err := h.service.ListGroups(ctx)
 	if err != nil {
@@ -44,7 +44,7 @@ func (h *Handler) GetGroup(c *fiber.Ctx) error {
 		})
 	}
 
-	ctx, cancel := context.WithTimeout(c.Context(), internal.DEFAULT_TIMEOUT)
+	ctx, cancel := context.WithTimeout(c.Context(), internal.GetHandlerTimeout())
 	defer cancel()
 	group, err := h.service.GetGroupByID(ctx, groupID)
 	if err != nil {

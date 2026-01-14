@@ -42,7 +42,7 @@ func (h *Handler) ProcessTransaction(c *fiber.Ctx) error {
 		})
 	}
 
-	ctx, cancel := context.WithTimeout(c.Context(), internal.DEFAULT_TIMEOUT)
+	ctx, cancel := context.WithTimeout(c.Context(), internal.GetHandlerTimeout())
 	defer cancel()
 
 	// Enqueue transaction using Asynq
@@ -79,7 +79,7 @@ func (h *Handler) GetTransaction(c *fiber.Ctx) error {
 		})
 	}
 
-	ctx, cancel := context.WithTimeout(c.Context(), internal.DEFAULT_TIMEOUT)
+	ctx, cancel := context.WithTimeout(c.Context(), internal.GetHandlerTimeout())
 	defer cancel()
 	ctx = shared.WithSyntheticMode(ctx, middleware.IsSyntheticMode(c))
 	transaction, err := h.service.GetTransaction(ctx, id)
@@ -93,7 +93,7 @@ func (h *Handler) GetTransaction(c *fiber.Ctx) error {
 }
 
 func (h *Handler) ListTransactions(c *fiber.Ctx) error {
-	ctx, cancel := context.WithTimeout(c.Context(), internal.DEFAULT_TIMEOUT)
+	ctx, cancel := context.WithTimeout(c.Context(), internal.GetHandlerTimeout())
 	defer cancel()
 	ctx = shared.WithSyntheticMode(ctx, middleware.IsSyntheticMode(c))
 
@@ -167,7 +167,7 @@ func (h *Handler) ApproveTransaction(c *fiber.Ctx) error {
 		})
 	}
 
-	ctx, cancel := context.WithTimeout(c.Context(), internal.DEFAULT_TIMEOUT)
+	ctx, cancel := context.WithTimeout(c.Context(), internal.GetHandlerTimeout())
 	defer cancel()
 	ctx = shared.WithSyntheticMode(ctx, middleware.IsSyntheticMode(c))
 
@@ -195,7 +195,7 @@ func (h *Handler) RejectTransaction(c *fiber.Ctx) error {
 		})
 	}
 
-	ctx, cancel := context.WithTimeout(c.Context(), internal.DEFAULT_TIMEOUT)
+	ctx, cancel := context.WithTimeout(c.Context(), internal.GetHandlerTimeout())
 	defer cancel()
 	ctx = shared.WithSyntheticMode(ctx, middleware.IsSyntheticMode(c))
 

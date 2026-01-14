@@ -487,24 +487,24 @@ function getValueInputType(fieldPath: string): 'number' | 'string' | 'boolean' |
 // Get placeholder for value input based on field type and operator
 function getValuePlaceholder(fieldPath: string): string {
   if (!currentSchema.value || !fieldPath) {
-    return 'Enter value'
+    return t('views.rules.validation.enterValue')
   }
   
   const field = currentSchema.value.extracted_fields.find(f => f.path === fieldPath)
   if (!field) {
-    return 'Enter value'
+    return t('views.rules.validation.enterValue')
   }
 
   const type = field.type
   if (type === 'string') {
-    return 'e.g., "USD" or "active"'
+    return t('views.rules.validation.valuePlaceholderString')
   } else if (type === 'number') {
-    return 'e.g., 1000 or 5000'
+    return t('views.rules.validation.valuePlaceholderNumber')
   } else if (type === 'array') {
-    return 'e.g., "US", "CA", "GB" or 1, 2, 3'
+    return t('views.rules.validation.valuePlaceholderArray')
   }
   
-  return 'Enter value'
+  return t('views.rules.validation.enterValue')
 }
 
 // Add a new condition row

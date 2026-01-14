@@ -21,7 +21,7 @@ func NewHandler(service Service) *Handler {
 
 // GetSyntheticMode handles GET /api/v1/system/mode
 func (h *Handler) GetSyntheticMode(c *fiber.Ctx) error {
-	ctx, cancel := context.WithTimeout(c.Context(), internal.DEFAULT_TIMEOUT)
+	ctx, cancel := context.WithTimeout(c.Context(), internal.GetHandlerTimeout())
 	defer cancel()
 
 	response, err := h.service.GetSyntheticMode(ctx)
@@ -43,7 +43,7 @@ func (h *Handler) SetSyntheticMode(c *fiber.Ctx) error {
 		})
 	}
 
-	ctx, cancel := context.WithTimeout(c.Context(), internal.DEFAULT_TIMEOUT)
+	ctx, cancel := context.WithTimeout(c.Context(), internal.GetHandlerTimeout())
 	defer cancel()
 
 	response, err := h.service.SetSyntheticMode(ctx, req.Enabled)

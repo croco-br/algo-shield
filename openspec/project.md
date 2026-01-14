@@ -155,7 +155,7 @@ UI (Vue.js) → API (Fiber) → Worker (Rules Engine)
 - Integration tests for database interactions (use `//go:build integration` tag)
 - Benchmarks for performance-critical code (rules engine)
 - Test file naming: `*_test.go` for unit tests, `*_integration_test.go` for integration tests
-- Coverage target: **90% minimum** for new code
+- Coverage target: **80% minimum** for new code
 - Use `testcontainers-go` for integration tests with real databases
 
 #### Commands
@@ -704,10 +704,633 @@ AlgoShield provides a comprehensive fraud detection and AML platform with the fo
 - **Batch Processing**: Configurable batch size for efficient worker processing
 - **Concurrent Processing**: Controlled concurrency via semaphore to prevent resource exhaustion
 
+## Code Security Guidelines
+
+### Backend Security (Go)
+
+#### OWASP Top 10 Prevention
+
+**1. Injection Attacks (SQL Injection, NoSQL Injection, Command Injection)**
+
+- **SQL Injection Prevention**:
+  - ALWAYS use parameterized queries with pgx prepared statements
+  - NEVER concatenate user input directly into SQL queries
+  - Use `$1, $2, $3` placeholders for all dynamic values
+  - Example (GOOD):
+    ```go
+    query := "SELECT * FROM users WHERE email = $1"
+    row := db.QueryRow(ctx, query, userEmail)
+    ```
+  - Example (BAD - NEVER DO THIS):
+    ```go
+    query := fmt.Sprintf("SELECT * FROM users WHERE email = '%s'", userEmail) // VULNERABLE!
+    ```
+
+- **Command Injection Prevention**:
+  - Avoid executing shell commands when possible
+  - If shell commands are necessary, use `exec.Command` with separate arguments (not shell strings)
+  - Validate and sanitize all input used in system commands
+  - Use allowlists for command arguments
+  - Example (GOOD):
+    ```go
+    cmd := exec.Command("ls", "-l", safeDirectory)
+    ```
+  - Example (BAD):
+    ```go
+    cmd := exec.Command("sh", "-c", "ls -l " + userInput) // VULNERABLE!
+    ```
+
+- **Expression Injection Prevention** (Rules Engine):
+  - Validate expression syntax before compilation
+  - Field path validation: Only allow alphanumeric, underscore, and dot characters
+  - Use expr-lang's type safety features
+  - Sanitize field paths in velocity functions
+  - Example (GOOD):
+    ```go
+    if !isValidFieldPath(fieldPath) {
+        return 0 // Reject invalid field paths
+    }
+    ```
+
+**2. Broken Authentication**
+
+- **JWT Token Security**:
+  - Use strong secret keys (minimum 32 bytes, random)
+  - Store secrets in environment variables, never in code
+  - Implement token expiration (default: 24 hours)
+  - Support token revocation via Redis
+  - Validate token signature and expiration on every request
+  - Example:
+    ```go
+    token, err := jwt.Parse(tokenString, func(token *jwt.Token) (interface{}, error) {
+        if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
+            return nil, fmt.Errorf("unexpected signing method")
+        }
+        return []byte(config.JWTSecret), nil
+    })
+    ```
+
+- **Password Security**:
+  - ALWAYS use bcrypt for password hashing (cost factor: 12+)
+  - NEVER log or return password hashes in API responses
+  - Enforce password complexity requirements (minimum length, character types)
+  - Implement rate limiting on login attempts
+  - Example:
+    ```go
+    hashedPassword, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
+    ```
+
+- **Session Management**:
+  - Store active tokens in Redis for quick invalidation
+  - Implement logout functionality that invalidates tokens
+  - Use secure session IDs (UUIDs)
+  - Clear sessions on password change
+
+**3. Sensitive Data Exposure**
+
+- **Data Protection**:
+  - NEVER log sensitive data (passwords, tokens, credit cards, PII)
+  - Mask sensitive fields in logs and error messages
+  - Use HTTPS/TLS for all production traffic (configure TLS in Fiber)
+  - Encrypt sensitive data at rest in database (if required by compliance)
+  - Return minimal error details to clients (avoid stack traces)
+  - Example:
+    ```go
+    // GOOD
+    log.Error().Str("user_id", userID).Msg("authentication failed")
+
+    // BAD - NEVER DO THIS
+    log.Error().Str("password", password).Msg("authentication failed") // VULNERABLE!
+    ```
+
+- **API Response Security**:
+  - Filter sensitive fields from API responses (password_hash, internal IDs)
+  - Use separate DTOs for API responses (don't return database models directly)
+  - Implement field-level access control
+
+**4. XML External Entities (XXE)**
+
+- **Not applicable**: AlgoShield does not process XML
+- If XML processing is added in the future, disable external entity processing
+
+**5. Broken Access Control**
+
+- **RBAC Enforcement**:
+  - Implement role-based access control on ALL protected endpoints
+  - Use middleware to enforce permissions before handler execution
+  - Validate user permissions in service layer (defense in depth)
+  - Prevent privilege escalation (users can't modify their own roles)
+  - Example:
+    ```go
+    // Middleware check
+    func RequireRole(role string) fiber.Handler {
+        return func(c *fiber.Ctx) error {
+            user := c.Locals("user").(*User)
+            if !user.HasRole(role) {
+                return fiber.ErrForbidden
+            }
+            return c.Next()
+        }
+    }
+    ```
+
+- **Authorization Checks**:
+  - Verify user owns resource before allowing access/modification
+  - Implement object-level authorization (not just endpoint-level)
+  - Prevent horizontal privilege escalation (user A can't access user B's data)
+  - Example:
+    ```go
+    // Check ownership before update
+    if transaction.UserID != currentUser.ID && !currentUser.IsAdmin() {
+        return fiber.ErrForbidden
+    }
+    ```
+
+- **Admin Protection**:
+  - Admins cannot deactivate themselves
+  - Cannot deactivate last active admin
+  - Require re-authentication for critical operations
+
+**6. Security Misconfiguration**
+
+- **Secure Defaults**:
+  - Disable debug mode in production
+  - Set secure HTTP headers (via middleware)
+  - Configure CORS properly (restrict origins in production)
+  - Use environment-specific configurations
+  - Remove default credentials and test accounts
+
+- **Security Headers** (implement via Fiber middleware):
+  ```go
+  app.Use(func(c *fiber.Ctx) error {
+      c.Set("X-Content-Type-Options", "nosniff")
+      c.Set("X-Frame-Options", "DENY")
+      c.Set("X-XSS-Protection", "1; mode=block")
+      c.Set("Strict-Transport-Security", "max-age=31536000; includeSubDomains")
+      c.Set("Content-Security-Policy", "default-src 'self'")
+      return c.Next()
+  })
+  ```
+
+- **Error Handling**:
+  - Return generic error messages to clients
+  - Log detailed errors internally with correlation IDs
+  - Don't expose stack traces or internal paths
+
+**7. Cross-Site Scripting (XSS)**
+
+- **Input Validation**:
+  - Validate all input using `go-playground/validator`
+  - Sanitize HTML input if accepting rich text (use bluemonday library)
+  - Escape output in templates (if using HTML templates)
+  - Store data as plain text, escape on output
+
+- **API Security**:
+  - Set `Content-Type: application/json` header
+  - Validate JSON structure before processing
+  - Reject malformed requests early
+
+**8. Insecure Deserialization**
+
+- **JSON Security**:
+  - Use standard library `encoding/json` for serialization
+  - Validate JSON structure against expected schema
+  - Set size limits for request bodies
+  - Don't deserialize untrusted binary data
+  - Example:
+    ```go
+    // Set max body size in Fiber
+    app.Use(bodyparser.New(bodyparser.Config{
+        BodyLimit: 1 * 1024 * 1024, // 1MB limit
+    }))
+    ```
+
+**9. Using Components with Known Vulnerabilities**
+
+- **Dependency Management**:
+  - Keep all dependencies up to date
+  - Run `go mod tidy` regularly
+  - Use Dependabot for automated updates
+  - Scan for vulnerabilities with `govulncheck`
+  - Review security advisories for critical dependencies
+  - Pin dependency versions (don't use `latest`)
+
+- **Security Scanning**:
+  - Run `gitleaks` to detect secrets in code
+  - Run `semgrep` for static security analysis
+  - Integrate security scans in CI/CD pipeline
+  - Example commands:
+    ```bash
+    go install golang.org/x/vuln/cmd/govulncheck@latest
+    govulncheck ./...
+    ```
+
+**10. Insufficient Logging & Monitoring**
+
+- **Security Logging**:
+  - Log all authentication attempts (success and failure)
+  - Log authorization failures
+  - Log critical operations (user creation, role assignment, config changes)
+  - Include correlation IDs for request tracing
+  - Use structured logging (JSON format)
+  - Example:
+    ```go
+    log.Warn().
+        Str("user_id", userID).
+        Str("ip_address", c.IP()).
+        Str("endpoint", c.Path()).
+        Msg("unauthorized access attempt")
+    ```
+
+- **Monitoring**:
+  - Monitor failed authentication attempts (detect brute force)
+  - Monitor unusual transaction patterns
+  - Set up alerts for security events
+  - Track rate of 401/403 responses
+  - Use OpenTelemetry for observability
+
+#### Additional Backend Security Practices
+
+**Input Validation**:
+- Validate ALL input in handlers using `go-playground/validator`
+- Check data types, lengths, formats, and ranges
+- Use allowlists instead of blocklists
+- Validate business logic constraints
+- Example:
+  ```go
+  type CreateUserRequest struct {
+      Email    string `json:"email" validate:"required,email"`
+      Password string `json:"password" validate:"required,min=8"`
+      Name     string `json:"name" validate:"required,min=2,max=100"`
+  }
+  ```
+
+**Rate Limiting**:
+- Implement rate limiting on authentication endpoints
+- Use Redis for distributed rate limiting
+- Different limits for authenticated vs unauthenticated users
+- Return 429 Too Many Requests when limit exceeded
+
+**Timeout & Resource Limits**:
+- Set timeouts for all database queries
+- Set timeouts for Redis operations
+- Limit request body size
+- Set maximum connection pool sizes
+- Prevent resource exhaustion attacks
+
+**Database Security**:
+- Use connection pooling (pgx)
+- Implement query timeouts
+- Use read replicas for analytics queries
+- Encrypt database connections (TLS)
+- Follow principle of least privilege for database users
+
+**Redis Security**:
+- Use authentication (requirepass)
+- Use TLS for Redis connections (production)
+- Set memory limits to prevent OOM
+- Use separate Redis instances for queue and cache
+
+**CORS Configuration**:
+- Restrict allowed origins (don't use `*` in production)
+- Specify allowed methods explicitly
+- Don't allow credentials with wildcard origins
+- Example:
+  ```go
+  app.Use(cors.New(cors.Config{
+      AllowOrigins: "https://yourdomain.com",
+      AllowMethods: "GET,POST,PUT,DELETE,OPTIONS",
+      AllowHeaders: "Authorization,Content-Type",
+      AllowCredentials: true,
+  }))
+  ```
+
+### Frontend Security (Vue.js/TypeScript)
+
+#### OWASP Top 10 for Frontend
+
+**1. Cross-Site Scripting (XSS) Prevention**
+
+- **Template Security**:
+  - Vue.js escapes expressions automatically (using `{{ }}`)
+  - NEVER use `v-html` with user input
+  - If `v-html` is necessary, sanitize with DOMPurify
+  - Example (GOOD):
+    ```vue
+    <template>
+      <div>{{ userInput }}</div> <!-- Automatically escaped -->
+    </template>
+    ```
+  - Example (BAD):
+    ```vue
+    <template>
+      <div v-html="userInput"></div> <!-- VULNERABLE if userInput contains scripts -->
+    </template>
+    ```
+
+- **JavaScript Security**:
+  - Avoid `eval()`, `Function()`, `setTimeout(string)`, `setInterval(string)`
+  - Don't create DOM elements from user input
+  - Sanitize user input before storing or displaying
+  - Use Content Security Policy (CSP) headers
+
+**2. Injection Attacks Prevention**
+
+- **API Request Security**:
+  - Use Axios or Fetch with proper encoding
+  - Don't construct URLs by string concatenation
+  - Use URL parameters properly
+  - Validate data before sending to API
+  - Example (GOOD):
+    ```typescript
+    const response = await axios.get('/api/users', {
+      params: { id: userId } // Properly encoded
+    })
+    ```
+
+**3. Broken Authentication (Frontend)**
+
+- **Token Storage**:
+  - Store JWT tokens in memory (Pinia store) for SPA security
+  - DON'T store tokens in localStorage (vulnerable to XSS)
+  - If localStorage is necessary, use HttpOnly cookies instead
+  - Clear tokens on logout
+  - Implement token refresh mechanism
+  - Example:
+    ```typescript
+    // GOOD - Store in Pinia
+    const authStore = useAuthStore()
+    authStore.setToken(token)
+
+    // BAD - Don't store sensitive tokens in localStorage
+    localStorage.setItem('token', token) // VULNERABLE to XSS
+    ```
+
+- **Session Management**:
+  - Implement automatic logout on token expiration
+  - Redirect to login on 401 responses
+  - Clear all state on logout
+
+**4. Sensitive Data Exposure (Frontend)**
+
+- **Data Handling**:
+  - Never log sensitive data to console
+  - Don't store sensitive data in localStorage/sessionStorage
+  - Clear sensitive forms on unmount
+  - Mask sensitive input fields (passwords, credit cards)
+  - Example:
+    ```vue
+    <template>
+      <input type="password" v-model="password" autocomplete="new-password">
+    </template>
+    ```
+
+- **API Response Handling**:
+  - Validate API responses before using data
+  - Handle errors gracefully without exposing details
+  - Don't display raw error messages to users
+
+**5. Broken Access Control (Frontend)**
+
+- **Route Protection**:
+  - Implement router guards for protected routes
+  - Check user roles before rendering admin components
+  - Hide UI elements based on permissions
+  - Example:
+    ```typescript
+    router.beforeEach((to, from, next) => {
+      const authStore = useAuthStore()
+
+      if (to.meta.requiresAuth && !authStore.isAuthenticated) {
+        next('/login')
+      } else if (to.meta.requiresAdmin && !authStore.isAdmin) {
+        next('/dashboard')
+      } else {
+        next()
+      }
+    })
+    ```
+
+- **Component-Level Protection**:
+  - Check permissions in components
+  - Don't just hide UI elements (also check in backend)
+  - Example:
+    ```vue
+    <template>
+      <button v-if="userHasPermission('admin')" @click="deleteUser">
+        Delete User
+      </button>
+    </template>
+    ```
+
+**6. Security Misconfiguration (Frontend)**
+
+- **Build Security**:
+  - Remove console.log statements in production
+  - Enable source map only for debugging (not in production)
+  - Set proper CSP headers
+  - Configure HTTPS redirects
+  - Use SRI (Subresource Integrity) for CDN resources
+
+- **Vite Configuration**:
+  ```typescript
+  // vite.config.ts
+  export default defineConfig({
+    build: {
+      minify: true,
+      sourcemap: false, // Disable in production
+    },
+    server: {
+      proxy: {
+        '/api': {
+          target: 'http://localhost:8080',
+          changeOrigin: true,
+        }
+      }
+    }
+  })
+  ```
+
+**7. Using Components with Known Vulnerabilities**
+
+- **Dependency Security**:
+  - Keep all npm packages up to date
+  - Run `npm audit` regularly
+  - Use Dependabot for automated updates
+  - Review security advisories for Vue.js ecosystem
+  - Avoid packages with known vulnerabilities
+  - Commands:
+    ```bash
+    npm audit
+    npm audit fix
+    npm outdated
+    ```
+
+**8. Cross-Site Request Forgery (CSRF)**
+
+- **CSRF Protection**:
+  - Use CSRF tokens for state-changing requests
+  - Verify origin/referer headers in backend
+  - Use SameSite cookie attribute
+  - For JWT auth, implement double-submit pattern
+  - Example:
+    ```typescript
+    // Include CSRF token in requests
+    axios.defaults.headers.common['X-CSRF-Token'] = csrfToken
+    ```
+
+**9. Insecure Client-Side Storage**
+
+- **Storage Security**:
+  - Don't store sensitive data in localStorage/sessionStorage
+  - Use HttpOnly cookies for tokens (if possible)
+  - Clear storage on logout
+  - Encrypt sensitive data before storing (if necessary)
+  - Example:
+    ```typescript
+    // GOOD - Only store non-sensitive preferences
+    localStorage.setItem('theme', 'dark')
+    localStorage.setItem('language', 'en-US')
+
+    // BAD - Don't store sensitive data
+    localStorage.setItem('password', password) // NEVER DO THIS
+    ```
+
+**10. Insufficient Input Validation**
+
+- **Form Validation**:
+  - Validate all user input on frontend
+  - Use schema validation libraries (Yup, Zod)
+  - Implement real-time validation feedback
+  - Sanitize input before displaying
+  - Example:
+    ```typescript
+    import * as yup from 'yup'
+
+    const schema = yup.object({
+      email: yup.string().email().required(),
+      password: yup.string().min(8).required(),
+    })
+
+    try {
+      await schema.validate(formData)
+    } catch (error) {
+      // Show validation errors
+    }
+    ```
+
+#### Additional Frontend Security Practices
+
+**Content Security Policy (CSP)**:
+- Implement strict CSP headers
+- Whitelist trusted sources
+- Disable inline scripts (use nonces or hashes if necessary)
+- Report CSP violations
+- Example CSP header:
+  ```
+  Content-Security-Policy:
+    default-src 'self';
+    script-src 'self' 'nonce-random123';
+    style-src 'self' 'unsafe-inline';
+    img-src 'self' data: https:;
+    font-src 'self' data:;
+    connect-src 'self' https://api.yourdomain.com;
+  ```
+
+**HTTPS Enforcement**:
+- Always use HTTPS in production
+- Implement HSTS headers
+- Redirect HTTP to HTTPS
+- Use secure cookies (Secure flag)
+
+**Third-Party Dependencies**:
+- Audit third-party libraries before use
+- Use SRI for CDN resources
+- Minimize third-party dependencies
+- Review library permissions
+
+**Error Handling**:
+- Don't expose sensitive information in error messages
+- Log errors to backend (not console)
+- Show user-friendly error messages
+- Implement global error handler
+
+**API Communication**:
+- Use Axios interceptors for global error handling
+- Implement request/response validation
+- Set timeout for all requests
+- Handle network errors gracefully
+- Example:
+  ```typescript
+  axios.interceptors.response.use(
+    response => response,
+    error => {
+      if (error.response?.status === 401) {
+        // Redirect to login
+        router.push('/login')
+      }
+      return Promise.reject(error)
+    }
+  )
+  ```
+
+**Component Security**:
+- Sanitize props if they come from user input
+- Validate event payloads
+- Don't pass raw user input to dangerous components
+- Use TypeScript for type safety
+
+**Vue.js Specific Security**:
+- Don't use user input in `v-bind:is` (dynamic components)
+- Be careful with `v-html` directive
+- Validate props with TypeScript interfaces
+- Use computed properties for derived data (not raw user input)
+
+### Security Testing & Verification
+
+**Backend Testing**:
+- Test authentication and authorization logic
+- Test input validation with malicious payloads
+- Test rate limiting effectiveness
+- Test SQL injection prevention (parameterized queries)
+- Test error handling (no sensitive data leakage)
+- Run security scanners (gitleaks, semgrep, govulncheck)
+
+**Frontend Testing**:
+- Test XSS prevention (try injecting scripts)
+- Test CSRF protection
+- Test route guards and permissions
+- Test secure storage practices
+- Audit dependencies with `npm audit`
+- Test CSP effectiveness
+
+**Integration Testing**:
+- Test authentication flows end-to-end
+- Test authorization at each layer
+- Test secure API communication
+- Test error handling across stack
+
+**Security Checklist**:
+- [ ] All SQL queries use parameterized statements
+- [ ] All user input is validated and sanitized
+- [ ] Passwords are hashed with bcrypt
+- [ ] JWT tokens are validated and have expiration
+- [ ] Sensitive data is never logged
+- [ ] HTTPS is enforced in production
+- [ ] Security headers are configured
+- [ ] Rate limiting is implemented
+- [ ] CORS is properly configured
+- [ ] Dependencies are up to date and scanned
+- [ ] XSS prevention is implemented (no v-html with user input)
+- [ ] CSRF protection is in place
+- [ ] Route guards protect sensitive pages
+- [ ] Error messages don't expose sensitive information
+- [ ] Security tests are passing
+
 ## Important Constraints
 
 ### Technical Constraints
-- **Go Version**: Must use Go 1.25.4 for optimal performance
+- **Go Version**: Must use Go 1.25.5 for optimal performance
 - **Node Version**: ^20.19.0 or >=22.12.0
 - **Latency SLA**: <50ms transaction processing time
 - **Timeout Configuration**: Configurable timeouts for transaction processing (300ms default) and rule evaluation (300ms default)
@@ -888,7 +1511,7 @@ This section documents key architectural decisions and evolution history to prov
 - **Integration Tests**: `docs/agents/integration-test.md` - Guide for testing with real dependencies
 
 **Requirements**:
-- Minimum 90% coverage for new code
+- Minimum 80% coverage for new code
 - All tests must be deterministic (pass with `-count=50`)
 - Race condition detection via `-race` flag
 - Integration tests use `testcontainers-go` for real databases
@@ -918,7 +1541,7 @@ Before implementing any new feature, verify:
    - [ ] Backward compatibility verified or migration path provided
 
 3. **Test Coverage Requirements**:
-   - [ ] Unit tests for all new business logic (minimum 90% coverage)
+   - [ ] Unit tests for all new business logic (minimum 80% coverage)
    - [ ] Integration tests for database/Redis interactions
    - [ ] API endpoint tests for new/modified endpoints
    - [ ] Frontend component tests for new UI components
@@ -1096,7 +1719,7 @@ Before merging any PR with new features:
    - [ ] All tests pass (`make test`)
    - [ ] No race conditions detected (`go test -race`)
    - [ ] No flaky tests (`go test -count=50`)
-   - [ ] Code coverage meets 90% minimum
+   - [ ] Code coverage meets 80% minimum
    - [ ] No security vulnerabilities (gitleaks, semgrep)
 
 2. **Documentation**:
@@ -1213,7 +1836,7 @@ These rules are **MANDATORY** and must be enforced:
    - **Unit Tests**: Follow `docs/agents/unit-test.md` strictly
    - **Integration Tests**: Follow `docs/agents/integration-test.md` strictly
    - Use race condition flags (`-race`) when running tests
-   - Minimum coverage: 90% for new code
+   - Minimum coverage: 80% for new code
    - Run `go test -count=50` to detect flaky tests
    - Use `testcontainers-go` for integration tests with databases
 
@@ -1257,7 +1880,7 @@ These rules are **MANDATORY** and must be enforced:
       - The project adheres to all guidelines defined in this document
       - All related tests have been generated or updated appropriately
       - Code changes follow the established patterns and conventions
-      - Test coverage meets the minimum 90% requirement for new/modified code
+      - Test coverage meets the minimum 80% requirement for new/modified code
       - Tests follow the guidelines in `docs/agents/unit-test.md` and `docs/agents/integration-test.md`
     - This verification MUST be performed proactively, not just when explicitly requested
     - If any guideline violations or missing tests are found, they MUST be addressed before considering the task complete

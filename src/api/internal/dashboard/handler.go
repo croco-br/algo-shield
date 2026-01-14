@@ -23,7 +23,7 @@ func NewHandler(service Service) *Handler {
 func (h *Handler) GetMetrics(c *fiber.Ctx) error {
 	start := time.Now()
 
-	ctx, cancel := context.WithTimeout(c.Context(), internal.DEFAULT_TIMEOUT)
+	ctx, cancel := context.WithTimeout(c.Context(), internal.GetHandlerTimeout())
 	defer cancel()
 	ctx = shared.WithSyntheticMode(ctx, middleware.IsSyntheticMode(c))
 

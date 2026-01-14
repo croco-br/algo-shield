@@ -21,7 +21,7 @@ func NewHandler(service Service) *Handler {
 
 // ListRoles returns all available roles
 func (h *Handler) ListRoles(c *fiber.Ctx) error {
-	ctx, cancel := context.WithTimeout(c.Context(), internal.DEFAULT_TIMEOUT)
+	ctx, cancel := context.WithTimeout(c.Context(), internal.GetHandlerTimeout())
 	defer cancel()
 	roles, err := h.service.ListRoles(ctx)
 	if err != nil {
@@ -45,7 +45,7 @@ func (h *Handler) GetRole(c *fiber.Ctx) error {
 		})
 	}
 
-	ctx, cancel := context.WithTimeout(c.Context(), internal.DEFAULT_TIMEOUT)
+	ctx, cancel := context.WithTimeout(c.Context(), internal.GetHandlerTimeout())
 	defer cancel()
 	role, err := h.service.GetRoleByID(ctx, roleID)
 	if err != nil {
@@ -81,7 +81,7 @@ func (h *Handler) AssignRole(c *fiber.Ctx) error {
 		})
 	}
 
-	ctx, cancel := context.WithTimeout(c.Context(), internal.DEFAULT_TIMEOUT)
+	ctx, cancel := context.WithTimeout(c.Context(), internal.GetHandlerTimeout())
 	defer cancel()
 	if err := h.service.AssignRole(ctx, userID, req.RoleID); err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
@@ -112,7 +112,7 @@ func (h *Handler) RemoveRole(c *fiber.Ctx) error {
 		})
 	}
 
-	ctx, cancel := context.WithTimeout(c.Context(), internal.DEFAULT_TIMEOUT)
+	ctx, cancel := context.WithTimeout(c.Context(), internal.GetHandlerTimeout())
 	defer cancel()
 	if err := h.service.RemoveRole(ctx, userID, roleID); err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{

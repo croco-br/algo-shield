@@ -5,12 +5,9 @@ import (
 	"encoding/json"
 	"time"
 
+	"github.com/algo-shield/algo-shield/src/api/internal"
 	"github.com/algo-shield/algo-shield/src/api/internal/shared"
 	"github.com/redis/go-redis/v9"
-)
-
-const (
-	cacheTTL = 30 * time.Second
 )
 
 // DashboardMetrics contains all dashboard data
@@ -132,5 +129,5 @@ func (s *service) setCache(ctx context.Context, metrics *DashboardMetrics) error
 		return err
 	}
 
-	return s.redis.Set(ctx, cacheKey, data, cacheTTL).Err()
+	return s.redis.Set(ctx, cacheKey, data, internal.GetCacheTTL("dashboard")).Err()
 }

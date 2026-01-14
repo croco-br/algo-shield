@@ -23,7 +23,7 @@ func NewHandler(service PermissionsService) *Handler {
 
 // ListUsers returns all users with their roles and groups
 func (h *Handler) ListUsers(c *fiber.Ctx) error {
-	ctx, cancel := context.WithTimeout(c.Context(), internal.DEFAULT_TIMEOUT)
+	ctx, cancel := context.WithTimeout(c.Context(), internal.GetHandlerTimeout())
 	defer cancel()
 	users, err := h.service.ListUsers(ctx)
 	if err != nil {
@@ -43,7 +43,7 @@ func (h *Handler) GetUser(c *fiber.Ctx) error {
 		return apierrors.SendError(c, apierrors.BadRequest("Invalid user ID"))
 	}
 
-	ctx, cancel := context.WithTimeout(c.Context(), internal.DEFAULT_TIMEOUT)
+	ctx, cancel := context.WithTimeout(c.Context(), internal.GetHandlerTimeout())
 	defer cancel()
 	user, err := h.service.GetUserByID(ctx, userID)
 	if err != nil {
@@ -78,7 +78,7 @@ func (h *Handler) UpdateUserActive(c *fiber.Ctx) error {
 		return apierrors.SendError(c, apierrors.ValidationError(err.Error()))
 	}
 
-	ctx, cancel := context.WithTimeout(c.Context(), internal.DEFAULT_TIMEOUT)
+	ctx, cancel := context.WithTimeout(c.Context(), internal.GetHandlerTimeout())
 	defer cancel()
 
 	// Call service with admin protection

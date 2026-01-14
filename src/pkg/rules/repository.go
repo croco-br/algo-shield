@@ -40,13 +40,23 @@ type Repository interface {
 
 // PostgresRepository is the PostgreSQL implementation of Repository
 type PostgresRepository struct {
-	db    *pgxpool.Pool
-	redis *redis.Client
+	db       *pgxpool.Pool
+	redis    *redis.Client
+	cacheTTL time.Duration // Cache TTL for rules (0 means use default)
 }
 
 // NewPostgresRepository creates a new PostgreSQL rule repository
-func NewPostgresRepository(db *pgxpool.Pool, redis *redis.Client) Repository {
-	return &PostgresRepository{db: db, redis: redis}
+// cacheTTL is optional - if 0, uses default of 5 minutes
+func NewPostgresRepository(db *pgxpool.Pool, redis *redis.Client, cacheTTL ...time.Duration) Repository {
+	ttl := 5 * time.Minute // Default
+	if len(cacheTTL) > 0 && cacheTTL[0] > 0 {
+		ttl = cacheTTL[0]
+	}
+	return &PostgresRepository{
+		db:       db,
+		redis:    redis,
+		cacheTTL: ttl,
+	}
 }
 
 // LoadRules loads enabled rules from database or cache (used by worker)
@@ -103,7 +113,7 @@ func (r *PostgresRepository) LoadRules(ctx context.Context) ([]models.Rule, erro
 		if err != nil {
 			log.Printf("Failed to marshal rules for cache: %v", err)
 		} else {
-			r.redis.Set(ctx, "rules:cache", rulesJSON, 5*time.Minute)
+			r.redis.Set(ctx, "rules:cache", rulesJSON, r.cacheTTL)
 		}
 	}
 

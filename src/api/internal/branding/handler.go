@@ -20,7 +20,7 @@ func NewHandler(service Service) *Handler {
 
 // GetBranding returns the current branding configuration (public endpoint)
 func (h *Handler) GetBranding(c *fiber.Ctx) error {
-	ctx, cancel := context.WithTimeout(c.Context(), internal.DEFAULT_TIMEOUT)
+	ctx, cancel := context.WithTimeout(c.Context(), internal.GetHandlerTimeout())
 	defer cancel()
 
 	config, err := h.service.GetBranding(ctx)
@@ -49,7 +49,7 @@ func (h *Handler) UpdateBranding(c *fiber.Ctx) error {
 		})
 	}
 
-	ctx, cancel := context.WithTimeout(c.Context(), internal.DEFAULT_TIMEOUT)
+	ctx, cancel := context.WithTimeout(c.Context(), internal.GetHandlerTimeout())
 	defer cancel()
 
 	config, err := h.service.UpdateBranding(ctx, &req)

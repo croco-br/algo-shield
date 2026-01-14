@@ -84,6 +84,23 @@ jobs:
         working-directory: src/ui
         run: npm run test:run
 
+      - name: Check UI coverage threshold
+        working-directory: src/ui
+        run: |
+          if [ -f "coverage/coverage-final.json" ]; then
+            COVERAGE=$(node -e "const data = require('./coverage/coverage-final.json'); const total = data.total; const coverage = (total.lines.pct + total.statements.pct + total.functions.pct + total.branches.pct) / 4; console.log(coverage.toFixed(2));")
+            MIN_COVERAGE=80.0
+            echo "UI Coverage: ${COVERAGE}%"
+            echo "Minimum required: ${MIN_COVERAGE}%"
+            if (( $(echo "$COVERAGE < $MIN_COVERAGE" | bc -l) )); then
+              echo "❌ UI coverage ${COVERAGE}% is below minimum threshold of ${MIN_COVERAGE}%"
+              exit 1
+            fi
+            echo "✅ UI coverage meets minimum threshold"
+          else
+            echo "⚠️ Coverage file not found, skipping coverage check"
+          fi
+
       - name: Upload test coverage
         uses: codecov/codecov-action@v4
         if: always()

@@ -3,6 +3,7 @@ package routes
 import (
 	"strings"
 
+	"github.com/algo-shield/algo-shield/src/api/internal"
 	"github.com/algo-shield/algo-shield/src/api/internal/auth"
 	"github.com/algo-shield/algo-shield/src/api/internal/branding"
 	"github.com/algo-shield/algo-shield/src/api/internal/dashboard"
@@ -26,6 +27,9 @@ import (
 )
 
 func Setup(app *fiber.App, db *pgxpool.Pool, redis *redis.Client, asynqClient *queue.AsynqClient, cfg *config.Config) {
+	// Set global config for timeout access
+	internal.SetGlobalConfig(cfg)
+
 	// Middleware
 	app.Use(middleware.Logger())
 	app.Use(middleware.SecurityHeaders()) // Security headers for Brave compatibility
@@ -39,7 +43,7 @@ func Setup(app *fiber.App, db *pgxpool.Pool, redis *redis.Client, asynqClient *q
 	userTxManager := user.NewPostgresTransactionManager(db)
 	permissionsUserRepo := permissions.NewPostgresUserRepository(db)
 	transactionRepo := transactions.NewPostgresRepository(db)
-	ruleRepo := rulespkg.NewPostgresRepository(db, redis)
+	ruleRepo := rulespkg.NewPostgresRepository(db, redis, internal.GetCacheTTL("rules"))
 	brandingRepo := branding.NewPostgresRepository(db, redis)
 	schemaRepo := schemas.NewPostgresRepository(db, redis)
 	dashboardRepo := dashboard.NewPostgresRepository(db)

@@ -43,7 +43,7 @@ func (h *Handler) CreateSchema(c *fiber.Ctx) error {
 		})
 	}
 
-	ctx, cancel := context.WithTimeout(c.Context(), internal.DEFAULT_TIMEOUT)
+	ctx, cancel := context.WithTimeout(c.Context(), internal.GetHandlerTimeout())
 	defer cancel()
 
 	schema, err := h.service.Create(ctx, &req)
@@ -71,7 +71,7 @@ func (h *Handler) GetSchema(c *fiber.Ctx) error {
 		})
 	}
 
-	ctx, cancel := context.WithTimeout(c.Context(), internal.DEFAULT_TIMEOUT)
+	ctx, cancel := context.WithTimeout(c.Context(), internal.GetHandlerTimeout())
 	defer cancel()
 
 	schema, err := h.service.GetByID(ctx, id)
@@ -91,7 +91,7 @@ func (h *Handler) GetSchema(c *fiber.Ctx) error {
 
 // ListSchemas handles GET /api/v1/schemas
 func (h *Handler) ListSchemas(c *fiber.Ctx) error {
-	ctx, cancel := context.WithTimeout(c.Context(), internal.DEFAULT_TIMEOUT)
+	ctx, cancel := context.WithTimeout(c.Context(), internal.GetHandlerTimeout())
 	defer cancel()
 
 	schemas, err := h.service.List(ctx)
@@ -127,7 +127,7 @@ func (h *Handler) UpdateSchema(c *fiber.Ctx) error {
 		})
 	}
 
-	ctx, cancel := context.WithTimeout(c.Context(), internal.DEFAULT_TIMEOUT)
+	ctx, cancel := context.WithTimeout(c.Context(), internal.GetHandlerTimeout())
 	defer cancel()
 
 	schema, err := h.service.Update(ctx, id, &req)
@@ -160,7 +160,7 @@ func (h *Handler) DeleteSchema(c *fiber.Ctx) error {
 		})
 	}
 
-	ctx, cancel := context.WithTimeout(c.Context(), internal.DEFAULT_TIMEOUT)
+	ctx, cancel := context.WithTimeout(c.Context(), internal.GetHandlerTimeout())
 	defer cancel()
 
 	err = h.service.Delete(ctx, id)
@@ -197,7 +197,7 @@ func (h *Handler) ParseSchema(c *fiber.Ctx) error {
 		})
 	}
 
-	ctx, cancel := context.WithTimeout(c.Context(), internal.DEFAULT_TIMEOUT)
+	ctx, cancel := context.WithTimeout(c.Context(), internal.GetHandlerTimeout())
 	defer cancel()
 
 	schema, err := h.service.ParseSampleJSON(ctx, id)
@@ -239,7 +239,7 @@ func (h *Handler) GenerateEvents(c *fiber.Ctx) error {
 		})
 	}
 
-	ctx, cancel := context.WithTimeout(c.Context(), internal.DEFAULT_TIMEOUT)
+	ctx, cancel := context.WithTimeout(c.Context(), internal.GetHandlerTimeout())
 	defer cancel()
 
 	response, err := h.service.GenerateEvents(ctx, id, &req)

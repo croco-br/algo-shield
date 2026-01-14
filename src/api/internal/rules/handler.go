@@ -49,7 +49,7 @@ func (h *Handler) CreateRule(c *fiber.Ctx) error {
 	rule.CreatedAt = now
 	rule.UpdatedAt = now
 
-	ctx, cancel := context.WithTimeout(c.Context(), internal.DEFAULT_TIMEOUT)
+	ctx, cancel := context.WithTimeout(c.Context(), internal.GetHandlerTimeout())
 	defer cancel()
 	if err := h.repo.CreateRule(ctx, &rule); err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
@@ -69,7 +69,7 @@ func (h *Handler) GetRule(c *fiber.Ctx) error {
 		})
 	}
 
-	ctx, cancel := context.WithTimeout(c.Context(), internal.DEFAULT_TIMEOUT)
+	ctx, cancel := context.WithTimeout(c.Context(), internal.GetHandlerTimeout())
 	defer cancel()
 	rule, err := h.repo.GetRule(ctx, id)
 	if err != nil {
@@ -87,7 +87,7 @@ func (h *Handler) GetRule(c *fiber.Ctx) error {
 }
 
 func (h *Handler) ListRules(c *fiber.Ctx) error {
-	ctx, cancel := context.WithTimeout(c.Context(), internal.DEFAULT_TIMEOUT)
+	ctx, cancel := context.WithTimeout(c.Context(), internal.GetHandlerTimeout())
 	defer cancel()
 
 	rules, err := h.repo.ListRules(ctx)
@@ -128,7 +128,7 @@ func (h *Handler) UpdateRule(c *fiber.Ctx) error {
 		})
 	}
 
-	ctx, cancel := context.WithTimeout(c.Context(), internal.DEFAULT_TIMEOUT)
+	ctx, cancel := context.WithTimeout(c.Context(), internal.GetHandlerTimeout())
 	defer cancel()
 	if err := h.repo.UpdateRule(ctx, &rule); err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
@@ -153,7 +153,7 @@ func (h *Handler) DeleteRule(c *fiber.Ctx) error {
 		})
 	}
 
-	ctx, cancel := context.WithTimeout(c.Context(), internal.DEFAULT_TIMEOUT)
+	ctx, cancel := context.WithTimeout(c.Context(), internal.GetHandlerTimeout())
 	defer cancel()
 	if err := h.repo.DeleteRule(ctx, id); err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {

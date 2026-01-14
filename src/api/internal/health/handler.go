@@ -4,6 +4,7 @@ import (
 	"context"
 	"time"
 
+	"github.com/algo-shield/algo-shield/src/api/internal"
 	"github.com/gofiber/fiber/v2"
 	"github.com/redis/go-redis/v9"
 )
@@ -35,7 +36,7 @@ func NewHandler(db DatabaseHealthChecker, redis RedisHealthChecker) *Handler {
 }
 
 func (h *Handler) Health(c *fiber.Ctx) error {
-	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), internal.GetHealthCheckTimeout())
 	defer cancel()
 
 	health := fiber.Map{

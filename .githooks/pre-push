@@ -18,9 +18,22 @@ echo -e "${YELLOW}→ Running full test suite...${NC}"
 if GOEXPERIMENT=greenteagc,rangefunc go test -v -race -coverprofile=coverage.txt -covermode=atomic ./...; then
     echo -e "${GREEN}✓ All tests passed${NC}"
     
-    # Show coverage
-    COVERAGE=$(go tool cover -func=coverage.txt | grep total | awk '{print $3}')
-    echo -e "${GREEN}✓ Test coverage: $COVERAGE${NC}"
+    # Show coverage and check minimum threshold
+    COVERAGE=$(go tool cover -func=coverage.txt | grep total | awk '{print $3}' | sed 's/%//')
+    echo -e "${GREEN}✓ Test coverage: ${COVERAGE}%${NC}"
+    
+    # Check if coverage meets minimum threshold (80%)
+    COVERAGE_FLOAT=$(echo "$COVERAGE" | bc -l 2>/dev/null || echo "$COVERAGE" | awk '{print $1}')
+    MIN_COVERAGE=80.0
+    
+    if (( $(echo "$COVERAGE_FLOAT < $MIN_COVERAGE" | bc -l 2>/dev/null || echo "0") )); then
+        echo -e "${RED}✗ Test coverage ${COVERAGE}% is below minimum threshold of ${MIN_COVERAGE}%${NC}"
+        echo -e "${YELLOW}Push aborted. Please increase test coverage to at least ${MIN_COVERAGE}%${NC}"
+        rm -f coverage.txt
+        exit 1
+    fi
+    
+    echo -e "${GREEN}✓ Test coverage meets minimum threshold (${MIN_COVERAGE}%)${NC}"
     
     # Clean up coverage file
     rm -f coverage.txt

@@ -116,6 +116,18 @@ jobs:
           DATABASE_URL: postgres://test:test@localhost:5432/algoshield_test?sslmode=disable
           REDIS_URL: redis://localhost:6379
 
+      - name: Check API coverage threshold
+        run: |
+          COVERAGE=$(go tool cover -func=coverage-api.out | grep total | awk '{print $3}' | sed 's/%//')
+          MIN_COVERAGE=80.0
+          echo "API Coverage: ${COVERAGE}%"
+          echo "Minimum required: ${MIN_COVERAGE}%"
+          if (( $(echo "$COVERAGE < $MIN_COVERAGE" | bc -l) )); then
+            echo "❌ API coverage ${COVERAGE}% is below minimum threshold of ${MIN_COVERAGE}%"
+            exit 1
+          fi
+          echo "✅ API coverage meets minimum threshold"
+
       - name: Upload API coverage
         uses: codecov/codecov-action@v4
         if: always()
@@ -182,6 +194,18 @@ jobs:
         env:
           DATABASE_URL: postgres://test:test@localhost:5432/algoshield_test?sslmode=disable
           REDIS_URL: redis://localhost:6379
+
+      - name: Check Worker coverage threshold
+        run: |
+          COVERAGE=$(go tool cover -func=coverage-worker.out | grep total | awk '{print $3}' | sed 's/%//')
+          MIN_COVERAGE=80.0
+          echo "Worker Coverage: ${COVERAGE}%"
+          echo "Minimum required: ${MIN_COVERAGE}%"
+          if (( $(echo "$COVERAGE < $MIN_COVERAGE" | bc -l) )); then
+            echo "❌ Worker coverage ${COVERAGE}% is below minimum threshold of ${MIN_COVERAGE}%"
+            exit 1
+          fi
+          echo "✅ Worker coverage meets minimum threshold"
 
       - name: Upload Worker coverage
         uses: codecov/codecov-action@v4
