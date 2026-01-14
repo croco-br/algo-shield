@@ -16,18 +16,6 @@ import (
 	"go.uber.org/mock/gomock"
 )
 
-func Test_Handler_NewHandler_WhenCalled_ThenReturnsHandler(t *testing.T) {
-	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
-
-	mockService := NewMockService(ctrl)
-
-	handler := NewHandler(mockService)
-
-	require.NotNil(t, handler)
-	assert.Equal(t, mockService, handler.service)
-}
-
 func Test_Handler_ListRoles_WhenSuccess_ThenReturnsRoles(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
@@ -87,97 +75,84 @@ func Test_Handler_ListRoles_WhenServiceFails_ThenReturnsInternalError(t *testing
 	assert.Equal(t, "Failed to fetch roles", result["error"])
 }
 
-func Test_Handler_GetRole_WhenValidID_ThenReturnsRole(t *testing.T) {
-	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
-
-	mockService := NewMockService(ctrl)
-	handler := NewHandler(mockService)
-
-	app := fiber.New()
-	app.Get("/roles/:id", handler.GetRole)
-
-	roleID := uuid.New()
-	expectedRole := &models.Role{
-		ID:          roleID,
-		Name:        "admin",
-		Description: "Administrator",
+func Test_Handler_GetRole(t *testing.T) {
+	testCases := []struct {
+		name           string
+		roleID         string
+		setupMock      func(*MockService, uuid.UUID)
+		expectedStatus int
+		validateBody   func(*testing.T, []byte)
+	}{
+		{
+			name:   "valid ID returns role",
+			roleID: uuid.New().String(),
+			setupMock: func(m *MockService, id uuid.UUID) {
+				expectedRole := &models.Role{
+					ID:          id,
+					Name:        "admin",
+					Description: "Administrator",
+				}
+				m.EXPECT().GetRoleByID(gomock.Any(), id).Return(expectedRole, nil)
+			},
+			expectedStatus: fiber.StatusOK,
+			validateBody: func(t *testing.T, body []byte) {
+				var result models.Role
+				err := json.Unmarshal(body, &result)
+				require.NoError(t, err)
+				assert.Equal(t, "admin", result.Name)
+			},
+		},
+		{
+			name:           "invalid ID returns bad request",
+			roleID:         "invalid-uuid",
+			setupMock:      func(m *MockService, id uuid.UUID) {},
+			expectedStatus: fiber.StatusBadRequest,
+			validateBody: func(t *testing.T, body []byte) {
+				var result map[string]string
+				err := json.Unmarshal(body, &result)
+				require.NoError(t, err)
+				assert.Equal(t, "Invalid role ID", result["error"])
+			},
+		},
+		{
+			name:   "role not found returns not found",
+			roleID: uuid.New().String(),
+			setupMock: func(m *MockService, id uuid.UUID) {
+				m.EXPECT().GetRoleByID(gomock.Any(), id).Return(nil, errors.New("not found"))
+			},
+			expectedStatus: fiber.StatusNotFound,
+			validateBody: func(t *testing.T, body []byte) {
+				var result map[string]string
+				err := json.Unmarshal(body, &result)
+				require.NoError(t, err)
+				assert.Equal(t, "Role not found", result["error"])
+			},
+		},
 	}
 
-	mockService.EXPECT().
-		GetRoleByID(gomock.Any(), roleID).
-		Return(expectedRole, nil)
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			ctrl := gomock.NewController(t)
+			defer ctrl.Finish()
 
-	req := httptest.NewRequest("GET", "/roles/"+roleID.String(), nil)
+			mockService := NewMockService(ctrl)
+			handler := NewHandler(mockService)
+			app := fiber.New()
+			app.Get("/roles/:id", handler.GetRole)
 
-	resp, err := app.Test(req)
-	require.NoError(t, err)
+			roleID, _ := uuid.Parse(tc.roleID)
+			tc.setupMock(mockService, roleID)
 
-	assert.Equal(t, fiber.StatusOK, resp.StatusCode)
+			req := httptest.NewRequest("GET", "/roles/"+tc.roleID, nil)
+			resp, err := app.Test(req)
 
-	body, _ := io.ReadAll(resp.Body)
-	var result models.Role
-	err = json.Unmarshal(body, &result)
-	require.NoError(t, err)
+			require.NoError(t, err)
+			assert.Equal(t, tc.expectedStatus, resp.StatusCode)
 
-	assert.Equal(t, expectedRole.Name, result.Name)
-	assert.Equal(t, expectedRole.Description, result.Description)
-}
-
-func Test_Handler_GetRole_WhenInvalidID_ThenReturnsBadRequest(t *testing.T) {
-	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
-
-	mockService := NewMockService(ctrl)
-	handler := NewHandler(mockService)
-
-	app := fiber.New()
-	app.Get("/roles/:id", handler.GetRole)
-
-	req := httptest.NewRequest("GET", "/roles/invalid-uuid", nil)
-
-	resp, err := app.Test(req)
-	require.NoError(t, err)
-
-	assert.Equal(t, fiber.StatusBadRequest, resp.StatusCode)
-
-	body, _ := io.ReadAll(resp.Body)
-	var result map[string]string
-	err = json.Unmarshal(body, &result)
-	require.NoError(t, err)
-
-	assert.Equal(t, "Invalid role ID", result["error"])
-}
-
-func Test_Handler_GetRole_WhenRoleNotFound_ThenReturnsNotFound(t *testing.T) {
-	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
-
-	mockService := NewMockService(ctrl)
-	handler := NewHandler(mockService)
-
-	app := fiber.New()
-	app.Get("/roles/:id", handler.GetRole)
-
-	roleID := uuid.New()
-
-	mockService.EXPECT().
-		GetRoleByID(gomock.Any(), roleID).
-		Return(nil, errors.New("not found"))
-
-	req := httptest.NewRequest("GET", "/roles/"+roleID.String(), nil)
-
-	resp, err := app.Test(req)
-	require.NoError(t, err)
-
-	assert.Equal(t, fiber.StatusNotFound, resp.StatusCode)
-
-	body, _ := io.ReadAll(resp.Body)
-	var result map[string]string
-	err = json.Unmarshal(body, &result)
-	require.NoError(t, err)
-
-	assert.Equal(t, "Role not found", result["error"])
+			body, _ := io.ReadAll(resp.Body)
+			tc.validateBody(t, body)
+		})
+	}
 }
 
 func Test_Handler_AssignRole_WhenValidRequest_ThenAssignsRole(t *testing.T) {
@@ -285,97 +260,67 @@ func Test_Handler_AssignRole_WhenServiceFails_ThenReturnsInternalError(t *testin
 	assert.Equal(t, fiber.StatusInternalServerError, resp.StatusCode)
 }
 
-func Test_Handler_RemoveRole_WhenValidRequest_ThenRemovesRole(t *testing.T) {
-	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
+func Test_Handler_RemoveRole(t *testing.T) {
+	testCases := []struct {
+		name           string
+		userID         string
+		roleID         string
+		setupMock      func(*MockService, uuid.UUID, uuid.UUID)
+		expectedStatus int
+	}{
+		{
+			name:   "valid request removes role successfully",
+			userID: uuid.New().String(),
+			roleID: uuid.New().String(),
+			setupMock: func(m *MockService, userID, roleID uuid.UUID) {
+				m.EXPECT().RemoveRole(gomock.Any(), userID, roleID).Return(nil)
+			},
+			expectedStatus: fiber.StatusOK,
+		},
+		{
+			name:           "invalid user ID returns bad request",
+			userID:         "invalid-uuid",
+			roleID:         uuid.New().String(),
+			setupMock:      func(m *MockService, userID, roleID uuid.UUID) {},
+			expectedStatus: fiber.StatusBadRequest,
+		},
+		{
+			name:           "invalid role ID returns bad request",
+			userID:         uuid.New().String(),
+			roleID:         "invalid-uuid",
+			setupMock:      func(m *MockService, userID, roleID uuid.UUID) {},
+			expectedStatus: fiber.StatusBadRequest,
+		},
+		{
+			name:   "service failure returns internal error",
+			userID: uuid.New().String(),
+			roleID: uuid.New().String(),
+			setupMock: func(m *MockService, userID, roleID uuid.UUID) {
+				m.EXPECT().RemoveRole(gomock.Any(), userID, roleID).Return(errors.New("database error"))
+			},
+			expectedStatus: fiber.StatusInternalServerError,
+		},
+	}
 
-	mockService := NewMockService(ctrl)
-	handler := NewHandler(mockService)
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			ctrl := gomock.NewController(t)
+			defer ctrl.Finish()
 
-	app := fiber.New()
-	app.Delete("/users/:userId/roles/:roleId", handler.RemoveRole)
+			mockService := NewMockService(ctrl)
+			handler := NewHandler(mockService)
+			app := fiber.New()
+			app.Delete("/users/:userId/roles/:roleId", handler.RemoveRole)
 
-	userID := uuid.New()
-	roleID := uuid.New()
+			userID, _ := uuid.Parse(tc.userID)
+			roleID, _ := uuid.Parse(tc.roleID)
+			tc.setupMock(mockService, userID, roleID)
 
-	mockService.EXPECT().
-		RemoveRole(gomock.Any(), userID, roleID).
-		Return(nil)
+			req := httptest.NewRequest("DELETE", "/users/"+tc.userID+"/roles/"+tc.roleID, nil)
+			resp, err := app.Test(req)
 
-	req := httptest.NewRequest("DELETE", "/users/"+userID.String()+"/roles/"+roleID.String(), nil)
-
-	resp, err := app.Test(req)
-	require.NoError(t, err)
-
-	assert.Equal(t, fiber.StatusOK, resp.StatusCode)
-
-	body, _ := io.ReadAll(resp.Body)
-	var result map[string]string
-	err = json.Unmarshal(body, &result)
-	require.NoError(t, err)
-
-	assert.Equal(t, "Role removed successfully", result["message"])
-}
-
-func Test_Handler_RemoveRole_WhenInvalidUserID_ThenReturnsBadRequest(t *testing.T) {
-	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
-
-	mockService := NewMockService(ctrl)
-	handler := NewHandler(mockService)
-
-	app := fiber.New()
-	app.Delete("/users/:userId/roles/:roleId", handler.RemoveRole)
-
-	roleID := uuid.New()
-	req := httptest.NewRequest("DELETE", "/users/invalid-uuid/roles/"+roleID.String(), nil)
-
-	resp, err := app.Test(req)
-	require.NoError(t, err)
-
-	assert.Equal(t, fiber.StatusBadRequest, resp.StatusCode)
-}
-
-func Test_Handler_RemoveRole_WhenInvalidRoleID_ThenReturnsBadRequest(t *testing.T) {
-	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
-
-	mockService := NewMockService(ctrl)
-	handler := NewHandler(mockService)
-
-	app := fiber.New()
-	app.Delete("/users/:userId/roles/:roleId", handler.RemoveRole)
-
-	userID := uuid.New()
-	req := httptest.NewRequest("DELETE", "/users/"+userID.String()+"/roles/invalid-uuid", nil)
-
-	resp, err := app.Test(req)
-	require.NoError(t, err)
-
-	assert.Equal(t, fiber.StatusBadRequest, resp.StatusCode)
-}
-
-func Test_Handler_RemoveRole_WhenServiceFails_ThenReturnsInternalError(t *testing.T) {
-	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
-
-	mockService := NewMockService(ctrl)
-	handler := NewHandler(mockService)
-
-	app := fiber.New()
-	app.Delete("/users/:userId/roles/:roleId", handler.RemoveRole)
-
-	userID := uuid.New()
-	roleID := uuid.New()
-
-	mockService.EXPECT().
-		RemoveRole(gomock.Any(), userID, roleID).
-		Return(errors.New("database error"))
-
-	req := httptest.NewRequest("DELETE", "/users/"+userID.String()+"/roles/"+roleID.String(), nil)
-
-	resp, err := app.Test(req)
-	require.NoError(t, err)
-
-	assert.Equal(t, fiber.StatusInternalServerError, resp.StatusCode)
+			require.NoError(t, err)
+			assert.Equal(t, tc.expectedStatus, resp.StatusCode)
+		})
+	}
 }

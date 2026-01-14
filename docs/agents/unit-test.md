@@ -1499,7 +1499,408 @@ This project uses:
 
 ---
 
-## 7. Definition of a Good Unit Test
+## 7. Anti-Patterns: Tests You Should NOT Write
+
+**AI agents must avoid generating useless and redundant tests.**
+
+### 7.1 NEVER Test Trivial Constructors
+
+**Do NOT test constructors that only assign parameters to fields.**
+
+```go
+// ❌ BAD: Useless constructor test
+func Test_NewRepository_WhenCalled_ThenReturnsRepository(t *testing.T) {
+    var db *pgxpool.Pool
+    repo := NewRepository(db)
+
+    assert.NotNil(t, repo)
+    assert.Implements(t, (*Repository)(nil), repo)
+}
+
+// ❌ BAD: Testing with nil values
+func Test_NewRepository_WhenCalledWithNilDB_ThenReturnsRepository(t *testing.T) {
+    repo := NewRepository(nil)
+    assert.NotNil(t, repo) // Completely useless
+}
+```
+
+**Why this is useless:**
+- Constructor just assigns fields - no logic to test
+- If constructor is broken, ALL other tests will fail anyway
+- Testing with `nil` values that never occur in production
+- Only increases coverage metrics without testing behavior
+
+**What to do instead:**
+- Delete these tests entirely
+- Test actual methods that use the constructor
+- If constructor has validation logic, test THAT logic only
+
+**Exception:** Test constructors ONLY if they contain validation, default values, or business logic:
+
+```go
+// ✓ GOOD: Constructor with validation logic worth testing
+func NewService(timeout time.Duration) (*Service, error) {
+    if timeout < time.Second {
+        return nil, errors.New("timeout must be at least 1 second")
+    }
+    return &Service{timeout: timeout}, nil
+}
+
+// This SHOULD be tested because it has validation logic
+func Test_NewService_WhenTimeoutTooLow_ThenReturnsError(t *testing.T) {
+    svc, err := NewService(500 * time.Millisecond)
+
+    assert.Nil(t, svc)
+    assert.Error(t, err)
+    assert.Contains(t, err.Error(), "at least 1 second")
+}
+```
+
+---
+
+### 7.2 NEVER Test Interface Implementation
+
+**Do NOT test that a type implements an interface - the compiler already does this.**
+
+```go
+// ❌ BAD: Testing interface implementation
+func Test_Repository_ImplementsInterface(t *testing.T) {
+    var _ Repository = (*PostgresRepository)(nil) // Compiler check
+    assert.True(t, true) // Completely useless assertion
+}
+
+// ❌ BAD: Using assert.Implements for no reason
+func Test_Handler_ImplementsHTTPHandler(t *testing.T) {
+    handler := NewHandler(mockService)
+    assert.Implements(t, (*http.Handler)(nil), handler)
+}
+```
+
+**Why this is useless:**
+- Go compiler already validates interface implementation at compile time
+- If interface isn't implemented, code won't compile
+- Test adds zero value beyond compilation
+
+**What to do instead:**
+- Delete these tests
+- Trust the compiler
+- Test actual behavior, not type assertions
+
+---
+
+### 7.3 NEVER Duplicate Validation Tests Across Layers
+
+**Do NOT test the same validation logic in service, handler, AND private function tests.**
+
+```go
+// ❌ BAD: Testing private validation function
+func Test_validateEmail_WhenValidEmail_ThenReturnsNil(t *testing.T) {
+    err := validateEmail("test@example.com")
+    assert.NoError(t, err)
+}
+
+// ❌ BAD: Testing same validation through service (duplicates above)
+func Test_Service_CreateUser_WhenInvalidEmail_ThenReturnsError(t *testing.T) {
+    svc := NewService(mockRepo)
+
+    err := svc.CreateUser("invalid-email", "password")
+
+    assert.Error(t, err)
+    assert.Contains(t, err.Error(), "invalid email")
+}
+
+// ❌ BAD: Testing same validation through handler (duplicates above)
+func Test_Handler_CreateUser_WhenInvalidEmail_ThenReturnsBadRequest(t *testing.T) {
+    handler := NewHandler(mockService)
+    // ... HTTP request with invalid email
+
+    assert.Equal(t, 400, resp.StatusCode)
+}
+```
+
+**Why this is redundant:**
+- Same logic tested 3 times at different layers
+- Changes to validation require updating 3+ tests
+- No additional coverage value after first test
+
+**What to do instead:**
+- Test validation logic ONCE at the appropriate layer:
+  - **Service layer:** Test business validation (recommended)
+  - **Handler layer:** Test that validation errors return correct HTTP codes (1 test)
+- Delete private function tests
+- Delete duplicate handler tests that only test validation
+
+```go
+// ✓ GOOD: Test validation once in service
+func Test_Service_CreateUser_WhenInvalidEmail_ThenReturnsError(t *testing.T) {
+    svc := NewService(mockRepo)
+
+    err := svc.CreateUser("invalid-email", "password")
+
+    assert.Error(t, err)
+    assert.Contains(t, err.Error(), "invalid email")
+}
+
+// ✓ GOOD: Test HTTP error mapping once in handler
+func Test_Handler_CreateUser_WhenValidationFails_ThenReturnsBadRequest(t *testing.T) {
+    mockService.EXPECT().CreateUser(gomock.Any(), gomock.Any()).
+        Return(ErrValidation)
+
+    resp := handler.CreateUser(request)
+
+    assert.Equal(t, 400, resp.StatusCode)
+}
+```
+
+---
+
+### 7.4 Consolidate Repetitive Tests with Table-Driven Pattern
+
+**Do NOT write separate test functions for similar scenarios that differ only in input/output.**
+
+```go
+// ❌ BAD: Repetitive error tests with identical structure
+func Test_Service_GetMetrics_WhenStatusDistributionFails_ThenReturnsError(t *testing.T) {
+    mockRepo.EXPECT().GetStatusDistribution(gomock.Any()).Return(nil, errors.New("db error"))
+
+    result, err := service.GetMetrics(context.Background())
+
+    assert.Nil(t, result)
+    assert.Error(t, err)
+}
+
+func Test_Service_GetMetrics_WhenTemporal24hFails_ThenReturnsError(t *testing.T) {
+    mockRepo.EXPECT().GetStatusDistribution(gomock.Any()).Return(data, nil)
+    mockRepo.EXPECT().GetTemporal24h(gomock.Any()).Return(nil, errors.New("db error"))
+
+    result, err := service.GetMetrics(context.Background())
+
+    assert.Nil(t, result)
+    assert.Error(t, err)
+}
+
+func Test_Service_GetMetrics_WhenTemporal7dFails_ThenReturnsError(t *testing.T) {
+    // ... identical pattern continues ...
+}
+
+func Test_Service_GetMetrics_WhenTotalCountFails_ThenReturnsError(t *testing.T) {
+    // ... identical pattern continues ...
+}
+```
+
+**Why this is redundant:**
+- 4+ functions testing the same error handling pattern
+- Only difference is which mock method fails
+- Identical assertions repeated
+- Hard to maintain (change error handling = update 4+ functions)
+
+**What to do instead - Use table-driven tests:**
+
+```go
+// ✓ GOOD: Consolidated table-driven test
+func Test_Service_GetMetrics_WhenRepositoryMethodFails_ThenReturnsError(t *testing.T) {
+    testCases := []struct {
+        name      string
+        setupMock func(*MockRepository)
+    }{
+        {
+            name: "status distribution fails",
+            setupMock: func(m *MockRepository) {
+                m.EXPECT().GetStatusDistribution(gomock.Any()).
+                    Return(nil, errors.New("db error"))
+            },
+        },
+        {
+            name: "temporal 24h fails",
+            setupMock: func(m *MockRepository) {
+                m.EXPECT().GetStatusDistribution(gomock.Any()).Return(data, nil)
+                m.EXPECT().GetTemporal24h(gomock.Any()).
+                    Return(nil, errors.New("db error"))
+            },
+        },
+        {
+            name: "temporal 7d fails",
+            setupMock: func(m *MockRepository) {
+                m.EXPECT().GetStatusDistribution(gomock.Any()).Return(data, nil)
+                m.EXPECT().GetTemporal24h(gomock.Any()).Return(data, nil)
+                m.EXPECT().GetTemporal7d(gomock.Any()).
+                    Return(nil, errors.New("db error"))
+            },
+        },
+        {
+            name: "total count fails",
+            setupMock: func(m *MockRepository) {
+                m.EXPECT().GetStatusDistribution(gomock.Any()).Return(data, nil)
+                m.EXPECT().GetTemporal24h(gomock.Any()).Return(data, nil)
+                m.EXPECT().GetTemporal7d(gomock.Any()).Return(data, nil)
+                m.EXPECT().GetTotalCount(gomock.Any()).
+                    Return(0, errors.New("db error"))
+            },
+        },
+    }
+
+    for _, tc := range testCases {
+        t.Run(tc.name, func(t *testing.T) {
+            ctrl := gomock.NewController(t)
+            defer ctrl.Finish()
+
+            mockRepo := NewMockRepository(ctrl)
+            tc.setupMock(mockRepo)
+            service := NewService(mockRepo)
+
+            result, err := service.GetMetrics(context.Background())
+
+            assert.Nil(t, result)
+            assert.Error(t, err)
+        })
+    }
+}
+```
+
+**Benefits of table-driven tests:**
+- Single test function instead of 4+
+- Easy to add new cases (just add table row)
+- Shared setup and assertions (DRY principle)
+- Better maintainability
+- Clearer intent (all error cases grouped together)
+
+**When to use table-driven tests:**
+- 3+ test functions with identical structure
+- Tests differ only in input data or mock setup
+- Same assertions repeated across tests
+- Testing multiple error cases for same method
+- Testing multiple valid input variations
+
+---
+
+### 7.5 NEVER Test Component Props Without Verifying Actual Values (TypeScript/Vue)
+
+**Do NOT write tests that only check component existence without validating props.**
+
+```typescript
+// ❌ BAD: Only checks component renders, doesn't validate prop
+describe('BaseButton variant prop', () => {
+  it('renders primary variant', () => {
+    const wrapper = createWrapper({ variant: 'primary' })
+    expect(wrapper.find('.v-btn').exists()).toBe(true) // Useless!
+  })
+
+  it('renders secondary variant', () => {
+    const wrapper = createWrapper({ variant: 'secondary' })
+    expect(wrapper.find('.v-btn').exists()).toBe(true) // Identical assertion!
+  })
+
+  it('renders danger variant', () => {
+    const wrapper = createWrapper({ variant: 'danger' })
+    expect(wrapper.find('.v-btn').exists()).toBe(true) // Still identical!
+  })
+})
+```
+
+**Why this is useless:**
+- All variants pass the same assertion (component exists)
+- Never validates that prop was actually applied
+- Prop could be ignored and tests would still pass
+- False sense of coverage
+
+**What to do instead:**
+
+```typescript
+// ✓ GOOD: Verify actual prop values passed to child component
+describe('BaseButton variant prop', () => {
+  it('passes correct variant to VBtn', () => {
+    const testCases = [
+      { variant: 'primary' as const, expectedVBtnVariant: 'flat' },
+      { variant: 'secondary' as const, expectedVBtnVariant: 'outlined' },
+      { variant: 'danger' as const, expectedVBtnVariant: 'flat' },
+    ]
+
+    testCases.forEach(({ variant, expectedVBtnVariant }) => {
+      const wrapper = createWrapper({ variant })
+      const vBtn = wrapper.findComponent({ name: 'VBtn' })
+
+      expect(vBtn.props('variant')).toBe(expectedVBtnVariant)
+    })
+  })
+})
+
+// ✓ ALTERNATIVE: Test computed CSS classes or attributes
+it('applies correct class for danger variant', () => {
+  const wrapper = createWrapper({ variant: 'danger' })
+
+  expect(wrapper.find('.v-btn').classes()).toContain('v-btn--danger')
+})
+```
+
+**OR if component just wraps without transformation:**
+
+```typescript
+// ✓ GOOD: Single test verifying prop pass-through
+it('passes all variants to VBtn unchanged', () => {
+  const variants = ['primary', 'secondary', 'danger', 'ghost'] as const
+
+  variants.forEach(variant => {
+    const wrapper = createWrapper({ variant })
+    const vBtn = wrapper.findComponent({ name: 'VBtn' })
+
+    expect(vBtn.props('variant')).toBe(variant)
+  })
+})
+```
+
+---
+
+### 7.6 Decision Tree: Should I Write This Test?
+
+**Use this decision tree before writing any test:**
+
+```
+┌─ Does constructor only assign parameters to fields?
+│  └─ YES → ❌ Do NOT test (delete if exists)
+│  └─ NO  → Continue ↓
+
+┌─ Does test only verify type implements interface?
+│  └─ YES → ❌ Do NOT test (compiler already checks)
+│  └─ NO  → Continue ↓
+
+┌─ Is this validation logic already tested in another layer?
+│  └─ YES → ❌ Do NOT duplicate (test once at service layer)
+│  └─ NO  → Continue ↓
+
+┌─ Are there 3+ similar test functions with identical assertions?
+│  └─ YES → ⚠️  Consolidate into table-driven test
+│  └─ NO  → Continue ↓
+
+┌─ Does test only check component exists without verifying props?
+│  └─ YES → ❌ Do NOT test OR verify actual prop values
+│  └─ NO  → Continue ↓
+
+┌─ Does test verify actual behavior or business logic?
+│  └─ YES → ✓ WRITE THE TEST
+│  └─ NO  → ❌ Test is probably useless
+```
+
+---
+
+### 7.7 Cleanup Checklist Before Completing Test Task
+
+**AI agents must verify before marking test task as complete:**
+
+- [ ] No trivial constructor tests exist (checked all `repository_test.go`, `handler_test.go`)
+- [ ] No interface implementation tests exist
+- [ ] No duplicate validation tests across layers (private function + service + handler)
+- [ ] All repetitive test patterns consolidated to table-driven tests (3+ similar functions)
+- [ ] No TypeScript component tests that only check `exists()` without validating props
+- [ ] All tests pass linting
+- [ ] All tests pass with `-count=50` (Go) or `--repeat=20` (vitest)
+- [ ] Coverage still meets 90% threshold after cleanup
+- [ ] No test files exist that only contain deleted tests (delete empty files)
+
+**If any item fails, fix before completing task.**
+
+---
+
+## 8. Definition of a Good Unit Test
 
 A unit test is considered **valid** if:
 
@@ -1517,6 +1918,7 @@ A unit test is considered **valid** if:
 * It passes in CI environment (no local dependencies)
 * It passes race detection (`go test -race` for Go)
 * **It passes all linters without errors or warnings** (see section 6.10)
+* **It does NOT fall into anti-patterns** (see section 7)
 
 If any of these conditions are violated, the test must be rewritten.
 

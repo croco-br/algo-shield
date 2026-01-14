@@ -2,255 +2,321 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { setActivePinia, createPinia } from 'pinia'
 import { useAuthStore } from './auth'
 import type { User } from './auth'
+import { setTokenGetter } from '@/lib/api'
 
 // Mock the api module
 vi.mock('@/lib/api', () => ({
-  api: {
-    get: vi.fn(),
-    post: vi.fn(),
-    put: vi.fn(),
-    delete: vi.fn(),
-  },
+	api: {
+		get: vi.fn(),
+		post: vi.fn(),
+		put: vi.fn(),
+		delete: vi.fn(),
+	},
+	setTokenGetter: vi.fn(),
+	setSyntheticModeStorage: vi.fn(),
 }))
 
 describe('useAuthStore', () => {
-  beforeEach(() => {
-    // Create a fresh pinia instance for each test
-    setActivePinia(createPinia())
-    
-    // Clear localStorage
-    localStorage.clear()
-    
-    // Clear all mocks
-    vi.clearAllMocks()
-  })
+	beforeEach(() => {
+		// Create a fresh pinia instance for each test
+		setActivePinia(createPinia())
 
-  afterEach(() => {
-    vi.clearAllMocks()
-  })
+		// Clear all mocks
+		vi.clearAllMocks()
+	})
 
-  describe('loadUserFromToken', () => {
-    it('sets user to null when no token in localStorage', async () => {
-      // Arrange
-      const store = useAuthStore()
+	afterEach(() => {
+		vi.clearAllMocks()
+	})
 
-      // Act
-      await store.refresh()
+	describe('loadUserFromToken', () => {
+		it('sets user to null when no token in memory', async () => {
+			// Arrange
+			const store = useAuthStore()
 
-      // Assert
-      expect(store.user).toBeNull()
-      expect(store.loading).toBe(false)
-    })
+			// Act
+			await store.refresh()
 
-    it('loads user data when valid token exists', async () => {
-      // Arrange
-      const { api } = await import('@/lib/api')
-      const mockUser: User = {
-        id: 'user-123',
-        email: 'test@example.com',
-        name: 'Test User',
-        auth_type: 'local',
-        active: true,
-        roles: [{ id: 'role-1', name: 'admin', description: 'Administrator' }],
-      }
+			// Assert
+			expect(store.user).toBeNull()
+			expect(store.loading).toBe(false)
+		})
 
-      localStorage.setItem('auth_token', 'valid-token')
-      vi.mocked(api.get).mockResolvedValue(mockUser)
+		it('loads user data when valid token exists in memory', async () => {
+			// Arrange
+			const { api } = await import('@/lib/api')
+			const mockUser: User = {
+				id: 'user-123',
+				email: 'test@example.com',
+				name: 'Test User',
+				auth_type: 'local',
+				active: true,
+				roles: [{ id: 'role-1', name: 'admin', description: 'Administrator' }],
+			}
 
-      const store = useAuthStore()
+			vi.mocked(api.get).mockResolvedValue(mockUser)
 
-      // Act
-      await store.refresh()
+			const store = useAuthStore()
+			// Manually set token in memory (simulating login)
+			await store.setToken('valid-token')
 
-      // Assert
-      expect(api.get).toHaveBeenCalledWith('/api/v1/auth/me')
-      expect(store.user).toEqual(mockUser)
-      expect(store.loading).toBe(false)
-    })
+			// Act
+			await store.refresh()
 
-    it('clears token when API returns error', async () => {
-      // Arrange
-      const { api } = await import('@/lib/api')
-      
-      localStorage.setItem('auth_token', 'invalid-token')
-      vi.mocked(api.get).mockRejectedValue(new Error('Unauthorized'))
+			// Assert
+			expect(api.get).toHaveBeenCalledWith('/api/v1/auth/me')
+			expect(store.user).toEqual(mockUser)
+			expect(store.loading).toBe(false)
+		})
 
-      const store = useAuthStore()
+		it('clears token when API returns error', async () => {
+			// Arrange
+			const { api } = await import('@/lib/api')
 
-      // Act
-      await store.refresh()
+			vi.mocked(api.get).mockRejectedValue(new Error('Unauthorized'))
 
-      // Assert
-      expect(localStorage.getItem('auth_token')).toBeNull()
-      expect(store.user).toBeNull()
-      expect(store.loading).toBe(false)
-    })
-  })
+			const store = useAuthStore()
+			// Set token first
+			await store.setToken('invalid-token')
 
-  describe('setToken', () => {
-    it('stores token and loads user data', async () => {
-      // Arrange
-      const { api } = await import('@/lib/api')
-      const mockUser: User = {
-        id: 'user-123',
-        email: 'test@example.com',
-        name: 'Test User',
-        auth_type: 'local',
-        active: true,
-      }
+			// Clear the mock from setToken call
+			vi.clearAllMocks()
+			vi.mocked(api.get).mockRejectedValue(new Error('Unauthorized'))
 
-      vi.mocked(api.get).mockResolvedValue(mockUser)
+			// Act
+			await store.refresh()
 
-      const store = useAuthStore()
-      const token = 'new-token'
+			// Assert
+			expect(store.getToken()).toBeNull()
+			expect(store.user).toBeNull()
+			expect(store.loading).toBe(false)
+		})
+	})
 
-      // Act
-      await store.setToken(token)
+	describe('setToken', () => {
+		it('stores token in memory and loads user data', async () => {
+			// Arrange
+			const { api } = await import('@/lib/api')
+			const mockUser: User = {
+				id: 'user-123',
+				email: 'test@example.com',
+				name: 'Test User',
+				auth_type: 'local',
+				active: true,
+			}
 
-      // Assert
-      expect(localStorage.getItem('auth_token')).toBe(token)
-      expect(store.user).toEqual(mockUser)
-    })
-  })
+			vi.mocked(api.get).mockResolvedValue(mockUser)
 
-  describe('logout', () => {
-    it('calls logout API and clears user data', async () => {
-      // Arrange
-      const { api } = await import('@/lib/api')
-      const mockUser: User = {
-        id: 'user-123',
-        email: 'test@example.com',
-        name: 'Test User',
-        auth_type: 'local',
-        active: true,
-      }
+			const store = useAuthStore()
+			const token = 'new-token'
 
-      vi.mocked(api.post).mockResolvedValue({ message: 'Logged out successfully' })
+			// Act
+			await store.setToken(token)
 
-      const store = useAuthStore()
-      store.user = mockUser
-      localStorage.setItem('auth_token', 'some-token')
+			// Assert
+			// SECURITY: Token is in memory, NOT in localStorage
+			expect(store.getToken()).toBe(token)
+			expect(store.user).toEqual(mockUser)
+		})
+	})
 
-      // Act
-      await store.logout()
+	describe('logout', () => {
+		it('calls logout API and clears user data from memory', async () => {
+			// Arrange
+			const { api } = await import('@/lib/api')
+			const mockUser: User = {
+				id: 'user-123',
+				email: 'test@example.com',
+				name: 'Test User',
+				auth_type: 'local',
+				active: true,
+			}
 
-      // Assert
-      expect(api.post).toHaveBeenCalledWith('/api/v1/auth/logout')
-      expect(store.user).toBeNull()
-      expect(localStorage.getItem('auth_token')).toBeNull()
-    })
+			vi.mocked(api.post).mockResolvedValue({ message: 'Logged out successfully' })
+			vi.mocked(api.get).mockResolvedValue(mockUser)
 
-    it('clears user data even when logout API fails', async () => {
-      // Arrange
-      const { api } = await import('@/lib/api')
-      const mockUser: User = {
-        id: 'user-123',
-        email: 'test@example.com',
-        name: 'Test User',
-        auth_type: 'local',
-        active: true,
-      }
+			const store = useAuthStore()
+			await store.setToken('some-token')
 
-      vi.mocked(api.post).mockRejectedValue(new Error('Network error'))
+			// Clear mocks from setup
+			vi.clearAllMocks()
+			vi.mocked(api.post).mockResolvedValue({ message: 'Logged out successfully' })
 
-      const store = useAuthStore()
-      store.user = mockUser
-      localStorage.setItem('auth_token', 'some-token')
+			// Act
+			await store.logout()
 
-      // Act
-      await store.logout()
+			// Assert
+			expect(api.post).toHaveBeenCalledWith('/api/v1/auth/logout')
+			expect(store.user).toBeNull()
+			expect(store.getToken()).toBeNull()
+		})
 
-      // Assert
-      expect(store.user).toBeNull()
-      expect(localStorage.getItem('auth_token')).toBeNull()
-    })
-  })
+		it('clears user data even when logout API fails', async () => {
+			// Arrange
+			const { api } = await import('@/lib/api')
+			const mockUser: User = {
+				id: 'user-123',
+				email: 'test@example.com',
+				name: 'Test User',
+				auth_type: 'local',
+				active: true,
+			}
 
-  describe('isAdmin', () => {
-    it('returns true when user has admin role', () => {
-      // Arrange
-      const store = useAuthStore()
-      store.user = {
-        id: 'user-123',
-        email: 'admin@example.com',
-        name: 'Admin User',
-        auth_type: 'local',
-        active: true,
-        roles: [
-          { id: 'role-1', name: 'admin', description: 'Administrator' },
-          { id: 'role-2', name: 'user', description: 'Regular user' },
-        ],
-      }
+			vi.mocked(api.get).mockResolvedValue(mockUser)
 
-      // Act & Assert
-      expect(store.isAdmin).toBe(true)
-    })
+			const store = useAuthStore()
+			await store.setToken('some-token')
 
-    it('returns false when user has no admin role', () => {
-      // Arrange
-      const store = useAuthStore()
-      store.user = {
-        id: 'user-123',
-        email: 'user@example.com',
-        name: 'Regular User',
-        auth_type: 'local',
-        active: true,
-        roles: [{ id: 'role-2', name: 'user', description: 'Regular user' }],
-      }
+			// Clear mocks and setup error
+			vi.clearAllMocks()
+			vi.mocked(api.post).mockRejectedValue(new Error('Network error'))
 
-      // Act & Assert
-      expect(store.isAdmin).toBe(false)
-    })
+			// Act
+			await store.logout()
 
-    it('returns false when user has no roles', () => {
-      // Arrange
-      const store = useAuthStore()
-      store.user = {
-        id: 'user-123',
-        email: 'user@example.com',
-        name: 'Regular User',
-        auth_type: 'local',
-        active: true,
-      }
+			// Assert
+			expect(store.user).toBeNull()
+			expect(store.getToken()).toBeNull()
+		})
+	})
 
-      // Act & Assert
-      expect(store.isAdmin).toBe(false)
-    })
+	describe('isAdmin', () => {
+		it('returns true when user has admin role', () => {
+			// Arrange
+			const store = useAuthStore()
+			store.user = {
+				id: 'user-123',
+				email: 'admin@example.com',
+				name: 'Admin User',
+				auth_type: 'local',
+				active: true,
+				roles: [
+					{ id: 'role-1', name: 'admin', description: 'Administrator' },
+					{ id: 'role-2', name: 'user', description: 'Regular user' },
+				],
+			}
 
-    it('returns false when user is null', () => {
-      // Arrange
-      const store = useAuthStore()
-      store.user = null
+			// Act & Assert
+			expect(store.isAdmin).toBe(true)
+		})
 
-      // Act & Assert
-      expect(store.isAdmin).toBe(false)
-    })
-  })
+		it('returns false when user has no admin role', () => {
+			// Arrange
+			const store = useAuthStore()
+			store.user = {
+				id: 'user-123',
+				email: 'user@example.com',
+				name: 'Regular User',
+				auth_type: 'local',
+				active: true,
+				roles: [{ id: 'role-2', name: 'user', description: 'Regular user' }],
+			}
 
-  describe('refresh', () => {
-    it('reloads user data from token', async () => {
-      // Arrange
-      const { api } = await import('@/lib/api')
-      const mockUser: User = {
-        id: 'user-123',
-        email: 'test@example.com',
-        name: 'Test User',
-        auth_type: 'local',
-        active: true,
-      }
+			// Act & Assert
+			expect(store.isAdmin).toBe(false)
+		})
 
-      localStorage.setItem('auth_token', 'valid-token')
-      vi.mocked(api.get).mockResolvedValue(mockUser)
+		it('returns false when user has no roles', () => {
+			// Arrange
+			const store = useAuthStore()
+			store.user = {
+				id: 'user-123',
+				email: 'user@example.com',
+				name: 'Regular User',
+				auth_type: 'local',
+				active: true,
+			}
 
-      const store = useAuthStore()
+			// Act & Assert
+			expect(store.isAdmin).toBe(false)
+		})
 
-      // Act
-      await store.refresh()
+		it('returns false when user is null', () => {
+			// Arrange
+			const store = useAuthStore()
+			store.user = null
 
-      // Assert
-      expect(api.get).toHaveBeenCalledWith('/api/v1/auth/me')
-      expect(store.user).toEqual(mockUser)
-    })
-  })
+			// Act & Assert
+			expect(store.isAdmin).toBe(false)
+		})
+	})
+
+	describe('refresh', () => {
+		it('reloads user data from memory token', async () => {
+			// Arrange
+			const { api } = await import('@/lib/api')
+			const mockUser: User = {
+				id: 'user-123',
+				email: 'test@example.com',
+				name: 'Test User',
+				auth_type: 'local',
+				active: true,
+			}
+
+			vi.mocked(api.get).mockResolvedValue(mockUser)
+
+			const store = useAuthStore()
+			await store.setToken('valid-token')
+
+			// Clear mocks from setup
+			vi.clearAllMocks()
+			vi.mocked(api.get).mockResolvedValue(mockUser)
+
+			// Act
+			await store.refresh()
+
+			// Assert
+			expect(api.get).toHaveBeenCalledWith('/api/v1/auth/me')
+			expect(store.user).toEqual(mockUser)
+		})
+	})
+
+	describe('getToken', () => {
+		it('returns null when no token is set', () => {
+			// Arrange
+			const store = useAuthStore()
+
+			// Act & Assert
+			expect(store.getToken()).toBeNull()
+		})
+
+		it('returns token after setToken is called', async () => {
+			// Arrange
+			const { api } = await import('@/lib/api')
+			const mockUser: User = {
+				id: 'user-123',
+				email: 'test@example.com',
+				name: 'Test User',
+				auth_type: 'local',
+				active: true,
+			}
+
+			vi.mocked(api.get).mockResolvedValue(mockUser)
+
+			const store = useAuthStore()
+			const token = 'test-token'
+
+			// Act
+			await store.setToken(token)
+
+			// Assert
+			expect(store.getToken()).toBe(token)
+		})
+	})
+
+	describe('security: memory-only token storage', () => {
+		it('token is lost on page reload (no localStorage)', () => {
+			// This test documents the security behavior
+			// SECURITY: Tokens are stored in memory only, not localStorage
+			// This prevents XSS attacks from stealing tokens
+			// Trade-off: Users must re-authenticate after page reload
+			const store = useAuthStore()
+
+			// Assert: No token in localStorage
+			expect(localStorage.getItem('auth_token')).toBeNull()
+
+			// Assert: Token only accessible via getToken()
+			expect(store.getToken()).toBeNull()
+		})
+	})
 })
-

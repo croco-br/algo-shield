@@ -1,154 +1,255 @@
 <template>
-  <v-container fluid class="pa-8">
-    <v-row>
-      <v-col cols="12">
-        <div class="d-flex justify-space-between align-center mb-8">
+  <v-container fluid class="pa-6">
+    <!-- Header Section -->
+    <div class="mb-6">
+      <div class="d-flex align-center justify-space-between flex-wrap gap-3 mb-2">
+        <div class="d-flex align-center gap-3">
+          <v-icon icon="fa-exchange-alt" size="x-large" color="primary" />
           <div>
-            <div class="d-flex align-center gap-3 mb-2">
-              <v-icon icon="fa-exchange-alt" size="large" color="primary" />
-              <h2 class="text-h4 font-weight-bold">{{ $t('views.transactions.title') }}</h2>
-              <v-chip v-if="isLive" color="success" size="small" class="ml-2">
+            <div class="d-flex align-center gap-2 mb-1">
+              <h1 class="text-h4 font-weight-bold ma-0">{{ $t('views.transactions.title') }}</h1>
+              <v-chip v-if="isLive" color="success" size="small">
                 <v-icon icon="fa-circle" size="x-small" class="mr-1 pulse" />
                 {{ $t('views.transactions.live') }}
               </v-chip>
             </div>
-            <p class="text-body-1 text-grey-darken-1">{{ $t('views.transactions.subtitle') }}</p>
-          </div>
-          <div class="d-flex gap-2">
-            <BaseButton 
-              v-if="syntheticMode"
-              variant="secondary"
-              @click="openGenerateModal"
-              prepend-icon="fa-bolt"
-            >
-              {{ $t('views.transactions.generateSynthetic') }}
-            </BaseButton>
-            <BaseButton 
-              :variant="isLive ? 'secondary' : 'primary'"
-              @click="toggleLiveUpdates"
-              :prepend-icon="isLive ? 'fa-pause' : 'fa-play'"
-            >
-              {{ isLive ? $t('views.transactions.pause') : $t('views.transactions.live') }}
-            </BaseButton>
-            <BaseButton @click="loadTransactions" prepend-icon="fa-refresh">
-              {{ $t('views.transactions.refresh') }}
-            </BaseButton>
+            <p class="text-body-2 text-grey-darken-1 ma-0">{{ $t('views.transactions.subtitle') }}</p>
           </div>
         </div>
 
-        <!-- Filters -->
-        <v-card class="mb-6 pa-4" variant="outlined">
-          <v-row>
-            <v-col cols="12" md="3">
-              <v-select
-                v-model="filters.status"
-                :items="statusOptions"
-                :label="$t('views.transactions.filterStatus')"
-                clearable
-                density="compact"
-                variant="outlined"
-              />
-            </v-col>
-            <v-col cols="12" md="3">
-              <v-text-field
-                v-model="filters.startDate"
-                :label="$t('views.transactions.filterStartDate')"
-                type="date"
-                density="compact"
-                variant="outlined"
-                clearable
-              />
-            </v-col>
-            <v-col cols="12" md="3">
-              <v-text-field
-                v-model="filters.endDate"
-                :label="$t('views.transactions.filterEndDate')"
-                type="date"
-                density="compact"
-                variant="outlined"
-                clearable
-              />
-            </v-col>
-            <v-col cols="12" md="3" class="d-flex align-end">
-              <div class="d-flex gap-2">
-                <BaseButton size="sm" @click="applyFilters" prepend-icon="fa-filter">
+        <!-- Action Buttons -->
+        <div class="d-flex gap-2">
+          <BaseButton
+            v-if="syntheticMode && filters.schemaId"
+            variant="secondary"
+            size="sm"
+            @click="openGenerateModal"
+            prepend-icon="fa-bolt"
+          >
+            {{ $t('views.transactions.generateSynthetic') }}
+          </BaseButton>
+          <BaseButton
+            :variant="isLive ? 'secondary' : 'primary'"
+            size="sm"
+            @click="toggleLiveUpdates"
+            :prepend-icon="isLive ? 'fa-pause' : 'fa-play'"
+            :disabled="!filters.schemaId"
+          >
+            {{ isLive ? $t('views.transactions.pause') : $t('views.transactions.live') }}
+          </BaseButton>
+          <BaseButton
+            size="sm"
+            variant="ghost"
+            @click="loadTransactions"
+            prepend-icon="fa-refresh"
+            :disabled="!filters.schemaId"
+          >
+            {{ $t('views.transactions.refresh') }}
+          </BaseButton>
+        </div>
+      </div>
+    </div>
+
+    <!-- No Schema Selected State -->
+    <v-card v-if="!filters.schemaId" class="pa-12 text-center" variant="outlined">
+      <v-icon icon="fa-database" size="64" color="grey" class="mb-4" />
+      <h3 class="text-h5 font-weight-bold mb-3">{{ $t('views.transactions.noSchemaSelectedTitle') }}</h3>
+      <p class="text-body-1 text-grey-darken-1 mb-0" style="max-width: 600px; margin: 0 auto;">
+        {{ $t('views.transactions.noSchemaSelectedMessage') }}
+      </p>
+    </v-card>
+
+    <!-- Main Content (Only shown when schema is selected) -->
+    <template v-else>
+      <!-- Schema Info Bar -->
+      <v-card class="mb-4 pa-4" variant="flat" color="grey-lighten-4">
+        <div class="d-flex align-center gap-3">
+          <v-icon icon="fa-database" color="primary" />
+          <div class="flex-grow-1">
+            <div class="text-caption text-grey-darken-1">{{ $t('views.transactions.filterSchema') }}</div>
+            <div class="text-subtitle-1 font-weight-medium">{{ selectedSchema?.name || 'N/A' }}</div>
+          </div>
+          <div v-if="activeFiltersCount > 0" class="d-flex align-center gap-2">
+            <v-icon icon="fa-filter" size="small" color="primary" />
+            <span class="text-body-2 font-weight-medium">
+              {{ $t('views.transactions.filtersActive', { count: activeFiltersCount }) }}
+            </span>
+          </div>
+        </div>
+      </v-card>
+
+      <!-- Filters Section (Collapsible) -->
+      <v-expansion-panels class="mb-4" variant="accordion">
+        <v-expansion-panel>
+          <v-expansion-panel-title>
+            <div class="d-flex align-center gap-2">
+              <v-icon icon="fa-filter" size="small" />
+              <span class="font-weight-medium">{{ $t('views.transactions.filters') }}</span>
+              <v-chip
+                v-if="activeFiltersCount > 0"
+                size="x-small"
+                color="primary"
+                class="ml-2"
+              >
+                {{ activeFiltersCount }}
+              </v-chip>
+            </div>
+          </v-expansion-panel-title>
+          <v-expansion-panel-text>
+            <v-row class="mt-2">
+              <v-col cols="12" md="4">
+                <v-select
+                  v-model="filters.status"
+                  :items="statusOptions"
+                  :label="$t('views.transactions.filterStatus')"
+                  clearable
+                  density="compact"
+                  variant="outlined"
+                  prepend-inner-icon="fa-circle-check"
+                />
+              </v-col>
+              <v-col cols="12" md="4">
+                <v-text-field
+                  v-model="filters.startDate"
+                  :label="$t('views.transactions.filterStartDate')"
+                  type="date"
+                  density="compact"
+                  variant="outlined"
+                  clearable
+                  prepend-inner-icon="fa-calendar"
+                />
+              </v-col>
+              <v-col cols="12" md="4">
+                <v-text-field
+                  v-model="filters.endDate"
+                  :label="$t('views.transactions.filterEndDate')"
+                  type="date"
+                  density="compact"
+                  variant="outlined"
+                  clearable
+                  prepend-inner-icon="fa-calendar"
+                />
+              </v-col>
+            </v-row>
+            <v-row>
+              <v-col cols="12" class="d-flex gap-2 justify-end pt-0">
+                <BaseButton
+                  size="sm"
+                  @click="applyFilters"
+                  prepend-icon="fa-filter"
+                >
                   {{ $t('views.transactions.applyFilters') }}
                 </BaseButton>
-                <BaseButton size="sm" variant="ghost" @click="clearFilters" prepend-icon="fa-times">
-                  {{ $t('views.transactions.clearFilters') }}
-                </BaseButton>
-              </div>
-            </v-col>
-          </v-row>
-        </v-card>
-
-        <LoadingSpinner v-if="loading" :text="$t('views.transactions.loading')" :centered="false" />
-
-        <ErrorMessage
-          v-else-if="error"
-          :title="$t('views.transactions.errorTitle')"
-          :message="error"
-          retryable
-          @retry="loadTransactions"
-        />
-
-        <!-- Transaction Table - Dynamic based on schema -->
-        <v-card v-if="filters.schemaId" variant="outlined">
-          <v-data-table
-            :headers="dynamicTableHeaders"
-            :items="transactions"
-            :items-per-page="itemsPerPage"
-            :page="currentPage"
-            :items-length="total"
-            :items-per-page-options="itemsPerPageOptions"
-            @update:page="handlePageChange"
-            @update:items-per-page="handleItemsPerPageChange"
-            class="elevation-0"
-            server-items-length
-          >
-            <!-- Core columns -->
-            <template #item.status="{ item }">
-              <BaseBadge :variant="getStatusVariant(item.status)">
-                {{ item.status }}
-              </BaseBadge>
-            </template>
-            <template #item.created_at="{ item }">
-              {{ formatDate(item.created_at) }}
-            </template>
-
-
-            <!-- Actions -->
-            <template #item.actions="{ item }">
-              <div class="d-flex gap-2">
                 <BaseButton
                   size="sm"
                   variant="ghost"
-                  icon="fa-eye"
-                  :title="$t('views.transactions.viewDetails')"
-                  @click="openDetailModal(item)"
-                />
-                <BaseButton
-                  v-if="item.status === 'pending'"
-                  size="sm"
-                  variant="primary"
-                  icon="fa-check"
-                  :title="$t('views.transactions.approve')"
-                  @click="approveTransaction(item.id)"
-                />
-                <BaseButton
-                  v-if="item.status === 'pending'"
-                  size="sm"
-                  variant="danger"
-                  icon="fa-times"
-                  :title="$t('views.transactions.reject')"
-                  @click="rejectTransaction(item.id)"
-                />
-              </div>
-            </template>
-          </v-data-table>
-        </v-card>
-      </v-col>
-    </v-row>
+                  @click="clearFilters"
+                  prepend-icon="fa-times"
+                >
+                  {{ $t('views.transactions.clearFilters') }}
+                </BaseButton>
+              </v-col>
+            </v-row>
+          </v-expansion-panel-text>
+        </v-expansion-panel>
+      </v-expansion-panels>
+
+      <!-- Loading State -->
+      <LoadingSpinner
+        v-if="loading"
+        :text="$t('views.transactions.loading')"
+        :centered="false"
+      />
+
+      <!-- Error State -->
+      <ErrorMessage
+        v-else-if="error"
+        :title="$t('views.transactions.errorTitle')"
+        :message="error"
+        retryable
+        @retry="loadTransactions"
+      />
+
+      <!-- Transaction Table -->
+      <v-card v-else variant="outlined" class="overflow-hidden">
+        <v-data-table
+          :headers="dynamicTableHeaders"
+          :items="transactions"
+          :items-per-page="itemsPerPage"
+          :page="currentPage"
+          :items-length="total"
+          :items-per-page-options="itemsPerPageOptions"
+          @update:page="handlePageChange"
+          @update:items-per-page="handleItemsPerPageChange"
+          class="elevation-0"
+          hover
+        >
+          <!-- Status Column -->
+          <template #item.status="{ item }">
+            <BaseBadge :variant="getStatusVariant(item.status)">
+              {{ item.status }}
+            </BaseBadge>
+          </template>
+
+          <!-- Created At Column -->
+          <template #item.created_at="{ item }">
+            <span class="text-caption">{{ formatDate(item.created_at) }}</span>
+          </template>
+
+          <!-- Actions Column -->
+          <template #item.actions="{ item }">
+            <div class="d-flex gap-1">
+              <v-tooltip location="top">
+                <template #activator="{ props }">
+                  <BaseButton
+                    v-bind="props"
+                    size="sm"
+                    variant="ghost"
+                    icon="fa-eye"
+                    @click="openDetailModal(item)"
+                  />
+                </template>
+                <span>{{ $t('views.transactions.viewDetails') }}</span>
+              </v-tooltip>
+
+              <v-tooltip v-if="item.status === 'pending'" location="top">
+                <template #activator="{ props }">
+                  <BaseButton
+                    v-bind="props"
+                    size="sm"
+                    variant="primary"
+                    icon="fa-check"
+                    @click="approveTransaction(item.id)"
+                  />
+                </template>
+                <span>{{ $t('views.transactions.approve') }}</span>
+              </v-tooltip>
+
+              <v-tooltip v-if="item.status === 'pending'" location="top">
+                <template #activator="{ props }">
+                  <BaseButton
+                    v-bind="props"
+                    size="sm"
+                    variant="danger"
+                    icon="fa-times"
+                    @click="rejectTransaction(item.id)"
+                  />
+                </template>
+                <span>{{ $t('views.transactions.reject') }}</span>
+              </v-tooltip>
+            </div>
+          </template>
+
+          <!-- No Data Slot -->
+          <template #no-data>
+            <div class="text-center pa-8">
+              <v-icon icon="fa-inbox" size="48" color="grey-lighten-1" class="mb-3" />
+              <p class="text-body-1 text-grey-darken-1 mb-0">{{ $t('common.noData') }}</p>
+            </div>
+          </template>
+        </v-data-table>
+      </v-card>
+    </template>
 
     <!-- Generate Synthetic Events Modal -->
     <BaseModal
@@ -168,6 +269,7 @@
           density="compact"
           variant="outlined"
           class="mb-4"
+          prepend-inner-icon="fa-database"
         />
 
         <BaseInput
@@ -192,12 +294,16 @@
       </div>
 
       <template #footer>
-        <BaseButton variant="ghost" @click="showGenerateModal = false" prepend-icon="fa-xmark">
+        <BaseButton
+          variant="ghost"
+          @click="showGenerateModal = false"
+          prepend-icon="fa-xmark"
+        >
           {{ $t('components.modal.cancel') }}
         </BaseButton>
-        <BaseButton 
-          @click="handleGenerateEvents" 
-          :loading="generating" 
+        <BaseButton
+          @click="handleGenerateEvents"
+          :loading="generating"
           :disabled="!generateSchemaId || !generateCount || generateCount < 1 || generateCount > 1000"
           prepend-icon="fa-bolt"
         >
@@ -219,7 +325,6 @@
 import { ref, reactive, onMounted, onUnmounted, computed, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import { useLocale } from '@/composables/useLocale'
-import { useCurrency } from '@/composables/useCurrency'
 import { useSystemModeStore } from '@/stores/systemMode'
 import { api } from '@/lib/api'
 import type { Transaction } from '@/types/transaction'
@@ -297,7 +402,7 @@ const statusOptions = computed(() => [
   { title: t('views.transactions.statusPending'), value: 'pending' },
 ])
 
-const generateSchemaOptions = computed(() => 
+const generateSchemaOptions = computed(() =>
   schemas.value.map((s: Schema) => ({ title: s.name, value: s.id }))
 )
 
@@ -308,9 +413,17 @@ const selectedSchema = computed(() => {
 
 const schemaFields = computed<ExtractedField[]>(() => {
   if (!selectedSchemaData.value) return []
-  return selectedSchemaData.value.extracted_fields.filter(f => 
+  return selectedSchemaData.value.extracted_fields.filter(f =>
     f.type !== 'object' && f.type !== 'array'
-  ).slice(0, 10) // Limit to 10 most relevant fields
+  ).slice(0, 10)
+})
+
+const activeFiltersCount = computed(() => {
+  let count = 0
+  if (filters.status) count++
+  if (filters.startDate) count++
+  if (filters.endDate) count++
+  return count
 })
 
 // Dynamic table headers based on selected schema
@@ -319,10 +432,8 @@ const dynamicTableHeaders = computed(() => {
 
   // If schema selected, show schema fields first
   if (selectedSchema.value && schemaFields.value.length > 0) {
-    // Add schema fields as columns with custom value function
     schemaFields.value.forEach((field: ExtractedField) => {
       const safeKey = field.path.replace(/\./g, '_')
-      // Use the full path and convert to UPPER_CASE, replacing dots with underscores
       const fieldName = field.path.replace(/\./g, '_').toUpperCase()
       headers.push({
         title: fieldName,
@@ -350,13 +461,15 @@ const dynamicTableHeaders = computed(() => {
 onMounted(async () => {
   await systemModeStore.loadMode()
   await loadSchemas()
-  
+
   // Read schemaId from query parameter
   const schemaIdFromQuery = route.query.schemaId as string | undefined
   if (schemaIdFromQuery) {
     filters.schemaId = schemaIdFromQuery
     await loadSchemaData(schemaIdFromQuery)
     await loadTransactions()
+  } else {
+    loading.value = false
   }
 })
 
@@ -372,6 +485,7 @@ watch(() => route.query.schemaId, async (newSchemaId) => {
     selectedSchemaData.value = null
     transactions.value = []
     total.value = 0
+    loading.value = false
   }
 })
 
@@ -390,7 +504,6 @@ watch(() => systemModeStore.syntheticMode, () => {
   }
 })
 
-
 onUnmounted(() => {
   stopLiveUpdates()
 })
@@ -403,7 +516,6 @@ async function loadSchemas() {
     console.error('Error loading schemas:', e)
   }
 }
-
 
 async function loadSchemaData(schemaId: string) {
   try {
@@ -419,18 +531,18 @@ function getSchemaFieldValue(transaction: Transaction, fieldPath: string): any {
   const metadata = transaction.metadata || {}
   const parts = fieldPath.split('.')
   let current: any = metadata
-  
+
   for (const part of parts) {
     if (current === null || current === undefined) return undefined
     current = current[part]
   }
-  
+
   return current
 }
 
 function formatSchemaFieldValue(value: any, type: string): string {
   if (value === null || value === undefined) return '-'
-  
+
   switch (type) {
     case 'number':
       return typeof value === 'number' ? value.toLocaleString() : String(value)
@@ -456,6 +568,8 @@ function formatSchemaFieldValue(value: any, type: string): string {
 }
 
 async function loadTransactions() {
+  if (!filters.schemaId) return
+
   loading.value = true
   error.value = ''
   try {
@@ -466,9 +580,16 @@ async function loadTransactions() {
 
     if (filters.status) params.append('status', filters.status)
     if (filters.schemaId) params.append('schema_id', filters.schemaId)
+
+    console.log('[Load Transactions] Request params:', {
+      schemaId: filters.schemaId,
+      status: filters.status,
+      syntheticMode: syntheticMode.value,
+      limit: itemsPerPage.value,
+      offset: offset
+    })
     if (filters.startDate && filters.startDate.trim() !== '') {
       try {
-        // Convert date string (YYYY-MM-DD) to RFC3339 format with start of day in UTC
         const startDate = new Date(filters.startDate + 'T00:00:00Z')
         if (!isNaN(startDate.getTime())) {
           params.append('start_date', startDate.toISOString())
@@ -479,7 +600,6 @@ async function loadTransactions() {
     }
     if (filters.endDate && filters.endDate.trim() !== '') {
       try {
-        // Convert date string (YYYY-MM-DD) to RFC3339 format with end of day in UTC
         const endDate = new Date(filters.endDate + 'T23:59:59.999Z')
         if (!isNaN(endDate.getTime())) {
           params.append('end_date', endDate.toISOString())
@@ -492,9 +612,15 @@ async function loadTransactions() {
     const response = await api.get<{ transactions: Transaction[]; total?: number }>(`/api/v1/transactions?${params.toString()}`)
     transactions.value = response.transactions || []
     total.value = response.total || transactions.value.length
+
+    console.log('[Load Transactions] Response:', {
+      count: transactions.value.length,
+      total: total.value,
+      transactions: transactions.value
+    })
   } catch (e: any) {
     error.value = e.message || 'Failed to load transactions'
-    console.error('Error loading transactions:', e)
+    console.error('[Load Transactions] Error:', e)
   } finally {
     loading.value = false
   }
@@ -529,7 +655,7 @@ function handleItemsPerPageChange(newValue: number | string) {
 
 // Generate synthetic events handlers
 function openGenerateModal() {
-  generateSchemaId.value = null
+  generateSchemaId.value = filters.schemaId
   generateCount.value = 10
   generateResult.value = null
   showGenerateModal.value = true
@@ -546,20 +672,51 @@ async function handleGenerateEvents() {
       count: generateCount.value,
     }
 
+    console.log('[Generate Events] Sending request:', {
+      schemaId: generateSchemaId.value,
+      count: generateCount.value,
+      syntheticMode: syntheticMode.value
+    })
+
     const response = await api.post<{ generated_count: number; message: string }>(
       `/api/v1/schemas/${generateSchemaId.value}/generate-events`,
       payload
     )
+
+    console.log('[Generate Events] Response:', response)
 
     generateResult.value = {
       success: true,
       message: response?.message || `Successfully generated ${response?.generated_count || generateCount.value} events`,
     }
 
-    setTimeout(() => {
-      loadTransactions()
-    }, 1000)
+    // Worker should process in <50ms per project SLA
+    // Wait 100ms to account for queue + processing + DB write
+    await new Promise(resolve => setTimeout(resolve, 100))
+    console.log('[Generate Events] Reloading after 100ms...')
+    await loadTransactions()
+
+    if (transactions.value.length === 0) {
+      console.error('[Generate Events] CRITICAL: No transactions found')
+      console.error('Expected processing time: <50ms per transaction')
+      console.error('Possible causes:')
+      console.error('  1. Worker container NOT RUNNING - check: docker ps | grep worker')
+      console.error('  2. Worker not connected to Redis queue')
+      console.error('  3. Synthetic mode not active (current:', syntheticMode.value, ')')
+      console.error('  4. Worker crashed or has errors - check: docker logs algo-shield-worker')
+      console.error('  5. Schema ID mismatch in worker processing')
+      console.error('')
+      console.error('Enable Live Updates to see transactions as they arrive')
+
+      generateResult.value = {
+        success: false,
+        message: 'Events queued but not processed. Worker may not be running. Check console for details.',
+      }
+    } else {
+      console.log(`[Generate Events] Success: ${transactions.value.length} transactions loaded`)
+    }
   } catch (e: any) {
+    console.error('[Generate Events] Error:', e)
     generateResult.value = {
       success: false,
       message: e.message || 'Failed to generate events',
@@ -579,11 +736,11 @@ function toggleLiveUpdates() {
 
 function startLiveUpdates() {
   isLive.value = true
-  
+
   try {
     const token = localStorage.getItem('token')
     eventSource = new EventSource(`/api/v1/transactions/stream?token=${token}`)
-    
+
     eventSource.onmessage = (event) => {
       try {
         const data = JSON.parse(event.data)
@@ -609,7 +766,7 @@ function startLiveUpdates() {
 
 function startPolling() {
   if (pollingInterval) return
-  
+
   pollingInterval = setInterval(() => {
     if (isLive.value) {
       loadTransactions()
@@ -619,12 +776,12 @@ function startPolling() {
 
 function stopLiveUpdates() {
   isLive.value = false
-  
+
   if (eventSource) {
     eventSource.close()
     eventSource = null
   }
-  
+
   if (pollingInterval) {
     clearInterval(pollingInterval)
     pollingInterval = null
@@ -687,5 +844,16 @@ function closeDetailModal() {
 @keyframes pulse {
   0%, 100% { opacity: 1; }
   50% { opacity: 0.3; }
+}
+
+/* Better spacing for action buttons */
+.v-data-table :deep(.v-data-table__td) {
+  padding: 8px 16px !important;
+}
+
+/* Improve expansion panel appearance */
+.v-expansion-panels {
+  border: 1px solid rgba(0, 0, 0, 0.12);
+  border-radius: 4px;
 }
 </style>

@@ -1,27 +1,26 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import { api } from './api'
+import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { api, setTokenGetter } from './api'
 
 // Mock uiConfig
 vi.mock('./config', () => ({
-  uiConfig: {
-    api: {
-      baseUrl: 'http://localhost:8080',
-      timeout: 30000,
-    },
-  },
+	uiConfig: {
+		api: {
+			baseUrl: 'http://localhost:8080',
+			timeout: 30000,
+		},
+	},
 }))
+
+// Need to import api AFTER mocking config
+// But since we already imported, we need to ensure the mock is hoisted
 
 describe('api', () => {
   beforeEach(() => {
     // Clear localStorage
     localStorage.clear()
-    
+
     // Reset fetch mock
     globalThis.fetch = vi.fn()
-  })
-
-  afterEach(() => {
-    vi.clearAllMocks()
   })
 
   describe('get', () => {
@@ -54,7 +53,13 @@ describe('api', () => {
     it('includes Authorization header when token exists', async () => {
       // Arrange
       const token = 'test-token'
-      localStorage.setItem('auth_token', token)
+      let callCount = 0
+      // SECURITY: Token now comes from tokenGetter (memory) instead of localStorage
+      const mockTokenGetter = () => {
+        callCount++
+        return token
+      }
+      setTokenGetter(mockTokenGetter)
 
       const mockResponse = { data: 'test' }
       globalThis.fetch = vi.fn().mockResolvedValue({
@@ -68,14 +73,21 @@ describe('api', () => {
       await api.get('/test')
 
       // Assert
-      expect(globalThis.fetch).toHaveBeenCalledWith(
-        'http://localhost:8080/test',
-        expect.objectContaining({
-          headers: expect.objectContaining({
-            'Authorization': `Bearer ${token}`,
-          }),
-        })
-      )
+      // Verify that fetch was called with Authorization header
+      const fetchCalls = (globalThis.fetch as any).mock.calls
+      expect(fetchCalls).toHaveLength(1)
+
+      const [url, options] = fetchCalls[0]
+      expect(url).toBe('http://localhost:8080/test')
+
+      // Debug: Check what headers were actually sent
+      console.log('Headers sent:', options.headers)
+      console.log('Token getter call count:', callCount)
+
+      expect(options.headers['Authorization']).toBe(`Bearer ${token}`)
+
+      // Verify token getter was called
+      expect(callCount).toBe(1)
     })
   })
 

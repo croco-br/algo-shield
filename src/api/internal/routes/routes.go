@@ -33,7 +33,7 @@ func Setup(app *fiber.App, db *pgxpool.Pool, redis *redis.Client, asynqClient *q
 	// Middleware
 	app.Use(middleware.Logger())
 	app.Use(middleware.SecurityHeaders()) // Security headers for Brave compatibility
-	app.Use(middleware.CORS())
+	app.Use(middleware.CORS(cfg.API.CORSAllowOrigins))
 	app.Use(middleware.SyntheticModeMiddleware()) // Extract synthetic mode from header
 
 	// Create repositories (infrastructure layer - can create concrete types)
@@ -63,7 +63,7 @@ func Setup(app *fiber.App, db *pgxpool.Pool, redis *redis.Client, asynqClient *q
 	systemService := system.NewService(systemRepo)
 
 	// Create handlers with dependency injection (presentation layer - receives interfaces)
-	authHandler := auth.NewHandler(authService, userService)
+	authHandler := auth.NewHandler(authService, userService, redis)
 	permissionsHandler := permissions.NewHandler(permissionsService)
 	roleHandler := roles.NewHandler(roleService)
 	groupHandler := groups.NewHandler(groupService)
@@ -81,13 +81,31 @@ func Setup(app *fiber.App, db *pgxpool.Pool, redis *redis.Client, asynqClient *q
 
 	// Register public API endpoints before creating protected groups
 	// These must be registered as specific routes to avoid being caught by the v1 middleware
-	app.Post("/api/v1/auth/register", authHandler.Register)
-	app.Post("/api/v1/auth/login", authHandler.Login)
+	// SECURITY: Apply rate limiting to auth endpoints to prevent brute force attacks
+	app.Post("/api/v1/auth/register",
+		middleware.RateLimiter(redis, middleware.RegisterRateLimit),
+		authHandler.Register,
+	)
+	app.Post("/api/v1/auth/login",
+		middleware.RateLimiter(redis, middleware.LoginRateLimit),
+		authHandler.Login,
+	)
 	app.Get("/api/v1/branding", brandingHandler.GetBranding)
 
 	// API v1 (protected)
 	v1 := app.Group("/api/v1")
 	v1.Use(middleware.AuthMiddleware(authHandler))
+
+	// SECURITY: CSRF Protection for all state-changing requests (POST, PUT, PATCH, DELETE)
+	// Excluded paths: login, register, branding (public GET endpoint)
+	v1.Use(middleware.CSRFProtection(middleware.CSRFConfig{
+		Redis: redis,
+		ExcludedPaths: []string{
+			"/api/v1/auth/login",
+			"/api/v1/auth/register",
+			"/api/v1/branding", // Public GET endpoint
+		},
+	}))
 
 	// Current user
 	v1.Get("/auth/me", authHandler.GetCurrentUser)

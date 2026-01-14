@@ -10,25 +10,35 @@ import (
 
 	apierrors "github.com/algo-shield/algo-shield/src/pkg/errors"
 	"github.com/algo-shield/algo-shield/src/pkg/models"
+	"github.com/alicebob/miniredis/v2"
 	"github.com/gofiber/fiber/v2"
 	"github.com/google/uuid"
+	"github.com/redis/go-redis/v9"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/mock/gomock"
 )
 
-func Test_Handler_NewHandler_WhenCalled_ThenReturnsHandler(t *testing.T) {
-	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
+// setupTestRedis creates a miniredis server and returns a redis client
+func setupTestRedis(t *testing.T) *redis.Client {
+	mr, err := miniredis.Run()
+	require.NoError(t, err)
+	t.Cleanup(func() {
+		mr.Close()
+	})
 
-	mockService := NewMockAuthService(ctrl)
-	mockUserService := NewMockUserService(ctrl)
+	client := redis.NewClient(&redis.Options{
+		Addr: mr.Addr(),
+	})
+	t.Cleanup(func() {
 
-	handler := NewHandler(mockService, mockUserService)
+		if err := client.Close(); err != nil {
+			t.Errorf("failed to close redis client: %v", err)
+		}
 
-	require.NotNil(t, handler)
-	assert.Equal(t, mockService, handler.service)
-	assert.Equal(t, mockUserService, handler.userService)
+	})
+
+	return client
 }
 
 func Test_Handler_Register_WhenValidRequest_ThenReturnsUserAndToken(t *testing.T) {
@@ -46,7 +56,8 @@ func Test_Handler_Register_WhenValidRequest_ThenReturnsUserAndToken(t *testing.T
 	mockService.EXPECT().
 		RegisterUser(gomock.Any(), "test@example.com", "Test User", "password123").
 		Return(expectedUser, expectedToken, nil)
-	handler := NewHandler(mockService, mockUserService)
+	redisClient := setupTestRedis(t)
+	handler := NewHandler(mockService, mockUserService, redisClient)
 	app := fiber.New()
 	app.Post("/auth/register", handler.Register)
 	reqBody := RegisterRequest{
@@ -70,7 +81,8 @@ func Test_Handler_Register_WhenInvalidJSON_ThenReturnsBadRequest(t *testing.T) {
 
 	mockService := NewMockAuthService(ctrl)
 	mockUserService := NewMockUserService(ctrl)
-	handler := NewHandler(mockService, mockUserService)
+	redisClient := setupTestRedis(t)
+	handler := NewHandler(mockService, mockUserService, redisClient)
 	app := fiber.New()
 	app.Post("/auth/register", handler.Register)
 
@@ -89,7 +101,8 @@ func Test_Handler_Register_WhenValidationFails_ThenReturnsBadRequest(t *testing.
 
 	mockService := NewMockAuthService(ctrl)
 	mockUserService := NewMockUserService(ctrl)
-	handler := NewHandler(mockService, mockUserService)
+	redisClient := setupTestRedis(t)
+	handler := NewHandler(mockService, mockUserService, redisClient)
 	app := fiber.New()
 	app.Post("/auth/register", handler.Register)
 	reqBody := RegisterRequest{
@@ -122,7 +135,8 @@ func Test_Handler_Login_WhenValidCredentials_ThenReturnsUserAndToken(t *testing.
 	mockService.EXPECT().
 		LoginUser(gomock.Any(), "test@example.com", "password123").
 		Return(expectedUser, expectedToken, nil)
-	handler := NewHandler(mockService, mockUserService)
+	redisClient := setupTestRedis(t)
+	handler := NewHandler(mockService, mockUserService, redisClient)
 	app := fiber.New()
 	app.Post("/auth/login", handler.Login)
 	reqBody := LoginRequest{
@@ -145,7 +159,8 @@ func Test_Handler_Login_WhenInvalidJSON_ThenReturnsBadRequest(t *testing.T) {
 
 	mockService := NewMockAuthService(ctrl)
 	mockUserService := NewMockUserService(ctrl)
-	handler := NewHandler(mockService, mockUserService)
+	redisClient := setupTestRedis(t)
+	handler := NewHandler(mockService, mockUserService, redisClient)
 	app := fiber.New()
 	app.Post("/auth/login", handler.Login)
 
@@ -164,7 +179,8 @@ func Test_Handler_Login_WhenValidationFails_ThenReturnsBadRequest(t *testing.T) 
 
 	mockService := NewMockAuthService(ctrl)
 	mockUserService := NewMockUserService(ctrl)
-	handler := NewHandler(mockService, mockUserService)
+	redisClient := setupTestRedis(t)
+	handler := NewHandler(mockService, mockUserService, redisClient)
 	app := fiber.New()
 	app.Post("/auth/login", handler.Login)
 	reqBody := LoginRequest{
@@ -195,7 +211,8 @@ func Test_Handler_GetCurrentUser_WhenUserInContext_ThenReturnsUser(t *testing.T)
 	mockUserService.EXPECT().
 		GetUserByID(gomock.Any(), gomock.Any()).
 		Return(expectedUser, nil)
-	handler := NewHandler(mockService, mockUserService)
+	redisClient := setupTestRedis(t)
+	handler := NewHandler(mockService, mockUserService, redisClient)
 	app := fiber.New()
 	app.Get("/auth/me", func(c *fiber.Ctx) error {
 		user := &models.User{
@@ -221,7 +238,8 @@ func Test_Handler_GetCurrentUser_WhenUserNotInContext_ThenReturnsUnauthorized(t 
 
 	mockService := NewMockAuthService(ctrl)
 	mockUserService := NewMockUserService(ctrl)
-	handler := NewHandler(mockService, mockUserService)
+	redisClient := setupTestRedis(t)
+	handler := NewHandler(mockService, mockUserService, redisClient)
 	app := fiber.New()
 	app.Get("/auth/me", handler.GetCurrentUser)
 
@@ -242,7 +260,8 @@ func Test_Handler_GetCurrentUser_WhenServiceFails_ThenReturnsNotFound(t *testing
 	mockUserService.EXPECT().
 		GetUserByID(gomock.Any(), gomock.Any()).
 		Return(nil, errors.New("user not found"))
-	handler := NewHandler(mockService, mockUserService)
+	redisClient := setupTestRedis(t)
+	handler := NewHandler(mockService, mockUserService, redisClient)
 	app := fiber.New()
 	app.Get("/auth/me", func(c *fiber.Ctx) error {
 		user := &models.User{
@@ -270,7 +289,8 @@ func Test_Handler_Logout_WhenValidToken_ThenReturnsSuccess(t *testing.T) {
 	mockService.EXPECT().
 		LogoutUser(gomock.Any(), "valid-token-123").
 		Return(nil)
-	handler := NewHandler(mockService, mockUserService)
+	redisClient := setupTestRedis(t)
+	handler := NewHandler(mockService, mockUserService, redisClient)
 	app := fiber.New()
 	app.Post("/auth/logout", handler.Logout)
 	req := httptest.NewRequest("POST", "/auth/logout", nil)
@@ -292,7 +312,8 @@ func Test_Handler_Logout_WhenNoAuthHeader_ThenReturnsUnauthorized(t *testing.T) 
 
 	mockService := NewMockAuthService(ctrl)
 	mockUserService := NewMockUserService(ctrl)
-	handler := NewHandler(mockService, mockUserService)
+	redisClient := setupTestRedis(t)
+	handler := NewHandler(mockService, mockUserService, redisClient)
 	app := fiber.New()
 	app.Post("/auth/logout", handler.Logout)
 
@@ -310,7 +331,8 @@ func Test_Handler_Logout_WhenInvalidAuthHeaderFormat_ThenReturnsUnauthorized(t *
 
 	mockService := NewMockAuthService(ctrl)
 	mockUserService := NewMockUserService(ctrl)
-	handler := NewHandler(mockService, mockUserService)
+	redisClient := setupTestRedis(t)
+	handler := NewHandler(mockService, mockUserService, redisClient)
 	app := fiber.New()
 	app.Post("/auth/logout", handler.Logout)
 
@@ -329,7 +351,8 @@ func Test_Handler_Logout_WhenMissingBearerPrefix_ThenReturnsUnauthorized(t *test
 
 	mockService := NewMockAuthService(ctrl)
 	mockUserService := NewMockUserService(ctrl)
-	handler := NewHandler(mockService, mockUserService)
+	redisClient := setupTestRedis(t)
+	handler := NewHandler(mockService, mockUserService, redisClient)
 	app := fiber.New()
 	app.Post("/auth/logout", handler.Logout)
 
@@ -356,7 +379,8 @@ func Test_Handler_ValidateToken_WhenValidToken_ThenReturnsUser(t *testing.T) {
 	mockService.EXPECT().
 		ValidateToken("valid-token").
 		Return(expectedUser, nil)
-	handler := NewHandler(mockService, mockUserService)
+	redisClient := setupTestRedis(t)
+	handler := NewHandler(mockService, mockUserService, redisClient)
 
 	user, err := handler.ValidateToken("valid-token")
 
@@ -373,7 +397,8 @@ func Test_Handler_ValidateToken_WhenInvalidToken_ThenReturnsError(t *testing.T) 
 	mockService.EXPECT().
 		ValidateToken("invalid-token").
 		Return(nil, apierrors.TokenInvalid())
-	handler := NewHandler(mockService, mockUserService)
+	redisClient := setupTestRedis(t)
+	handler := NewHandler(mockService, mockUserService, redisClient)
 
 	user, err := handler.ValidateToken("invalid-token")
 

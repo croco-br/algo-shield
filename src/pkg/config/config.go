@@ -34,13 +34,15 @@ type RedisConfig struct {
 }
 
 type APIConfig struct {
-	Host      string
-	Port      int
-	TLSEnable bool
-	TLSCert   string // Path to TLS certificate file
-	TLSKey    string // Path to TLS private key file
-	Timeouts  APITimeouts
-	Cache     APICacheConfig
+	Host             string
+	Port             int
+	TLSEnable        bool
+	TLSCert          string // Path to TLS certificate file
+	TLSKey           string // Path to TLS private key file
+	CORSAllowOrigins string // Comma-separated list of allowed CORS origins (use "*" for development only)
+	BodyLimit        int    // Maximum request body size in bytes (SECURITY: prevent DoS attacks)
+	Timeouts         APITimeouts
+	Cache            APICacheConfig
 }
 
 type WorkerConfig struct {
@@ -170,11 +172,13 @@ func Load() (*Config, error) {
 			Port: getEnvInt("REDIS_PORT", 6379),
 		},
 		API: APIConfig{
-			Host:      getEnv("API_HOST", "0.0.0.0"),
-			Port:      getEnvInt("API_PORT", 8080),
-			TLSEnable: getEnv("TLS_ENABLE", "") == "true",
-			TLSCert:   getEnv("TLS_CERT_PATH", ""),
-			TLSKey:    getEnv("TLS_KEY_PATH", ""),
+			Host:             getEnv("API_HOST", "0.0.0.0"),
+			Port:             getEnvInt("API_PORT", 8080),
+			TLSEnable:        getEnv("TLS_ENABLE", "") == "true",
+			TLSCert:          getEnv("TLS_CERT_PATH", ""),
+			TLSKey:           getEnv("TLS_KEY_PATH", ""),
+			CORSAllowOrigins: getEnv("CORS_ALLOWED_ORIGINS", "*"),
+			BodyLimit:        getEnvInt("API_BODY_LIMIT", 4*1024*1024), // SECURITY: Default 4MB to prevent DoS
 			Timeouts: APITimeouts{
 				HandlerTimeout: getEnvDuration("API_TIMEOUT_HANDLER", 500*time.Millisecond),
 				HealthCheck:    getEnvDuration("API_TIMEOUT_HEALTH", 2*time.Second),
@@ -239,6 +243,18 @@ func Load() (*Config, error) {
 		// In development/test, if TLS is enabled, both cert and key must be provided
 		if config.API.TLSCert == "" || config.API.TLSKey == "" {
 			return nil, fmt.Errorf("both TLS_CERT_PATH and TLS_KEY_PATH must be provided when TLS_ENABLE=true")
+		}
+	}
+
+	// Validate CORS configuration
+	if isProduction {
+		// In production, CORS must NOT use wildcard "*" - must specify allowed origins
+		if config.API.CORSAllowOrigins == "*" {
+			return nil, fmt.Errorf("CORS_ALLOWED_ORIGINS must not use wildcard '*' in production. Specify allowed origins (comma-separated) for security")
+		}
+		// Ensure at least one origin is specified
+		if strings.TrimSpace(config.API.CORSAllowOrigins) == "" {
+			return nil, fmt.Errorf("CORS_ALLOWED_ORIGINS must be specified in production (e.g., https://yourdomain.com)")
 		}
 	}
 

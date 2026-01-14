@@ -4,7 +4,16 @@ export interface ApiError {
 	error: string;
 }
 
+// SECURITY NOTE: Token getter function is injected to avoid circular dependencies
+// The auth store will provide the token via getToken() function
+let tokenGetter: (() => string | null) | null = null;
+
+export function setTokenGetter(getter: () => string | null): void {
+	tokenGetter = getter;
+}
+
 // Get synthetic mode from localStorage (synced by systemMode store)
+// NOTE: Synthetic mode is safe to store in localStorage as it's not sensitive data
 function getSyntheticMode(): boolean {
 	try {
 		const mode = localStorage.getItem('synthetic_mode');
@@ -35,7 +44,8 @@ async function request<T>(
 	if (uiConfig.api.baseUrl.includes('://api:') || uiConfig.api.baseUrl.includes('://postgres:') || uiConfig.api.baseUrl.includes('://redis:')) {
 		throw new Error(`API baseUrl uses container hostname (${uiConfig.api.baseUrl}). Browser cannot resolve container hostnames. Use http://localhost:8080 instead.`);
 	}
-	const token = localStorage.getItem('auth_token');
+	// SECURITY: Get token from memory-only Pinia store (never localStorage)
+	const token = tokenGetter ? tokenGetter() : null;
 	const syntheticMode = getSyntheticMode();
 	
 	const headers: Record<string, string> = {

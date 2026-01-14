@@ -89,6 +89,7 @@ func TestLoad_ProductionRequiresTLS(t *testing.T) {
 		_ = os.Unsetenv("ENVIRONMENT")
 		_ = os.Unsetenv("JWT_SECRET")
 		_ = os.Unsetenv("POSTGRES_PASSWORD")
+		_ = os.Unsetenv("CORS_ALLOWED_ORIGINS")
 		return
 	}
 
@@ -96,6 +97,8 @@ func TestLoad_ProductionRequiresTLS(t *testing.T) {
 	_ = os.Setenv("TLS_ENABLE", "true")
 	_ = os.Setenv("TLS_CERT_PATH", "/path/to/cert.pem")
 	_ = os.Setenv("TLS_KEY_PATH", "/path/to/key.pem")
+	// Set proper CORS origins for production (not wildcard)
+	_ = os.Setenv("CORS_ALLOWED_ORIGINS", "https://example.com,https://app.example.com")
 
 	cfg, err := Load()
 	if err != nil {
@@ -121,4 +124,5 @@ func TestLoad_ProductionRequiresTLS(t *testing.T) {
 	_ = os.Unsetenv("TLS_ENABLE")
 	_ = os.Unsetenv("TLS_CERT_PATH")
 	_ = os.Unsetenv("TLS_KEY_PATH")
+	_ = os.Unsetenv("CORS_ALLOWED_ORIGINS")
 }

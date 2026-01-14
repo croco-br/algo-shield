@@ -6,20 +6,24 @@ import (
 
 	"github.com/algo-shield/algo-shield/src/api/internal"
 	"github.com/algo-shield/algo-shield/src/api/internal/shared/validation"
+	"github.com/algo-shield/algo-shield/src/pkg/csrf"
 	apierrors "github.com/algo-shield/algo-shield/src/pkg/errors"
 	"github.com/algo-shield/algo-shield/src/pkg/models"
 	"github.com/gofiber/fiber/v2"
+	"github.com/redis/go-redis/v9"
 )
 
 type Handler struct {
 	service     AuthService
 	userService UserService
+	redis       *redis.Client
 }
 
-func NewHandler(service AuthService, userService UserService) *Handler {
+func NewHandler(service AuthService, userService UserService, redis *redis.Client) *Handler {
 	return &Handler{
 		service:     service,
 		userService: userService,
+		redis:       redis,
 	}
 }
 
@@ -51,9 +55,22 @@ func (h *Handler) Register(c *fiber.Ctx) error {
 		return apierrors.SendError(c, apierrors.InternalError("Failed to register user"))
 	}
 
+	// SECURITY: Generate CSRF token for the new user
+	csrfToken, err := csrf.GenerateToken()
+	if err != nil {
+		return apierrors.SendError(c, apierrors.InternalError("Failed to generate CSRF token"))
+	}
+
+	// Store CSRF token in Redis
+	if err := csrf.StoreToken(ctx, h.redis, user.ID.String(), csrfToken); err != nil {
+		// Log error but don't fail registration
+		c.Context().Logger().Printf("Failed to store CSRF token: %v", err)
+	}
+
 	return c.JSON(fiber.Map{
-		"token": token,
-		"user":  user,
+		"token":      token,
+		"user":       user,
+		"csrf_token": csrfToken,
 	})
 }
 
@@ -81,9 +98,22 @@ func (h *Handler) Login(c *fiber.Ctx) error {
 		return apierrors.SendError(c, apierrors.InternalError("Login failed"))
 	}
 
+	// SECURITY: Generate CSRF token for the logged-in user
+	csrfToken, err := csrf.GenerateToken()
+	if err != nil {
+		return apierrors.SendError(c, apierrors.InternalError("Failed to generate CSRF token"))
+	}
+
+	// Store CSRF token in Redis
+	if err := csrf.StoreToken(ctx, h.redis, user.ID.String(), csrfToken); err != nil {
+		// Log error but don't fail login
+		c.Context().Logger().Printf("Failed to store CSRF token: %v", err)
+	}
+
 	return c.JSON(fiber.Map{
-		"token": token,
-		"user":  user,
+		"token":      token,
+		"user":       user,
+		"csrf_token": csrfToken,
 	})
 }
 
@@ -121,6 +151,15 @@ func (h *Handler) Logout(c *fiber.Ctx) error {
 
 	ctx, cancel := context.WithTimeout(c.Context(), internal.GetHandlerTimeout())
 	defer cancel()
+
+	// Get user from context to delete CSRF token
+	user, ok := c.Locals("user").(*models.User)
+	if ok && user != nil {
+		// SECURITY: Delete CSRF token from Redis
+		if err := csrf.DeleteToken(ctx, h.redis, user.ID.String()); err != nil {
+			c.Context().Logger().Printf("Failed to delete CSRF token on logout: %v", err)
+		}
+	}
 
 	// Revoke the token
 	if err := h.service.LogoutUser(ctx, token); err != nil {

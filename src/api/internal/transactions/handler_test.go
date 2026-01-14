@@ -18,18 +18,6 @@ import (
 	"go.uber.org/mock/gomock"
 )
 
-func Test_Handler_NewHandler_WhenCalled_ThenReturnsHandler(t *testing.T) {
-	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
-
-	mockService := NewMockTransactionService(ctrl)
-
-	handler := NewHandler(mockService)
-
-	require.NotNil(t, handler)
-	assert.Equal(t, mockService, handler.service)
-}
-
 func Test_Handler_ProcessTransaction_WhenValidEvent_ThenQueuesTransaction(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
@@ -445,4 +433,134 @@ func Test_Handler_ListTransactions_WhenValidDateFilters_ThenUsesFilters(t *testi
 	require.NoError(t, err)
 
 	assert.Equal(t, fiber.StatusOK, resp.StatusCode)
+}
+
+func Test_Handler_ApproveTransaction_WhenValidID_ThenApprovesTransaction(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	txID := uuid.New()
+	approvedTx := &models.Transaction{
+		ID:     txID,
+		Status: models.StatusApproved,
+	}
+	mockService := NewMockTransactionService(ctrl)
+	mockService.EXPECT().ApproveTransaction(gomock.Any(), txID).Return(approvedTx, nil)
+	handler := NewHandler(mockService)
+	app := fiber.New()
+	app.Patch("/transactions/:id/approve", handler.ApproveTransaction)
+
+	req := httptest.NewRequest("PATCH", "/transactions/"+txID.String()+"/approve", nil)
+	resp, err := app.Test(req)
+
+	require.NoError(t, err)
+	assert.Equal(t, fiber.StatusOK, resp.StatusCode)
+	body, _ := io.ReadAll(resp.Body)
+	var result models.Transaction
+	err = json.Unmarshal(body, &result)
+	require.NoError(t, err)
+	assert.Equal(t, models.StatusApproved, result.Status)
+}
+
+func Test_Handler_ApproveTransaction_WhenInvalidID_ThenReturnsBadRequest(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	mockService := NewMockTransactionService(ctrl)
+	handler := NewHandler(mockService)
+	app := fiber.New()
+	app.Patch("/transactions/:id/approve", handler.ApproveTransaction)
+
+	req := httptest.NewRequest("PATCH", "/transactions/invalid-uuid/approve", nil)
+	resp, err := app.Test(req)
+
+	require.NoError(t, err)
+	assert.Equal(t, fiber.StatusBadRequest, resp.StatusCode)
+	body, _ := io.ReadAll(resp.Body)
+	assert.Contains(t, string(body), "Invalid transaction ID")
+}
+
+func Test_Handler_ApproveTransaction_WhenServiceFails_ThenReturnsError(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	txID := uuid.New()
+	mockService := NewMockTransactionService(ctrl)
+	mockService.EXPECT().ApproveTransaction(gomock.Any(), txID).Return(nil, errors.New("service error"))
+	handler := NewHandler(mockService)
+	app := fiber.New()
+	app.Patch("/transactions/:id/approve", handler.ApproveTransaction)
+
+	req := httptest.NewRequest("PATCH", "/transactions/"+txID.String()+"/approve", nil)
+	resp, err := app.Test(req)
+
+	require.NoError(t, err)
+	assert.Equal(t, fiber.StatusInternalServerError, resp.StatusCode)
+	body, _ := io.ReadAll(resp.Body)
+	assert.Contains(t, string(body), "Failed to approve transaction")
+}
+
+func Test_Handler_RejectTransaction_WhenValidID_ThenRejectsTransaction(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	txID := uuid.New()
+	rejectedTx := &models.Transaction{
+		ID:     txID,
+		Status: models.StatusRejected,
+	}
+	mockService := NewMockTransactionService(ctrl)
+	mockService.EXPECT().RejectTransaction(gomock.Any(), txID).Return(rejectedTx, nil)
+	handler := NewHandler(mockService)
+	app := fiber.New()
+	app.Patch("/transactions/:id/reject", handler.RejectTransaction)
+
+	req := httptest.NewRequest("PATCH", "/transactions/"+txID.String()+"/reject", nil)
+	resp, err := app.Test(req)
+
+	require.NoError(t, err)
+	assert.Equal(t, fiber.StatusOK, resp.StatusCode)
+	body, _ := io.ReadAll(resp.Body)
+	var result models.Transaction
+	err = json.Unmarshal(body, &result)
+	require.NoError(t, err)
+	assert.Equal(t, models.StatusRejected, result.Status)
+}
+
+func Test_Handler_RejectTransaction_WhenInvalidID_ThenReturnsBadRequest(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	mockService := NewMockTransactionService(ctrl)
+	handler := NewHandler(mockService)
+	app := fiber.New()
+	app.Patch("/transactions/:id/reject", handler.RejectTransaction)
+
+	req := httptest.NewRequest("PATCH", "/transactions/invalid-uuid/reject", nil)
+	resp, err := app.Test(req)
+
+	require.NoError(t, err)
+	assert.Equal(t, fiber.StatusBadRequest, resp.StatusCode)
+	body, _ := io.ReadAll(resp.Body)
+	assert.Contains(t, string(body), "Invalid transaction ID")
+}
+
+func Test_Handler_RejectTransaction_WhenServiceFails_ThenReturnsError(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	txID := uuid.New()
+	mockService := NewMockTransactionService(ctrl)
+	mockService.EXPECT().RejectTransaction(gomock.Any(), txID).Return(nil, errors.New("service error"))
+	handler := NewHandler(mockService)
+	app := fiber.New()
+	app.Patch("/transactions/:id/reject", handler.RejectTransaction)
+
+	req := httptest.NewRequest("PATCH", "/transactions/"+txID.String()+"/reject", nil)
+	resp, err := app.Test(req)
+
+	require.NoError(t, err)
+	assert.Equal(t, fiber.StatusInternalServerError, resp.StatusCode)
+	body, _ := io.ReadAll(resp.Body)
+	assert.Contains(t, string(body), "Failed to reject transaction")
 }

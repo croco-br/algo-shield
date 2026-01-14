@@ -16,6 +16,8 @@ vi.mock('@/lib/api', () => ({
     post: vi.fn(),
     patch: vi.fn(),
   },
+  setTokenGetter: vi.fn(),
+  setSyntheticModeStorage: vi.fn(),
 }))
 
 vi.mock('@/stores/systemMode', () => ({

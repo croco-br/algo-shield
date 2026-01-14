@@ -1,6 +1,6 @@
 import { defineStore } from 'pinia';
 import { ref, computed } from 'vue';
-import { api } from '@/lib/api';
+import { api, setTokenGetter } from '@/lib/api';
 
 export interface Role {
 	id: string;
@@ -21,11 +21,13 @@ export interface User {
 export const useAuthStore = defineStore('auth', () => {
 	const user = ref<User | null>(null);
 	const loading = ref(true);
+	// SECURITY: Store token in memory only (never localStorage to prevent XSS attacks)
+	// This means token will be lost on page reload, requiring re-authentication
+	const token = ref<string | null>(null);
 
 	async function loadUserFromToken() {
 		try {
-			const token = localStorage.getItem('auth_token');
-			if (!token) {
+			if (!token.value) {
 				user.value = null;
 				loading.value = false;
 				return;
@@ -35,15 +37,15 @@ export const useAuthStore = defineStore('auth', () => {
 			user.value = userData;
 		} catch (e) {
 			// Token invalid, clear it
-			localStorage.removeItem('auth_token');
+			token.value = null;
 			user.value = null;
 		} finally {
 			loading.value = false;
 		}
 	}
 
-	async function setToken(token: string) {
-		localStorage.setItem('auth_token', token);
+	async function setToken(newToken: string) {
+		token.value = newToken;
 		await loadUserFromToken();
 	}
 
@@ -54,18 +56,26 @@ export const useAuthStore = defineStore('auth', () => {
 			// Ignore errors on logout
 		}
 		user.value = null;
-		localStorage.removeItem('auth_token');
+		token.value = null;
 	}
 
 	async function refresh() {
 		await loadUserFromToken();
 	}
 
+	function getToken(): string | null {
+		return token.value;
+	}
+
 	const isAdmin = computed(() => {
 		return user.value?.roles?.some((role) => role.name === 'admin') || false;
 	});
 
-	// Initialize on store creation
+	// SECURITY: Register token getter with API module to avoid circular dependencies
+	// This allows api.ts to get the token from memory without importing the store
+	setTokenGetter(getToken);
+
+	// Initialize on store creation (token will be null on page load)
 	loadUserFromToken();
 
 	return {
@@ -74,6 +84,7 @@ export const useAuthStore = defineStore('auth', () => {
 		setToken,
 		logout,
 		refresh,
+		getToken,
 		isAdmin,
 	};
 });

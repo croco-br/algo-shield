@@ -8,6 +8,8 @@ vi.mock('@/lib/api', () => ({
     get: vi.fn(),
     put: vi.fn(),
   },
+  setTokenGetter: vi.fn(),
+  setSyntheticModeStorage: vi.fn(),
 }))
 
 vi.mock('@/plugins/vuetify', () => ({

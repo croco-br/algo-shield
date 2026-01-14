@@ -16,15 +16,6 @@ import (
 	"go.uber.org/mock/gomock"
 )
 
-func Test_Handler_NewHandler_WhenCalled_ThenReturnsHandler(t *testing.T) {
-	service := &Service{}
-
-	handler := NewHandler(service)
-
-	require.NotNil(t, handler)
-	assert.Equal(t, service, handler.service)
-}
-
 func Test_Handler_ListUsers_WhenSuccess_ThenReturnsUsers(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()

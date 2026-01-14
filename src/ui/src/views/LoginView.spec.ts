@@ -14,6 +14,8 @@ vi.mock('@/lib/api', () => ({
   api: {
     post: vi.fn(),
   },
+  setTokenGetter: vi.fn(),
+  setSyntheticModeStorage: vi.fn(),
 }))
 
 // Mock child components

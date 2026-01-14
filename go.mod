@@ -3,6 +3,7 @@ module github.com/algo-shield/algo-shield
 go 1.25.5
 
 require (
+	github.com/alicebob/miniredis/v2 v2.35.0
 	github.com/expr-lang/expr v1.17.7
 	github.com/go-playground/validator/v10 v10.29.0
 	github.com/gofiber/fiber/v2 v2.52.9
@@ -82,6 +83,7 @@ require (
 	github.com/valyala/bytebufferpool v1.0.0 // indirect
 	github.com/valyala/fasthttp v1.51.0 // indirect
 	github.com/valyala/tcplisten v1.0.0 // indirect
+	github.com/yuin/gopher-lua v1.1.1 // indirect
 	github.com/yusufpapurcu/wmi v1.2.4 // indirect
 	go.opentelemetry.io/auto/sdk v1.2.1 // indirect
 	go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp v0.49.0 // indirect

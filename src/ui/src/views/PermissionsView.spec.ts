@@ -17,6 +17,8 @@ vi.mock('@/lib/api', () => ({
     delete: vi.fn(),
     put: vi.fn(),
   },
+  setTokenGetter: vi.fn(),
+  setSyntheticModeStorage: vi.fn(),
 }))
 
 vi.mock('@/components/BaseButton.vue', () => ({

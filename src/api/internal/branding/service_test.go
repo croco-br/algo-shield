@@ -82,64 +82,59 @@ func Test_Service_UpdateBranding_WhenValidRequest_ThenUpdatesConfig(t *testing.T
 	assert.Equal(t, req.HeaderColor, config.HeaderColor)
 }
 
-func Test_Service_UpdateBranding_WhenInvalidPrimaryColor_ThenReturnsError(t *testing.T) {
-	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
-
-	req := &UpdateBrandingRequest{
-		AppName:        "NewApp",
-		PrimaryColor:   "invalid-color",
-		SecondaryColor: "#10B981",
-		HeaderColor:    "#1e1e1e",
+func Test_Service_UpdateBranding_WhenInvalidColorFormat_ThenReturnsError(t *testing.T) {
+	testCases := []struct {
+		name          string
+		request       *UpdateBrandingRequest
+		expectedError string
+	}{
+		{
+			name: "invalid primary color",
+			request: &UpdateBrandingRequest{
+				AppName:        "NewApp",
+				PrimaryColor:   "invalid-color",
+				SecondaryColor: "#10B981",
+				HeaderColor:    "#1e1e1e",
+			},
+			expectedError: "primary_color",
+		},
+		{
+			name: "invalid secondary color",
+			request: &UpdateBrandingRequest{
+				AppName:        "NewApp",
+				PrimaryColor:   "#3B82F6",
+				SecondaryColor: "not-a-color",
+				HeaderColor:    "#1e1e1e",
+			},
+			expectedError: "secondary_color",
+		},
+		{
+			name: "invalid header color",
+			request: &UpdateBrandingRequest{
+				AppName:        "NewApp",
+				PrimaryColor:   "#3B82F6",
+				SecondaryColor: "#10B981",
+				HeaderColor:    "bad-hex",
+			},
+			expectedError: "header_color",
+		},
 	}
-	mockRepo := NewMockRepository(ctrl)
-	service := NewService(mockRepo)
 
-	config, err := service.UpdateBranding(context.Background(), req)
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			ctrl := gomock.NewController(t)
+			defer ctrl.Finish()
 
-	assert.Nil(t, config)
-	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "primary_color")
-}
+			mockRepo := NewMockRepository(ctrl)
+			service := NewService(mockRepo)
 
-func Test_Service_UpdateBranding_WhenInvalidSecondaryColor_ThenReturnsError(t *testing.T) {
-	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
+			config, err := service.UpdateBranding(context.Background(), tc.request)
 
-	req := &UpdateBrandingRequest{
-		AppName:        "NewApp",
-		PrimaryColor:   "#3B82F6",
-		SecondaryColor: "not-a-color",
-		HeaderColor:    "#1e1e1e",
+			assert.Nil(t, config)
+			assert.Error(t, err)
+			assert.Contains(t, err.Error(), tc.expectedError)
+		})
 	}
-	mockRepo := NewMockRepository(ctrl)
-	service := NewService(mockRepo)
-
-	config, err := service.UpdateBranding(context.Background(), req)
-
-	assert.Nil(t, config)
-	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "secondary_color")
-}
-
-func Test_Service_UpdateBranding_WhenInvalidHeaderColor_ThenReturnsError(t *testing.T) {
-	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
-
-	req := &UpdateBrandingRequest{
-		AppName:        "NewApp",
-		PrimaryColor:   "#3B82F6",
-		SecondaryColor: "#10B981",
-		HeaderColor:    "bad-hex",
-	}
-	mockRepo := NewMockRepository(ctrl)
-	service := NewService(mockRepo)
-
-	config, err := service.UpdateBranding(context.Background(), req)
-
-	assert.Nil(t, config)
-	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "header_color")
 }
 
 func Test_Service_UpdateBranding_WhenAppNameTooLong_ThenReturnsError(t *testing.T) {
@@ -227,30 +222,4 @@ func Test_Service_UpdateBranding_WhenShortHexColor_ThenAccepts(t *testing.T) {
 	assert.Equal(t, "#FFF", config.PrimaryColor)
 	assert.Equal(t, "#000", config.SecondaryColor)
 	assert.Equal(t, "#ABC", config.HeaderColor)
-}
-
-func Test_validateHexColor_WhenValidLongHex_ThenReturnsNil(t *testing.T) {
-	err := validateHexColor("#3B82F6", "test_color")
-
-	assert.NoError(t, err)
-}
-
-func Test_validateHexColor_WhenValidShortHex_ThenReturnsNil(t *testing.T) {
-	err := validateHexColor("#FFF", "test_color")
-
-	assert.NoError(t, err)
-}
-
-func Test_validateHexColor_WhenInvalidFormat_ThenReturnsError(t *testing.T) {
-	err := validateHexColor("blue", "test_color")
-
-	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "hex format")
-}
-
-func Test_validateHexColor_WhenMissingHash_ThenReturnsError(t *testing.T) {
-	err := validateHexColor("3B82F6", "test_color")
-
-	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "hex format")
 }

@@ -13,6 +13,8 @@ vi.mock('@/lib/api', () => ({
   api: {
     get: vi.fn(),
   },
+  setTokenGetter: vi.fn(),
+  setSyntheticModeStorage: vi.fn(),
 }))
 
 vi.mock('@/composables/useLocale', () => ({

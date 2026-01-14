@@ -63,6 +63,7 @@ func main() {
 		ReadTimeout:           0,
 		WriteTimeout:          0,
 		IdleTimeout:           0,
+		BodyLimit:             cfg.API.BodyLimit, // SECURITY: Prevent DoS attacks via large payloads
 	})
 
 	// Setup routes
