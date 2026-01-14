@@ -44,9 +44,12 @@ func (h *Handler) ProcessTransaction(c *fiber.Ctx) error {
 
 	ctx, cancel := context.WithTimeout(c.Context(), internal.DEFAULT_TIMEOUT)
 	defer cancel()
-	if err := h.service.ProcessTransaction(ctx, event); err != nil {
+
+	// Enqueue transaction using Asynq
+	taskInfo, err := h.service.ProcessTransaction(ctx, event)
+	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-			"error": "Failed to queue transaction",
+			"error": "Failed to enqueue transaction",
 		})
 	}
 
@@ -60,6 +63,8 @@ func (h *Handler) ProcessTransaction(c *fiber.Ctx) error {
 
 	return c.Status(fiber.StatusAccepted).JSON(fiber.Map{
 		"status":      "queued",
+		"job_id":      taskInfo.ID,
+		"queue":       taskInfo.Queue,
 		"external_id": externalID,
 		"message":     "Transaction queued for processing",
 	})

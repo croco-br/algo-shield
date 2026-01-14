@@ -711,6 +711,7 @@ AlgoShield provides a comprehensive fraud detection and AML platform with the fo
 - **Node Version**: ^20.19.0 or >=22.12.0
 - **Latency SLA**: <50ms transaction processing time
 - **Timeout Configuration**: Configurable timeouts for transaction processing (300ms default) and rule evaluation (300ms default)
+- **Timeout Environment Variables**: All timeout values MUST be configurable via environment variables (no hardcoded timeout values)
 
 ### Security Constraints
 - All protected endpoints require JWT authentication
@@ -865,6 +866,7 @@ This section documents key architectural decisions and evolution history to prov
 - All required variables MUST be documented in `.env.example`
 - If any variable is missing from `.env.example`, it must be corrected
 - This is a mandatory requirement for the project
+- All timeout values MUST be configurable via environment variables (no hardcoded timeout values)
 
 ### Database Migrations
 

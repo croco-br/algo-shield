@@ -17,6 +17,7 @@ import (
 	"github.com/algo-shield/algo-shield/src/api/internal/transactions"
 	"github.com/algo-shield/algo-shield/src/api/internal/user"
 	"github.com/algo-shield/algo-shield/src/pkg/config"
+	"github.com/algo-shield/algo-shield/src/pkg/queue"
 	rulespkg "github.com/algo-shield/algo-shield/src/pkg/rules"
 	"github.com/algo-shield/algo-shield/src/pkg/tokenrevoke"
 	"github.com/gofiber/fiber/v2"
@@ -24,7 +25,7 @@ import (
 	"github.com/redis/go-redis/v9"
 )
 
-func Setup(app *fiber.App, db *pgxpool.Pool, redis *redis.Client, cfg *config.Config) {
+func Setup(app *fiber.App, db *pgxpool.Pool, redis *redis.Client, asynqClient *queue.AsynqClient, cfg *config.Config) {
 	// Middleware
 	app.Use(middleware.Logger())
 	app.Use(middleware.SecurityHeaders()) // Security headers for Brave compatibility
@@ -51,7 +52,7 @@ func Setup(app *fiber.App, db *pgxpool.Pool, redis *redis.Client, cfg *config.Co
 	tokenRevokeService := tokenrevoke.NewService(redis)
 	authService := auth.NewService(cfg, userService, tokenRevokeService)
 	permissionsService := permissions.NewService(permissionsUserRepo, roleService, groupService)
-	transactionService := transactions.NewService(transactionRepo, redis)
+	transactionService := transactions.NewService(transactionRepo, asynqClient)
 	brandingService := branding.NewService(brandingRepo)
 	schemaService := schemas.NewService(schemaRepo, redis)
 	dashboardService := dashboard.NewService(dashboardRepo, redis)

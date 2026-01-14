@@ -71,6 +71,4 @@ src/ui/.next
 .env.test
 .env.test.local
 .env.test.local.backup
-
-
-cmd
+src/workers/cmd/worker

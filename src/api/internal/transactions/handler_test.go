@@ -12,6 +12,7 @@ import (
 	"github.com/algo-shield/algo-shield/src/pkg/models"
 	"github.com/gofiber/fiber/v2"
 	"github.com/google/uuid"
+	"github.com/hibiken/asynq"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/mock/gomock"
@@ -45,9 +46,14 @@ func Test_Handler_ProcessTransaction_WhenValidEvent_ThenQueuesTransaction(t *tes
 		"currency":    "USD",
 	}
 
+	taskInfo := &asynq.TaskInfo{
+		ID:    "task-123",
+		Queue: "default",
+	}
+
 	mockService.EXPECT().
 		ProcessTransaction(gomock.Any(), gomock.Any()).
-		Return(nil)
+		Return(taskInfo, nil)
 
 	body, _ := json.Marshal(event)
 	req := httptest.NewRequest("POST", "/transactions", bytes.NewReader(body))
@@ -65,6 +71,8 @@ func Test_Handler_ProcessTransaction_WhenValidEvent_ThenQueuesTransaction(t *tes
 
 	assert.Equal(t, "queued", result["status"])
 	assert.Equal(t, "tx-123", result["external_id"])
+	assert.Equal(t, "task-123", result["job_id"])
+	assert.Equal(t, "default", result["queue"])
 }
 
 func Test_Handler_ProcessTransaction_WhenInvalidJSON_ThenReturnsBadRequest(t *testing.T) {
@@ -131,7 +139,7 @@ func Test_Handler_ProcessTransaction_WhenServiceFails_ThenReturnsInternalError(t
 
 	mockService.EXPECT().
 		ProcessTransaction(gomock.Any(), gomock.Any()).
-		Return(errors.New("queue error"))
+		Return(nil, errors.New("queue error"))
 
 	body, _ := json.Marshal(event)
 	req := httptest.NewRequest("POST", "/transactions", bytes.NewReader(body))

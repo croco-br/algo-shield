@@ -2,17 +2,16 @@ package transactions
 
 import (
 	"context"
-	"encoding/json"
 
 	"github.com/algo-shield/algo-shield/src/pkg/models"
 	"github.com/google/uuid"
-	"github.com/redis/go-redis/v9"
+	"github.com/hibiken/asynq"
 )
 
 // Service defines the interface for transaction business logic
 // This interface follows Dependency Inversion Principle
 type Service interface {
-	ProcessTransaction(ctx context.Context, event models.Event) error
+	ProcessTransaction(ctx context.Context, event models.Event) (*asynq.TaskInfo, error)
 	GetTransaction(ctx context.Context, id uuid.UUID) (*models.Transaction, error)
 	ListTransactions(ctx context.Context, limit, offset int) ([]models.Transaction, error)
 	ListTransactionsWithFilter(ctx context.Context, filter TransactionFilter, limit, offset int) ([]models.Transaction, int, error)
@@ -20,34 +19,38 @@ type Service interface {
 	RejectTransaction(ctx context.Context, id uuid.UUID) (*models.Transaction, error)
 }
 
-// QueuePusher defines interface for pushing to queue
-// Follows Dependency Inversion Principle
-type QueuePusher interface {
-	LPush(ctx context.Context, key string, values ...interface{}) *redis.IntCmd
+// TaskEnqueuer defines interface for enqueueing tasks to Asynq
+// Follows Dependency Inversion Principle and Interface Segregation Principle
+type TaskEnqueuer interface {
+	EnqueueTransactionWithPriority(ctx context.Context, event models.Event, priority string) (*asynq.TaskInfo, error)
 }
 
 type service struct {
-	repo      Repository
-	queuePush QueuePusher
+	repo     Repository
+	enqueuer TaskEnqueuer
 }
 
 // NewService creates a new transaction service with dependency injection
 // Follows Dependency Inversion Principle - receives interfaces, not concrete types
-func NewService(repo Repository, queuePush QueuePusher) Service {
+func NewService(repo Repository, enqueuer TaskEnqueuer) Service {
 	return &service{
-		repo:      repo,
-		queuePush: queuePush,
+		repo:     repo,
+		enqueuer: enqueuer,
 	}
 }
 
-func (s *service) ProcessTransaction(ctx context.Context, event models.Event) error {
-	eventJSON, err := json.Marshal(event)
-	if err != nil {
-		return err
+func (s *service) ProcessTransaction(ctx context.Context, event models.Event) (*asynq.TaskInfo, error) {
+	// Determine priority based on event characteristics
+	// This could be made more sophisticated with business rules
+	priority := "default"
+
+	// Example: Check if event has a priority field
+	if p, ok := event["priority"].(string); ok {
+		priority = p
 	}
 
-	// Push to Redis queue
-	return s.queuePush.LPush(ctx, "transaction:queue", eventJSON).Err()
+	// Enqueue transaction for processing
+	return s.enqueuer.EnqueueTransactionWithPriority(ctx, event, priority)
 }
 
 func (s *service) GetTransaction(ctx context.Context, id uuid.UUID) (*models.Transaction, error) {

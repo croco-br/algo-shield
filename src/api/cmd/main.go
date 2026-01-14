@@ -10,6 +10,7 @@ import (
 	"github.com/algo-shield/algo-shield/src/api/internal/routes"
 	"github.com/algo-shield/algo-shield/src/pkg/config"
 	"github.com/algo-shield/algo-shield/src/pkg/database"
+	"github.com/algo-shield/algo-shield/src/pkg/queue"
 	"github.com/gofiber/fiber/v2"
 )
 
@@ -27,7 +28,7 @@ func main() {
 	}
 	defer db.Close()
 
-	// Initialize Redis
+	// Initialize Redis (for caching)
 	redis, err := database.NewRedisClient(cfg.GetRedisAddr())
 	if err != nil {
 		log.Fatalf("Failed to connect to Redis: %v", err)
@@ -37,6 +38,20 @@ func main() {
 			log.Printf("Error closing Redis connection: %v", err)
 		}
 	}()
+
+	// Initialize Asynq client (for job enqueueing)
+	redisQueueAddr := getEnvOrDefault("REDIS_QUEUE_HOST", "localhost") + ":" + getEnvOrDefault("REDIS_QUEUE_PORT", "6379")
+	asynqClient, err := queue.NewAsynqClient(redisQueueAddr)
+	if err != nil {
+		log.Fatalf("Failed to create Asynq client: %v", err)
+	}
+	defer func() {
+		if err := asynqClient.Close(); err != nil {
+			log.Printf("Error closing Asynq client: %v", err)
+		}
+	}()
+
+	log.Printf("Asynq client connected to %s", redisQueueAddr)
 
 	// Create Fiber app with optimized settings
 	app := fiber.New(fiber.Config{
@@ -51,7 +66,7 @@ func main() {
 	})
 
 	// Setup routes
-	routes.Setup(app, db.Pool, redis.Client, cfg)
+	routes.Setup(app, db.Pool, redis.Client, asynqClient, cfg)
 
 	// Graceful shutdown
 	c := make(chan os.Signal, 1)
@@ -79,4 +94,12 @@ func main() {
 			log.Fatalf("Failed to start server: %v", err)
 		}
 	}
+}
+
+// getEnvOrDefault returns environment variable value or default if not set
+func getEnvOrDefault(key, defaultValue string) string {
+	if value := os.Getenv(key); value != "" {
+		return value
+	}
+	return defaultValue
 }

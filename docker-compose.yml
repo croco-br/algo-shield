@@ -54,7 +54,7 @@ services:
       - max_wal_size=4GB
 
   # =============================================================================
-  # Redis Cache & Queue
+  # Redis Cache
   # =============================================================================
   redis:
     image: redis:7-alpine
@@ -82,6 +82,57 @@ services:
       - no-new-privileges:true
 
   # =============================================================================
+  # Redis Queue (Asynq - dedicated for task queue)
+  # =============================================================================
+  redis-queue:
+    image: redis:7-alpine
+    container_name: algoshield-redis-queue
+    restart: unless-stopped
+    command: >
+      redis-server
+      --appendonly yes
+      --appendfsync everysec
+      --maxmemory 512mb
+      --maxmemory-policy noeviction
+    volumes:
+      - redis_queue_data:/data
+    ports:
+      - 6380:6379
+    networks:
+      - algoshield-network
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+      start_period: 5s
+    security_opt:
+      - no-new-privileges:true
+
+  # =============================================================================
+  # Asynqmon Web UI (Task Queue Monitoring)
+  # =============================================================================
+  asynqmon:
+    image: hibiken/asynqmon:latest
+    platform: linux/amd64
+    container_name: algoshield-asynqmon
+    restart: unless-stopped
+    ports:
+      - 8081:8080
+    environment:
+      REDIS_ADDR: redis-queue:6379
+      REDIS_DB: 0
+      ENABLE_METRICS_EXPORTER: "true"
+      PROMETHEUS_ADDR: ":9090"
+    networks:
+      - algoshield-network
+    depends_on:
+      redis-queue:
+        condition: service_healthy
+    security_opt:
+      - no-new-privileges:true
+
+  # =============================================================================
   # API Service
   # =============================================================================
   api:
@@ -100,6 +151,10 @@ services:
       # Redis
       REDIS_HOST: redis
       REDIS_PORT: 6379
+      # Redis Queue (Asynq)
+      REDIS_QUEUE_HOST: redis-queue
+      REDIS_QUEUE_PORT: 6379
+      REDIS_QUEUE_DB: 0
       # API
       API_HOST: 0.0.0.0
       API_PORT: 8080
@@ -152,16 +207,21 @@ services:
       # Redis
       REDIS_HOST: redis
       REDIS_PORT: 6379
-      # Worker
-      WORKER_CONCURRENCY: ${WORKER_CONCURRENCY:-10}
-      WORKER_BATCH_SIZE: ${WORKER_BATCH_SIZE:-50}
-      WORKER_TIMEOUT_TRANSACTION_PROCESSING: ${WORKER_TIMEOUT_TRANSACTION_PROCESSING:-300ms}
+      # Redis Queue (Asynq)
+      REDIS_QUEUE_HOST: redis-queue
+      REDIS_QUEUE_PORT: 6379
+      REDIS_QUEUE_DB: 0
+      # Asynq Configuration
+      ASYNQ_CONCURRENCY: ${ASYNQ_CONCURRENCY:-10}
+      ASYNQ_MAX_RETRY: ${ASYNQ_MAX_RETRY:-3}
+      ASYNQ_QUEUE_CRITICAL_WEIGHT: ${ASYNQ_QUEUE_CRITICAL_WEIGHT:-6}
+      ASYNQ_QUEUE_DEFAULT_WEIGHT: ${ASYNQ_QUEUE_DEFAULT_WEIGHT:-3}
+      ASYNQ_QUEUE_LOW_WEIGHT: ${ASYNQ_QUEUE_LOW_WEIGHT:-1}
+      ASYNQ_TIMEOUT_TRANSACTION: ${ASYNQ_TIMEOUT_TRANSACTION:-5m}
+      ASYNQ_RETENTION_COMPLETED: ${ASYNQ_RETENTION_COMPLETED:-24h}
+      ASYNQ_RETENTION_FAILED: ${ASYNQ_RETENTION_FAILED:-7d}
+      # Worker (legacy - keeping for backward compatibility during migration)
       WORKER_TIMEOUT_RULE_EVALUATION: ${WORKER_TIMEOUT_RULE_EVALUATION:-300ms}
-      WORKER_RETRY_MAX_ATTEMPTS: ${WORKER_RETRY_MAX_ATTEMPTS:-3}
-      WORKER_RETRY_INITIAL_DELAY: ${WORKER_RETRY_INITIAL_DELAY:-100ms}
-      WORKER_RETRY_MAX_DELAY: ${WORKER_RETRY_MAX_DELAY:-5s}
-      WORKER_RETRY_MULTIPLIER: ${WORKER_RETRY_MULTIPLIER:-2.0}
-      WORKER_QUEUE_POP_TIMEOUT: ${WORKER_QUEUE_POP_TIMEOUT:-1s}
       WORKER_RULES_RELOAD_INTERVAL: ${WORKER_RULES_RELOAD_INTERVAL:-10s}
       # General
       ENVIRONMENT: ${ENVIRONMENT}
@@ -174,6 +234,8 @@ services:
       postgres:
         condition: service_healthy
       redis:
+        condition: service_healthy
+      redis-queue:
         condition: service_healthy
     healthcheck:
       test: ["CMD-SHELL", "ps aux | grep -v grep | grep -q /worker || exit 1"]
@@ -256,4 +318,7 @@ volumes:
     driver: local
   redis_data:
     name: algoshield-redis-data
+    driver: local
+  redis_queue_data:
+    name: algoshield-redis-queue-data
     driver: local

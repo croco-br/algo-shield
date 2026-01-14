@@ -8,13 +8,13 @@ import (
 
 	"github.com/algo-shield/algo-shield/src/pkg/models"
 	"github.com/google/uuid"
-	"github.com/redis/go-redis/v9"
+	"github.com/hibiken/asynq"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/mock/gomock"
 )
 
-func Test_Service_ProcessTransaction_WhenSuccess_ThenPushesToQueue(t *testing.T) {
+func Test_Service_ProcessTransaction_WhenSuccess_ThenEnqueuesTask(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
@@ -27,14 +27,25 @@ func Test_Service_ProcessTransaction_WhenSuccess_ThenPushesToQueue(t *testing.T)
 		"type":        "transfer",
 	}
 	mockRepo := NewMockRepository(ctrl)
-	mockQueue := NewMockQueuePusher(ctrl)
-	cmd := redis.NewIntCmd(context.Background())
-	mockQueue.EXPECT().LPush(gomock.Any(), "transaction:queue", gomock.Any()).Return(cmd)
-	service := NewService(mockRepo, mockQueue)
+	mockEnqueuer := NewMockTaskEnqueuer(ctrl)
 
-	err := service.ProcessTransaction(context.Background(), event)
+	taskInfo := &asynq.TaskInfo{
+		ID:    "task-123",
+		Queue: "default",
+	}
+
+	mockEnqueuer.EXPECT().
+		EnqueueTransactionWithPriority(gomock.Any(), event, "default").
+		Return(taskInfo, nil)
+
+	service := NewService(mockRepo, mockEnqueuer)
+
+	result, err := service.ProcessTransaction(context.Background(), event)
 
 	assert.NoError(t, err)
+	assert.NotNil(t, result)
+	assert.Equal(t, "task-123", result.ID)
+	assert.Equal(t, "default", result.Queue)
 }
 
 func Test_Service_ProcessTransaction_WhenQueueFails_ThenReturnsError(t *testing.T) {
@@ -47,15 +58,18 @@ func Test_Service_ProcessTransaction_WhenQueueFails_ThenReturnsError(t *testing.
 		"currency":    "USD",
 	}
 	mockRepo := NewMockRepository(ctrl)
-	mockQueue := NewMockQueuePusher(ctrl)
-	cmd := redis.NewIntCmd(context.Background())
-	cmd.SetErr(errors.New("queue error"))
-	mockQueue.EXPECT().LPush(gomock.Any(), "transaction:queue", gomock.Any()).Return(cmd)
-	service := NewService(mockRepo, mockQueue)
+	mockEnqueuer := NewMockTaskEnqueuer(ctrl)
 
-	err := service.ProcessTransaction(context.Background(), event)
+	mockEnqueuer.EXPECT().
+		EnqueueTransactionWithPriority(gomock.Any(), event, "default").
+		Return(nil, errors.New("queue error"))
+
+	service := NewService(mockRepo, mockEnqueuer)
+
+	result, err := service.ProcessTransaction(context.Background(), event)
 
 	assert.Error(t, err)
+	assert.Nil(t, result)
 }
 
 func Test_Service_GetTransaction_WhenExists_ThenReturnsTransaction(t *testing.T) {
@@ -80,9 +94,9 @@ func Test_Service_GetTransaction_WhenExists_ThenReturnsTransaction(t *testing.T)
 		ProcessedAt: &now,
 	}
 	mockRepo := NewMockRepository(ctrl)
-	mockQueue := NewMockQueuePusher(ctrl)
+	mockEnqueuer := NewMockTaskEnqueuer(ctrl)
 	mockRepo.EXPECT().GetTransaction(gomock.Any(), txID).Return(expectedTx, nil)
-	service := NewService(mockRepo, mockQueue)
+	service := NewService(mockRepo, mockEnqueuer)
 
 	tx, err := service.GetTransaction(context.Background(), txID)
 
@@ -96,9 +110,9 @@ func Test_Service_GetTransaction_WhenNotFound_ThenReturnsError(t *testing.T) {
 
 	txID := uuid.New()
 	mockRepo := NewMockRepository(ctrl)
-	mockQueue := NewMockQueuePusher(ctrl)
+	mockEnqueuer := NewMockTaskEnqueuer(ctrl)
 	mockRepo.EXPECT().GetTransaction(gomock.Any(), txID).Return(nil, errors.New("not found"))
-	service := NewService(mockRepo, mockQueue)
+	service := NewService(mockRepo, mockEnqueuer)
 
 	tx, err := service.GetTransaction(context.Background(), txID)
 
@@ -131,9 +145,9 @@ func Test_Service_ListTransactions_WhenSuccess_ThenReturnsTransactions(t *testin
 		},
 	}
 	mockRepo := NewMockRepository(ctrl)
-	mockQueue := NewMockQueuePusher(ctrl)
+	mockEnqueuer := NewMockTaskEnqueuer(ctrl)
 	mockRepo.EXPECT().ListTransactions(gomock.Any(), 10, 0).Return(expectedTxs, nil)
-	service := NewService(mockRepo, mockQueue)
+	service := NewService(mockRepo, mockEnqueuer)
 
 	txs, err := service.ListTransactions(context.Background(), 10, 0)
 
@@ -146,9 +160,9 @@ func Test_Service_ListTransactions_WhenRepositoryFails_ThenReturnsError(t *testi
 	defer ctrl.Finish()
 
 	mockRepo := NewMockRepository(ctrl)
-	mockQueue := NewMockQueuePusher(ctrl)
+	mockEnqueuer := NewMockTaskEnqueuer(ctrl)
 	mockRepo.EXPECT().ListTransactions(gomock.Any(), 10, 0).Return(nil, errors.New("database error"))
-	service := NewService(mockRepo, mockQueue)
+	service := NewService(mockRepo, mockEnqueuer)
 
 	txs, err := service.ListTransactions(context.Background(), 10, 0)
 
@@ -161,9 +175,9 @@ func Test_Service_ListTransactions_WhenEmptyResult_ThenReturnsEmptySlice(t *test
 	defer ctrl.Finish()
 
 	mockRepo := NewMockRepository(ctrl)
-	mockQueue := NewMockQueuePusher(ctrl)
+	mockEnqueuer := NewMockTaskEnqueuer(ctrl)
 	mockRepo.EXPECT().ListTransactions(gomock.Any(), 10, 0).Return([]models.Transaction{}, nil)
-	service := NewService(mockRepo, mockQueue)
+	service := NewService(mockRepo, mockEnqueuer)
 
 	txs, err := service.ListTransactions(context.Background(), 10, 0)
 
@@ -176,9 +190,9 @@ func Test_Service_ListTransactions_WhenDifferentPagination_ThenPassesCorrectPara
 	defer ctrl.Finish()
 
 	mockRepo := NewMockRepository(ctrl)
-	mockQueue := NewMockQueuePusher(ctrl)
+	mockEnqueuer := NewMockTaskEnqueuer(ctrl)
 	mockRepo.EXPECT().ListTransactions(gomock.Any(), 50, 100).Return([]models.Transaction{}, nil)
-	service := NewService(mockRepo, mockQueue)
+	service := NewService(mockRepo, mockEnqueuer)
 
 	_, err := service.ListTransactions(context.Background(), 50, 100)
 

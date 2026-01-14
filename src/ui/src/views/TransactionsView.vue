@@ -69,8 +69,8 @@
                 clearable
               />
             </v-col>
-            <v-col cols="12" md="3">
-              <div class="d-flex gap-2" style="height: 100%; align-items: flex-end;">
+            <v-col cols="12" md="3" class="d-flex align-end">
+              <div class="d-flex gap-2">
                 <BaseButton size="sm" @click="applyFilters" prepend-icon="fa-filter">
                   {{ $t('views.transactions.applyFilters') }}
                 </BaseButton>
@@ -126,8 +126,7 @@
                   icon="fa-eye"
                   :title="$t('views.transactions.viewDetails')"
                   @click="openDetailModal(item)"
-                >
-                </BaseButton>
+                />
                 <BaseButton
                   v-if="item.status === 'pending'"
                   size="sm"
@@ -135,8 +134,7 @@
                   icon="fa-check"
                   :title="$t('views.transactions.approve')"
                   @click="approveTransaction(item.id)"
-                >
-                </BaseButton>
+                />
                 <BaseButton
                   v-if="item.status === 'pending'"
                   size="sm"
@@ -144,8 +142,7 @@
                   icon="fa-times"
                   :title="$t('views.transactions.reject')"
                   @click="rejectTransaction(item.id)"
-                >
-                </BaseButton>
+                />
               </div>
             </template>
           </v-data-table>
