@@ -4,6 +4,7 @@ import (
 	"context"
 
 	"github.com/algo-shield/algo-shield/src/pkg/csrf"
+	"github.com/algo-shield/algo-shield/src/pkg/models"
 	"github.com/gofiber/fiber/v2"
 	"github.com/redis/go-redis/v9"
 )
@@ -32,13 +33,16 @@ func CSRFProtection(config CSRFConfig) fiber.Handler {
 			}
 		}
 
-		// Get user ID from context (set by auth middleware)
-		userID, ok := c.Locals("user_id").(string)
-		if !ok || userID == "" {
-			// If no user ID, it means request is not authenticated
+		// Get user from context (set by auth middleware)
+		user, ok := c.Locals("user").(*models.User)
+		if !ok || user == nil {
+			// If no user, it means request is not authenticated
 			// Auth middleware should have already rejected it
 			return c.Next()
 		}
+
+		// Convert user ID (uuid.UUID) to string for CSRF validation
+		userID := user.ID.String()
 
 		// Get CSRF token from header
 		csrfToken := c.Get(csrf.HeaderName)
