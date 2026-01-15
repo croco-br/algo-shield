@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/algo-shield/algo-shield/src/api/internal/shared"
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
@@ -39,12 +40,13 @@ func NewPostgresRepository(db *pgxpool.Pool) Repository {
 
 func (r *PostgresRepository) GetStatusDistribution(ctx context.Context) ([]StatusCount, error) {
 	tableName := shared.GetTransactionsTable(ctx)
+	// Use pgx.Identifier to safely quote table name and prevent SQL injection
 	query := fmt.Sprintf(`
 		SELECT status, COUNT(*) as count
 		FROM %s
 		GROUP BY status
 		ORDER BY count DESC
-	`, tableName)
+	`, pgx.Identifier{tableName}.Sanitize())
 
 	rows, err := r.db.Query(ctx, query)
 	if err != nil {
@@ -82,13 +84,14 @@ func (r *PostgresRepository) GetTemporalCounts(ctx context.Context, period strin
 		bucketSize = "1 hour"
 	}
 
+	// Use pgx.Identifier to safely quote table name and prevent SQL injection
 	query := fmt.Sprintf(`
 		SELECT date_trunc($1, created_at) as bucket, COUNT(*) as count
 		FROM %s
 		WHERE created_at >= NOW() - $2::interval
 		GROUP BY bucket
 		ORDER BY bucket ASC
-	`, tableName)
+	`, pgx.Identifier{tableName}.Sanitize())
 
 	// Map bucket size to PostgreSQL date_trunc argument
 	truncArg := "hour"
@@ -117,6 +120,8 @@ func (r *PostgresRepository) GetTemporalCounts(ctx context.Context, period strin
 func (r *PostgresRepository) GetTotalCount(ctx context.Context) (int64, error) {
 	tableName := shared.GetTransactionsTable(ctx)
 	var count int64
-	err := r.db.QueryRow(ctx, fmt.Sprintf("SELECT COUNT(*) FROM %s", tableName)).Scan(&count)
+	// Use pgx.Identifier to safely quote table name and prevent SQL injection
+	query := fmt.Sprintf("SELECT COUNT(*) FROM %s", pgx.Identifier{tableName}.Sanitize())
+	err := r.db.QueryRow(ctx, query).Scan(&count)
 	return count, err
 }

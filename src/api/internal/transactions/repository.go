@@ -45,14 +45,15 @@ func (r *PostgresRepository) GetTransaction(ctx context.Context, id uuid.UUID) (
 	var schemaName *string
 	tableName := shared.GetTransactionsTable(ctx)
 
+	// Use pgx.Identifier to safely quote table name and prevent SQL injection
 	query := fmt.Sprintf(`
 		SELECT t.id, t.schema_id, es.name as schema_name,
-		       t.status, t.processing_time, 
+		       t.status, t.processing_time,
 		       t.matched_rules, t.metadata, t.created_at, t.processed_at
 		FROM %s t
 		LEFT JOIN event_schemas es ON t.schema_id = es.id
 		WHERE t.id = $1
-	`, tableName)
+	`, pgx.Identifier{tableName}.Sanitize())
 
 	err := r.db.QueryRow(ctx, query, id).Scan(
 		&transaction.ID,
@@ -76,15 +77,16 @@ func (r *PostgresRepository) GetTransaction(ctx context.Context, id uuid.UUID) (
 
 func (r *PostgresRepository) ListTransactions(ctx context.Context, limit, offset int) ([]models.Transaction, error) {
 	tableName := shared.GetTransactionsTable(ctx)
+	// Use pgx.Identifier to safely quote table name and prevent SQL injection
 	query := fmt.Sprintf(`
 		SELECT t.id, t.schema_id, es.name as schema_name,
-		       t.status, t.processing_time, 
+		       t.status, t.processing_time,
 		       t.matched_rules, t.metadata, t.created_at, t.processed_at
 		FROM %s t
 		LEFT JOIN event_schemas es ON t.schema_id = es.id
 		ORDER BY t.created_at DESC
 		LIMIT $1 OFFSET $2
-	`, tableName)
+	`, pgx.Identifier{tableName}.Sanitize())
 
 	rows, err := r.db.Query(ctx, query, limit, offset)
 	if err != nil {
@@ -149,25 +151,25 @@ func (r *PostgresRepository) ListTransactionsWithFilter(ctx context.Context, fil
 		whereClause = "WHERE " + strings.Join(conditions, " AND ")
 	}
 
-	// Count query
-	countQuery := fmt.Sprintf("SELECT COUNT(*) FROM %s %s", tableName, whereClause)
+	// Count query - use pgx.Identifier to safely quote table name and prevent SQL injection
+	countQuery := fmt.Sprintf("SELECT COUNT(*) FROM %s %s", pgx.Identifier{tableName}.Sanitize(), whereClause)
 	var total int
 	err := r.db.QueryRow(ctx, countQuery, args...).Scan(&total)
 	if err != nil {
 		return nil, 0, err
 	}
 
-	// Data query with LEFT JOIN to get schema name
+	// Data query with LEFT JOIN to get schema name - use pgx.Identifier to safely quote table name
 	query := fmt.Sprintf(`
 		SELECT t.id, t.schema_id, es.name as schema_name,
-		       t.status, t.processing_time, 
+		       t.status, t.processing_time,
 		       t.matched_rules, t.metadata, t.created_at, t.processed_at
 		FROM %s t
 		LEFT JOIN event_schemas es ON t.schema_id = es.id
 		%s
 		ORDER BY t.created_at DESC
 		LIMIT $%d OFFSET $%d
-	`, tableName, whereClause, argNum, argNum+1)
+	`, pgx.Identifier{tableName}.Sanitize(), whereClause, argNum, argNum+1)
 
 	args = append(args, limit, offset)
 
@@ -205,11 +207,12 @@ func (r *PostgresRepository) ListTransactionsWithFilter(ctx context.Context, fil
 func (r *PostgresRepository) ApproveTransaction(ctx context.Context, id uuid.UUID) (*models.Transaction, error) {
 	tableName := shared.GetTransactionsTable(ctx)
 	now := time.Now()
+	// Use pgx.Identifier to safely quote table name and prevent SQL injection
 	updateQuery := fmt.Sprintf(`
-		UPDATE %s 
+		UPDATE %s
 		SET status = $1, processed_at = $2
 		WHERE id = $3 AND (status = $4 OR status = $5)
-	`, tableName)
+	`, pgx.Identifier{tableName}.Sanitize())
 
 	result, err := r.db.Exec(ctx, updateQuery, models.StatusApproved, now, id, models.StatusPending, models.StatusInReview)
 	if err != nil {
@@ -252,11 +255,12 @@ func (r *PostgresRepository) ApproveTransaction(ctx context.Context, id uuid.UUI
 func (r *PostgresRepository) RejectTransaction(ctx context.Context, id uuid.UUID) (*models.Transaction, error) {
 	tableName := shared.GetTransactionsTable(ctx)
 	now := time.Now()
+	// Use pgx.Identifier to safely quote table name and prevent SQL injection
 	updateQuery := fmt.Sprintf(`
-		UPDATE %s 
+		UPDATE %s
 		SET status = $1, processed_at = $2
 		WHERE id = $3 AND (status = $4 OR status = $5)
-	`, tableName)
+	`, pgx.Identifier{tableName}.Sanitize())
 
 	result, err := r.db.Exec(ctx, updateQuery, models.StatusRejected, now, id, models.StatusPending, models.StatusInReview)
 	if err != nil {
@@ -299,6 +303,8 @@ func (r *PostgresRepository) RejectTransaction(ctx context.Context, id uuid.UUID
 func (r *PostgresRepository) CountTransactions(ctx context.Context) (int, error) {
 	tableName := shared.GetTransactionsTable(ctx)
 	var count int
-	err := r.db.QueryRow(ctx, fmt.Sprintf("SELECT COUNT(*) FROM %s", tableName)).Scan(&count)
+	// Use pgx.Identifier to safely quote table name and prevent SQL injection
+	query := fmt.Sprintf("SELECT COUNT(*) FROM %s", pgx.Identifier{tableName}.Sanitize())
+	err := r.db.QueryRow(ctx, query).Scan(&count)
 	return count, err
 }
