@@ -5,6 +5,7 @@ import (
 	"log"
 	"os"
 	"os/signal"
+	"strconv"
 	"syscall"
 
 	"github.com/algo-shield/algo-shield/src/api/internal/routes"
@@ -41,7 +42,8 @@ func main() {
 
 	// Initialize Asynq client (for job enqueueing)
 	redisQueueAddr := getEnvOrDefault("REDIS_QUEUE_HOST", "localhost") + ":" + getEnvOrDefault("REDIS_QUEUE_PORT", "6379")
-	asynqClient, err := queue.NewAsynqClient(redisQueueAddr, cfg.Worker.AsynqConfig())
+	redisQueueDB := getEnvAsInt("REDIS_QUEUE_DB", 1)
+	asynqClient, err := queue.NewAsynqClient(redisQueueAddr, redisQueueDB, cfg.Worker.AsynqConfig())
 	if err != nil {
 		log.Fatalf("Failed to create Asynq client: %v", err)
 	}
@@ -51,7 +53,7 @@ func main() {
 		}
 	}()
 
-	log.Printf("Asynq client connected to %s", redisQueueAddr)
+	log.Printf("Asynq client connected to %s (DB %d)", redisQueueAddr, redisQueueDB)
 
 	// Create Fiber app with optimized settings
 	app := fiber.New(fiber.Config{
@@ -101,6 +103,16 @@ func main() {
 func getEnvOrDefault(key, defaultValue string) string {
 	if value := os.Getenv(key); value != "" {
 		return value
+	}
+	return defaultValue
+}
+
+// getEnvAsInt returns environment variable value as int or default if not set or invalid
+func getEnvAsInt(key string, defaultValue int) int {
+	if value := os.Getenv(key); value != "" {
+		if intValue, err := strconv.Atoi(value); err == nil {
+			return intValue
+		}
 	}
 	return defaultValue
 }

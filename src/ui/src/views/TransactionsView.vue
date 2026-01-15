@@ -477,7 +477,7 @@ const activeFiltersCount = computed(() => {
 
 // Dynamic table headers based on selected schema
 const dynamicTableHeaders = computed(() => {
-  const headers: Array<{ title: string; key: string; sortable: boolean; value?: (item: Transaction) => any }> = []
+  const headers: Array<{ title: string; key: string; sortable?: boolean; align?: 'start' | 'center' | 'end' }> = []
 
   // If schema selected, show schema fields first
   if (selectedSchema.value && schemaFields.value.length > 0) {
@@ -488,22 +488,19 @@ const dynamicTableHeaders = computed(() => {
         title: fieldName,
         key: `schema_field_${safeKey}`,
         sortable: false,
-        value: (item: Transaction) => {
-          const val = getSchemaFieldValue(item, field.path)
-          return val !== undefined ? formatSchemaFieldValue(val, field.type) : '-'
-        }
+        align: 'start' as const
       })
     })
   }
 
   // Add transaction columns after schema fields
   headers.push(
-    { title: t('views.transactions.tableStatus').toUpperCase(), key: 'status', sortable: true },
-    { title: t('views.transactions.tableCreated').toUpperCase(), key: 'created_at', sortable: true }
+    { title: t('views.transactions.tableStatus').toUpperCase(), key: 'status', sortable: true, align: 'start' as const },
+    { title: t('views.transactions.tableCreated').toUpperCase(), key: 'created_at', sortable: true, align: 'start' as const }
   )
 
   // Actions column always last
-  headers.push({ title: t('views.transactions.tableActions').toUpperCase(), key: 'actions', sortable: false })
+  headers.push({ title: t('views.transactions.tableActions').toUpperCase(), key: 'actions', sortable: false, align: 'center' as const })
   return headers
 })
 
@@ -696,8 +693,25 @@ async function loadTransactions() {
     console.log('[Load Transactions] Raw Response:', response)
     console.log('[Load Transactions] Response.total type:', typeof response.total, 'value:', response.total)
 
-    transactions.value = response.transactions || []
+    const rawTransactions = response.transactions || []
     total.value = response.total ?? 0
+
+    // Process transactions to add schema field values
+    transactions.value = rawTransactions.map(transaction => {
+      const processed: Record<string, any> = { ...transaction }
+
+      // Add schema field values to the transaction object
+      if (schemaFields.value.length > 0) {
+        schemaFields.value.forEach((field: ExtractedField) => {
+          const safeKey = field.path.replace(/\./g, '_')
+          const fieldKey = `schema_field_${safeKey}`
+          const val = getSchemaFieldValue(transaction, field.path)
+          processed[fieldKey] = val !== undefined ? formatSchemaFieldValue(val, field.type) : '-'
+        })
+      }
+
+      return processed as Transaction
+    })
 
     console.log('[Load Transactions] After assignment - total.value:', total.value)
     console.log('[Load Transactions] transactions.value.length:', transactions.value.length)

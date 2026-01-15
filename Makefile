@@ -1,4 +1,4 @@
-.PHONY: help install up down logs test test-api test-ui test-coverage test-coverage-unit test-coverage-integration test-coverage-html bench clean clean-volumes reset-db fix ui api api-bg api-stop worker infra-up infra-down lint build build-fast
+.PHONY: help install up up-dev down logs test test-api test-ui test-coverage test-coverage-unit test-coverage-integration test-coverage-html bench clean clean-volumes reset-db fix ui api api-bg api-stop worker dev-api dev-worker air infra-up infra-down test-watch coverage-ci check-deps lint build build-fast
 
 # Enable BuildKit for faster builds with better caching
 export DOCKER_BUILDKIT=1
@@ -32,6 +32,50 @@ up: ## Start all services in Docker (API + Worker + UI + infra)
 	@echo "${GREEN}✓ Services started!${RESET}"
 	@echo "${BLUE}API:${RESET} http://localhost:8080"
 	@echo "${BLUE}UI:${RESET}  http://localhost:3000"
+	@echo "${BLUE}Asynqmon:${RESET} http://localhost:8081"
+	@make logs
+
+up-dev: ## Start all services in development mode (faster health checks)
+	@echo "${YELLOW}Starting all services in development mode...${RESET}"
+	@HEALTHCHECK_INTERVAL_POSTGRES=5s \
+	HEALTHCHECK_TIMEOUT_POSTGRES=2s \
+	HEALTHCHECK_START_PERIOD_POSTGRES=5s \
+	HEALTHCHECK_INTERVAL_REDIS=5s \
+	HEALTHCHECK_TIMEOUT_REDIS=2s \
+	HEALTHCHECK_START_PERIOD_REDIS=3s \
+	HEALTHCHECK_INTERVAL_API=10s \
+	HEALTHCHECK_TIMEOUT_API=3s \
+	HEALTHCHECK_START_PERIOD_API=8s \
+	HEALTHCHECK_INTERVAL_WORKER=10s \
+	HEALTHCHECK_TIMEOUT_WORKER=3s \
+	HEALTHCHECK_START_PERIOD_WORKER=5s \
+	HEALTHCHECK_INTERVAL_UI=10s \
+	HEALTHCHECK_TIMEOUT_UI=3s \
+	HEALTHCHECK_START_PERIOD_UI=8s \
+	HEALTHCHECK_RETRIES=3 \
+	DOCKER_BUILDKIT=1 docker-compose build --parallel
+	@HEALTHCHECK_INTERVAL_POSTGRES=5s \
+	HEALTHCHECK_TIMEOUT_POSTGRES=2s \
+	HEALTHCHECK_START_PERIOD_POSTGRES=5s \
+	HEALTHCHECK_INTERVAL_REDIS=5s \
+	HEALTHCHECK_TIMEOUT_REDIS=2s \
+	HEALTHCHECK_START_PERIOD_REDIS=3s \
+	HEALTHCHECK_INTERVAL_API=10s \
+	HEALTHCHECK_TIMEOUT_API=3s \
+	HEALTHCHECK_START_PERIOD_API=8s \
+	HEALTHCHECK_INTERVAL_WORKER=10s \
+	HEALTHCHECK_TIMEOUT_WORKER=3s \
+	HEALTHCHECK_START_PERIOD_WORKER=5s \
+	HEALTHCHECK_INTERVAL_UI=10s \
+	HEALTHCHECK_TIMEOUT_UI=3s \
+	HEALTHCHECK_START_PERIOD_UI=8s \
+	HEALTHCHECK_RETRIES=3 \
+	docker-compose up -d
+	@echo "${GREEN}✓ Services started in dev mode!${RESET}"
+	@echo "${BLUE}API:${RESET} http://localhost:8080"
+	@echo "${BLUE}UI:${RESET}  http://localhost:3000"
+	@echo "${BLUE}Asynqmon:${RESET} http://localhost:8081"
+	@echo "${YELLOW}ℹ Dev mode: 3x faster health checks (5-10s intervals)${RESET}"
 	@make logs
 
 build: ## Build all Docker images in parallel (optimized)
@@ -39,10 +83,27 @@ build: ## Build all Docker images in parallel (optimized)
 	@DOCKER_BUILDKIT=1 docker-compose build --parallel
 	@echo "${GREEN}✓ Build completed!${RESET}"
 
-build-fast: ## Build only changed services (fast incremental build)
+build-fast: ## Build only changed services (smart incremental build)
 	@echo "${YELLOW}Building changed services only...${RESET}"
-	@DOCKER_BUILDKIT=1 docker-compose build
-	@echo "${GREEN}✓ Fast build completed!${RESET}"
+	@CHANGED_FILES=$$(git diff --name-only HEAD~1 2>/dev/null || echo "all"); \
+	if echo "$$CHANGED_FILES" | grep -q "all\|go.mod\|go.sum"; then \
+		echo "${YELLOW}→ Detected significant changes, building all services...${RESET}"; \
+		DOCKER_BUILDKIT=1 docker-compose build --parallel; \
+	else \
+		if echo "$$CHANGED_FILES" | grep -q "src/api/\|Dockerfile.api"; then \
+			echo "${YELLOW}→ Building API service...${RESET}"; \
+			DOCKER_BUILDKIT=1 docker-compose build api; \
+		fi; \
+		if echo "$$CHANGED_FILES" | grep -q "src/workers/\|Dockerfile.worker"; then \
+			echo "${YELLOW}→ Building Worker service...${RESET}"; \
+			DOCKER_BUILDKIT=1 docker-compose build worker; \
+		fi; \
+		if echo "$$CHANGED_FILES" | grep -q "src/ui/\|Dockerfile.ui"; then \
+			echo "${YELLOW}→ Building UI service...${RESET}"; \
+			DOCKER_BUILDKIT=1 docker-compose build ui; \
+		fi; \
+	fi
+	@echo "${GREEN}✓ Incremental build completed!${RESET}"
 
 down: ## Stop all services
 	@echo "${YELLOW}Stopping all services...${RESET}"
@@ -89,7 +150,7 @@ test-coverage-integration: gotestsum ## Run integration tests with coverage
 	@echo "${YELLOW}Running integration tests with coverage...${RESET}"
 	@echo "${YELLOW}Note: This requires Docker containers (postgres, redis)${RESET}"
 	@rm -f coverage-integration.out
-	@gotestsum --format testdox -- -tags=integration -race -parallel 2 -coverprofile=coverage-integration.out -covermode=atomic ./src/api/... ./src/workers/...
+	@gotestsum --format testdox -- -tags=integration -race -parallel 4 -coverprofile=coverage-integration.out -covermode=atomic ./src/api/... ./src/workers/...
 	@echo "${YELLOW}Integration tests coverage:${RESET}"
 	@go tool cover -func=coverage-integration.out | tail -1
 	@echo "${GREEN}✓ Integration tests coverage report generated: coverage-integration.out${RESET}"
@@ -148,3 +209,59 @@ worker: ## Start Worker service with infrastructure (postgres + redis)
 	@docker-compose up -d worker
 	@echo "${GREEN}✓ Worker service with infrastructure started!${RESET}"
 	@make logs
+
+dev-api: air infra-up ## Start API with hot reload (requires air)
+	@echo "${YELLOW}Starting API with hot reload...${RESET}"
+	@echo "${YELLOW}Waiting for infrastructure to be ready...${RESET}"
+	@sleep 3
+	@air -c .air.api.toml
+	@echo "${GREEN}✓ API with hot reload started!${RESET}"
+
+dev-worker: air infra-up ## Start Worker with hot reload (requires air)
+	@echo "${YELLOW}Starting Worker with hot reload...${RESET}"
+	@echo "${YELLOW}Waiting for infrastructure to be ready...${RESET}"
+	@sleep 3
+	@air -c .air.worker.toml
+	@echo "${GREEN}✓ Worker with hot reload started!${RESET}"
+
+air: ## Install air if not present
+	@which air >/dev/null 2>&1 || (echo "${YELLOW}air not found. Installing...${RESET}" && go install github.com/cosmtrek/air@latest)
+
+infra-up: ## Start only infrastructure (postgres + redis)
+	@echo "${YELLOW}Starting infrastructure services...${RESET}"
+	@docker-compose up -d postgres redis
+	@echo "${GREEN}✓ Infrastructure started!${RESET}"
+
+infra-down: ## Stop only infrastructure
+	@echo "${YELLOW}Stopping infrastructure services...${RESET}"
+	@docker-compose stop postgres redis
+	@echo "${GREEN}✓ Infrastructure stopped!${RESET}"
+
+test-watch: gotestsum ## Watch mode for tests (re-runs on file changes)
+	@echo "${YELLOW}Starting test watch mode...${RESET}"
+	@gotestsum --watch --format testdox -- -short ./...
+
+coverage-ci: gotestsum ## Run coverage check matching CI requirements (80% minimum)
+	@echo "${YELLOW}Running coverage check (CI mode)...${RESET}"
+	@rm -f coverage-ci.out
+	@gotestsum --format testdox -- -race -parallel 4 -coverprofile=coverage-ci.out -covermode=atomic ./src/...
+	@echo "${YELLOW}Coverage report:${RESET}"
+	@go tool cover -func=coverage-ci.out | tail -1
+	@COVERAGE=$$(go tool cover -func=coverage-ci.out | grep total | awk '{print $$3}' | sed 's/%//'); \
+	MIN_COVERAGE=80.0; \
+	echo "Coverage: $${COVERAGE}%"; \
+	echo "Minimum required: $${MIN_COVERAGE}%"; \
+	if [ $$(echo "$${COVERAGE} < $${MIN_COVERAGE}" | bc -l) -eq 1 ]; then \
+		echo "${RED}✗ Coverage $${COVERAGE}% is below minimum threshold of $${MIN_COVERAGE}%${RESET}"; \
+		exit 1; \
+	fi; \
+	echo "${GREEN}✓ Coverage meets minimum threshold${RESET}"
+
+check-deps: ## Run dependency security scans
+	@echo "${YELLOW}Running security scans...${RESET}"
+	@echo "${YELLOW}→ govulncheck (Go vulnerabilities)...${RESET}"
+	@which govulncheck >/dev/null 2>&1 || (echo "${YELLOW}govulncheck not found. Installing...${RESET}" && go install golang.org/x/vuln/cmd/govulncheck@latest)
+	@govulncheck ./...
+	@echo "${YELLOW}→ npm audit (UI dependencies)...${RESET}"
+	@cd src/ui && npm audit
+	@echo "${GREEN}✓ Security scans completed!${RESET}"

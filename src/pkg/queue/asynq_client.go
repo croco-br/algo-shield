@@ -49,14 +49,14 @@ type AsynqClient struct {
 // NewAsynqClient creates a new Asynq client with the provided Redis address
 // Uses dependency injection pattern for better testability
 // asynqConfig is optional - if nil, uses default values
-func NewAsynqClient(redisAddr string, asynqConfig interface{}) (*AsynqClient, error) {
+func NewAsynqClient(redisAddr string, redisDB int, asynqConfig interface{}) (*AsynqClient, error) {
 	if redisAddr == "" {
 		return nil, fmt.Errorf("redis address cannot be empty")
 	}
 
 	client := asynq.NewClient(asynq.RedisClientOpt{
 		Addr: redisAddr,
-		DB:   0,
+		DB:   redisDB,
 	})
 
 	// Extract config values if provided

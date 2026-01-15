@@ -20,10 +20,10 @@ services:
       - algoshield-network
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-      start_period: 10s
+      interval: ${HEALTHCHECK_INTERVAL_POSTGRES:-10s}
+      timeout: ${HEALTHCHECK_TIMEOUT_POSTGRES:-5s}
+      retries: ${HEALTHCHECK_RETRIES:-5}
+      start_period: ${HEALTHCHECK_START_PERIOD_POSTGRES:-10s}
     security_opt:
       - no-new-privileges:true
     command:
@@ -54,7 +54,7 @@ services:
       - max_wal_size=4GB
 
   # =============================================================================
-  # Redis Cache
+  # Redis (Unified - DB0 for cache, DB1 for Asynq queue)
   # =============================================================================
   redis:
     image: redis:7-alpine
@@ -64,8 +64,9 @@ services:
       redis-server
       --appendonly yes
       --appendfsync everysec
-      --maxmemory 256mb
+      --maxmemory 768mb
       --maxmemory-policy allkeys-lru
+      --databases 16
     volumes:
       - redis_data:/data
     ports:
@@ -74,38 +75,10 @@ services:
       - algoshield-network
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
-      interval: 10s
-      timeout: 3s
-      retries: 5
-      start_period: 5s
-    security_opt:
-      - no-new-privileges:true
-
-  # =============================================================================
-  # Redis Queue (Asynq - dedicated for task queue)
-  # =============================================================================
-  redis-queue:
-    image: redis:7-alpine
-    container_name: algoshield-redis-queue
-    restart: unless-stopped
-    command: >
-      redis-server
-      --appendonly yes
-      --appendfsync everysec
-      --maxmemory 512mb
-      --maxmemory-policy noeviction
-    volumes:
-      - redis_queue_data:/data
-    ports:
-      - 6380:6379
-    networks:
-      - algoshield-network
-    healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
-      interval: 10s
-      timeout: 3s
-      retries: 5
-      start_period: 5s
+      interval: ${HEALTHCHECK_INTERVAL_REDIS:-10s}
+      timeout: ${HEALTHCHECK_TIMEOUT_REDIS:-3s}
+      retries: ${HEALTHCHECK_RETRIES:-5}
+      start_period: ${HEALTHCHECK_START_PERIOD_REDIS:-5s}
     security_opt:
       - no-new-privileges:true
 
@@ -120,14 +93,14 @@ services:
     ports:
       - 8081:8080
     environment:
-      REDIS_ADDR: redis-queue:6379
-      REDIS_DB: 0
+      REDIS_ADDR: redis:6379
+      REDIS_DB: 1
       ENABLE_METRICS_EXPORTER: "true"
       PROMETHEUS_ADDR: ":9090"
     networks:
       - algoshield-network
     depends_on:
-      redis-queue:
+      redis:
         condition: service_healthy
     security_opt:
       - no-new-privileges:true
@@ -148,13 +121,14 @@ services:
       POSTGRES_USER: ${POSTGRES_USER}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
       POSTGRES_DB: ${POSTGRES_DB}
-      # Redis
+      # Redis (DB0 for cache)
       REDIS_HOST: redis
       REDIS_PORT: 6379
-      # Redis Queue (Asynq)
-      REDIS_QUEUE_HOST: redis-queue
+      REDIS_DB: 0
+      # Redis Queue (Asynq - DB1 for queue)
+      REDIS_QUEUE_HOST: redis
       REDIS_QUEUE_PORT: 6379
-      REDIS_QUEUE_DB: 0
+      REDIS_QUEUE_DB: 1
       # API
       API_HOST: 0.0.0.0
       API_PORT: 8080
@@ -178,10 +152,10 @@ services:
         condition: service_healthy
     healthcheck:
       test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8080/health"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 15s
+      interval: ${HEALTHCHECK_INTERVAL_API:-30s}
+      timeout: ${HEALTHCHECK_TIMEOUT_API:-10s}
+      retries: ${HEALTHCHECK_RETRIES:-3}
+      start_period: ${HEALTHCHECK_START_PERIOD_API:-15s}
     security_opt:
       - no-new-privileges:true
     read_only: true
@@ -204,13 +178,14 @@ services:
       POSTGRES_USER: ${POSTGRES_USER}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
       POSTGRES_DB: ${POSTGRES_DB}
-      # Redis
+      # Redis (DB0 for cache)
       REDIS_HOST: redis
       REDIS_PORT: 6379
-      # Redis Queue (Asynq)
-      REDIS_QUEUE_HOST: redis-queue
+      REDIS_DB: 0
+      # Redis Queue (Asynq - DB1 for queue)
+      REDIS_QUEUE_HOST: redis
       REDIS_QUEUE_PORT: 6379
-      REDIS_QUEUE_DB: 0
+      REDIS_QUEUE_DB: 1
       # Asynq Configuration
       ASYNQ_CONCURRENCY: ${ASYNQ_CONCURRENCY:-10}
       ASYNQ_MAX_RETRY: ${ASYNQ_MAX_RETRY:-3}
@@ -235,14 +210,12 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
-      redis-queue:
-        condition: service_healthy
     healthcheck:
       test: ["CMD-SHELL", "ps aux | grep -v grep | grep -q /worker || exit 1"]
-      interval: 30s
-      timeout: 5s
-      retries: 3
-      start_period: 10s
+      interval: ${HEALTHCHECK_INTERVAL_WORKER:-30s}
+      timeout: ${HEALTHCHECK_TIMEOUT_WORKER:-5s}
+      retries: ${HEALTHCHECK_RETRIES:-3}
+      start_period: ${HEALTHCHECK_START_PERIOD_WORKER:-10s}
     security_opt:
       - no-new-privileges:true
     read_only: true
@@ -291,10 +264,10 @@ services:
         condition: service_healthy
     healthcheck:
       test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:3000/health"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 20s
+      interval: ${HEALTHCHECK_INTERVAL_UI:-30s}
+      timeout: ${HEALTHCHECK_TIMEOUT_UI:-10s}
+      retries: ${HEALTHCHECK_RETRIES:-3}
+      start_period: ${HEALTHCHECK_START_PERIOD_UI:-20s}
     security_opt:
       - no-new-privileges:true
     read_only: true
@@ -318,7 +291,4 @@ volumes:
     driver: local
   redis_data:
     name: algoshield-redis-data
-    driver: local
-  redis_queue_data:
-    name: algoshield-redis-queue-data
     driver: local

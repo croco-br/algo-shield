@@ -26,7 +26,9 @@ export default defineConfig({
       '@fortawesome/fontawesome-svg-core',
       '@fortawesome/vue-fontawesome',
       'vue-i18n'
-    ]
+    ],
+    // Enable preloading for critical dependencies
+    entries: ['./src/main.ts']
   },
   build: {
     // Enable minification and source maps only in production
@@ -68,8 +70,9 @@ export default defineConfig({
         }
       }
     },
-    // Ensure font files are copied as-is without processing
-    assetsInlineLimit: 0,
+    // Inline small assets (SVG icons, fonts) to reduce HTTP requests
+    // Assets smaller than 8KB will be inlined as base64
+    assetsInlineLimit: 8192,
     // Increase chunk size warning limit since we're splitting properly
     chunkSizeWarningLimit: 1000
   },
@@ -83,12 +86,16 @@ export default defineConfig({
       'Access-Control-Allow-Origin': '*'
     }
   },
-  // Ensure CSS imports are handled correctly
+  // CSS optimization for development and production
   css: {
+    devSourcemap: true,
     preprocessorOptions: {
       scss: {
         additionalData: ''
       }
-    }
+    },
+    // PostCSS config in postcss.config.js includes:
+    // - @tailwindcss/postcss (Tailwind v4 with automatic purging)
+    // - autoprefixer (browser compatibility)
   }
 })

@@ -1,7 +1,8 @@
 #!/bin/bash
 
-# AlgoShield Pre-Commit Hook
-# Runs tests before allowing commit
+# AlgoShield Pre-Commit Hook (Fast version)
+# Runs only formatting and linting (30s)
+# Tests moved to pre-push hook for better developer experience
 
 set -e
 
@@ -47,16 +48,6 @@ else
     exit 1
 fi
 
-# Run Go tests
-echo -e "${YELLOW}→ Running Go unit tests...${NC}"
-if GOEXPERIMENT=greenteagc,rangefunc go test -v -short ./...; then
-    echo -e "${GREEN}✓ Go tests passed${NC}"
-else
-    echo -e "${RED}✗ Go tests failed${NC}"
-    echo -e "${YELLOW}Commit aborted. Fix the tests and try again.${NC}"
-    exit 1
-fi
-
 # Check for go.mod/go.sum consistency
 echo -e "${YELLOW}→ Checking Go modules...${NC}"
 go mod tidy -v
@@ -67,5 +58,6 @@ if [ -n "$(git diff go.mod go.sum)" ]; then
 fi
 
 echo -e "${GREEN}✓ All pre-commit checks passed!${NC}"
+echo -e "${YELLOW}ℹ Tests will run on pre-push (see .githooks/pre-push)${NC}"
 exit 0
 
