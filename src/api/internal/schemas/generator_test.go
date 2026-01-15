@@ -97,3 +97,48 @@ func Test_EventGenerator_GenerateValueFromField_WhenDateTimeType_ThenReturnsDate
 	_, err := time.Parse(time.RFC3339, valueStr)
 	assert.NoError(t, err, "value should be a valid RFC3339 datetime")
 }
+
+func Test_EventGenerator_GenerateRandomString_ThenGeneratesDifferentValues(t *testing.T) {
+	generator := NewEventGenerator()
+
+	// Generate multiple random strings to verify they're different
+	values := make(map[string]bool)
+	for i := 0; i < 50; i++ {
+		str := generator.generateRandomString()
+		values[str] = true
+	}
+
+	// With crypto/rand, all 50 strings should be unique
+	assert.Equal(t, 50, len(values), "all generated strings should be unique")
+}
+
+func Test_EventGenerator_GenerateRandomNumber_ThenGeneratesDifferentValues(t *testing.T) {
+	generator := NewEventGenerator()
+
+	// Generate multiple random numbers to verify they're different
+	values := make(map[float64]bool)
+	for i := 0; i < 50; i++ {
+		num := generator.generateRandomNumber()
+		values[num] = true
+	}
+
+	// With crypto/rand, we expect high diversity (at least 45 unique out of 50)
+	assert.GreaterOrEqual(t, len(values), 45, "should generate diverse random numbers")
+}
+
+func Test_cryptoRandomInt_ThenGeneratesDiverseValues(t *testing.T) {
+	// Test that cryptoRandomInt produces diverse values across multiple calls
+	values := make(map[int]bool)
+	max := 100
+
+	for i := 0; i < 100; i++ {
+		val := cryptoRandomInt(max)
+		assert.GreaterOrEqual(t, val, 0, "value should be >= 0")
+		assert.Less(t, val, max, "value should be < max")
+		values[val] = true
+	}
+
+	// With crypto/rand and 100 values in range [0,100), expect at least 50 unique
+	// (This is a reasonable expectation given birthday paradox statistics)
+	assert.GreaterOrEqual(t, len(values), 50, "should generate diverse random integers")
+}

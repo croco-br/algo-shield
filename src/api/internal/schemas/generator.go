@@ -1,22 +1,18 @@
 package schemas
 
 import (
-	"math/rand"
+	"crypto/rand"
+	"encoding/binary"
 	"strings"
 	"time"
 )
 
 // EventGenerator generates synthetic events from a schema
-type EventGenerator struct {
-	rng *rand.Rand
-}
+type EventGenerator struct{}
 
 // NewEventGenerator creates a new event generator
-// Uses current time as seed
 func NewEventGenerator() *EventGenerator {
-	return &EventGenerator{
-		rng: rand.New(rand.NewSource(time.Now().UnixNano())),
-	}
+	return &EventGenerator{}
 }
 
 // GenerateEvent creates a synthetic event based on the schema's extracted fields
@@ -51,7 +47,7 @@ func (g *EventGenerator) generateValueFromField(field *ExtractedField) any {
 	case FieldTypeNumber:
 		return g.generateRandomNumber()
 	case FieldTypeBoolean:
-		return g.rng.Intn(2) == 1
+		return cryptoRandomInt(2) == 1
 	case FieldTypeArray:
 		return []any{}
 	case FieldTypeObject:
@@ -78,9 +74,9 @@ func (g *EventGenerator) isDateField(path string) bool {
 // generateRandomDate generates a random RFC3339 date string
 func (g *EventGenerator) generateRandomDate() string {
 	// Generate a random time within the last 90 days
-	daysAgo := g.rng.Intn(90)
-	hoursAgo := g.rng.Intn(24)
-	minutesAgo := g.rng.Intn(60)
+	daysAgo := cryptoRandomInt(90)
+	hoursAgo := cryptoRandomInt(24)
+	minutesAgo := cryptoRandomInt(60)
 
 	return time.Now().
 		AddDate(0, 0, -daysAgo).
@@ -91,12 +87,12 @@ func (g *EventGenerator) generateRandomDate() string {
 
 // generateRandomString generates a random string
 func (g *EventGenerator) generateRandomString() string {
-	return randomString(g.rng, 10+g.rng.Intn(20))
+	return randomString(10 + cryptoRandomInt(20))
 }
 
 // generateRandomNumber generates a random number
 func (g *EventGenerator) generateRandomNumber() float64 {
-	return float64(g.rng.Intn(10000))
+	return float64(cryptoRandomInt(10000))
 }
 
 // setNestedValue sets a value in a nested map using dot notation path
@@ -145,16 +141,16 @@ func (g *EventGenerator) generateValueByType(sample any) any {
 
 	switch v := sample.(type) {
 	case bool:
-		return g.rng.Intn(2) == 1
+		return cryptoRandomInt(2) == 1
 
 	case float64:
-		return float64(g.rng.Intn(10000))
+		return float64(cryptoRandomInt(10000))
 
 	case int:
-		return g.rng.Intn(10000)
+		return cryptoRandomInt(10000)
 
 	case string:
-		return randomString(g.rng, 10+g.rng.Intn(20))
+		return randomString(10 + cryptoRandomInt(20))
 
 	case []any:
 		return g.generateArray(v)
@@ -163,7 +159,7 @@ func (g *EventGenerator) generateValueByType(sample any) any {
 		return g.generateFromSample(v)
 
 	default:
-		return randomString(g.rng, 10)
+		return randomString(10)
 	}
 }
 
@@ -174,7 +170,7 @@ func (g *EventGenerator) generateArray(sample []any) []any {
 	}
 
 	// Generate 1-3 elements based on the first element's type
-	count := 1 + g.rng.Intn(3)
+	count := 1 + cryptoRandomInt(3)
 	result := make([]any, count)
 
 	for i := 0; i < count; i++ {
@@ -186,11 +182,34 @@ func (g *EventGenerator) generateArray(sample []any) []any {
 
 // Helper functions
 
-func randomString(rng *rand.Rand, length int) string {
+// cryptoRandomInt generates a cryptographically secure random integer in the range [0, max)
+func cryptoRandomInt(max int) int {
+	if max <= 0 {
+		return 0
+	}
+
+	// Calculate the number of bytes needed
+	var b [8]byte
+	_, err := rand.Read(b[:])
+	if err != nil {
+		// Fallback to 0 if crypto/rand fails (should never happen)
+		return 0
+	}
+
+	// Convert bytes to uint64
+	n := binary.BigEndian.Uint64(b[:])
+
+	// Use modulo to get value in range [0, max)
+	// This introduces slight bias for non-power-of-2 values, but acceptable for synthetic data
+	return int(n % uint64(max))
+}
+
+// randomString generates a cryptographically secure random string
+func randomString(length int) string {
 	const charset = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
 	b := make([]byte, length)
 	for i := range b {
-		b[i] = charset[rng.Intn(len(charset))]
+		b[i] = charset[cryptoRandomInt(len(charset))]
 	}
 	return string(b)
 }
