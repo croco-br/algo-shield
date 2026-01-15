@@ -188,7 +188,13 @@ func cryptoRandomInt(max int) int {
 		return 0
 	}
 
-	// Calculate the number of bytes needed
+	// For safety, limit max to prevent overflow when converting back to int
+	// int can be 32-bit or 64-bit depending on platform
+	const maxSafeInt = 1<<31 - 1 // Use 32-bit max for cross-platform safety
+	if max > maxSafeInt {
+		max = maxSafeInt
+	}
+
 	var b [8]byte
 	_, err := rand.Read(b[:])
 	if err != nil {
@@ -200,8 +206,9 @@ func cryptoRandomInt(max int) int {
 	n := binary.BigEndian.Uint64(b[:])
 
 	// Use modulo to get value in range [0, max)
-	// This introduces slight bias for non-power-of-2 values, but acceptable for synthetic data
-	return int(n % uint64(max))
+	// Safe conversion: result of modulo is guaranteed to be < max, which is <= maxSafeInt
+	result := n % uint64(max)
+	return int(result)
 }
 
 // randomString generates a cryptographically secure random string
