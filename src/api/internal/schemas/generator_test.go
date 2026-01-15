@@ -142,3 +142,32 @@ func Test_cryptoRandomInt_ThenGeneratesDiverseValues(t *testing.T) {
 	// (This is a reasonable expectation given birthday paradox statistics)
 	assert.GreaterOrEqual(t, len(values), 50, "should generate diverse random integers")
 }
+
+func Test_cryptoRandomInt_WhenZeroOrNegative_ThenReturnsZero(t *testing.T) {
+	// Test edge cases with zero and negative max values
+	assert.Equal(t, 0, cryptoRandomInt(0), "should return 0 for max=0")
+	assert.Equal(t, 0, cryptoRandomInt(-1), "should return 0 for negative max")
+	assert.Equal(t, 0, cryptoRandomInt(-100), "should return 0 for negative max")
+}
+
+func Test_cryptoRandomInt_WhenLargeMax_ThenReturnsValidRange(t *testing.T) {
+	// Test with large max values to ensure no overflow
+	largeMax := 1000000
+
+	for i := 0; i < 100; i++ {
+		val := cryptoRandomInt(largeMax)
+		assert.GreaterOrEqual(t, val, 0, "value should be >= 0")
+		assert.Less(t, val, largeMax, "value should be < max")
+	}
+}
+
+func Test_cryptoRandomInt_WhenSmallMax_ThenReturnsValidRange(t *testing.T) {
+	// Test with small max values (1, 2, 3)
+	for max := 1; max <= 3; max++ {
+		for i := 0; i < 50; i++ {
+			val := cryptoRandomInt(max)
+			assert.GreaterOrEqual(t, val, 0, "value should be >= 0")
+			assert.Less(t, val, max, "value should be < max")
+		}
+	}
+}

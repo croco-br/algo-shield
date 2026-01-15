@@ -2,7 +2,7 @@ package schemas
 
 import (
 	"crypto/rand"
-	"encoding/binary"
+	"math/big"
 	"strings"
 	"time"
 )
@@ -188,27 +188,14 @@ func cryptoRandomInt(max int) int {
 		return 0
 	}
 
-	// For safety, limit max to prevent overflow when converting back to int
-	// int can be 32-bit or 64-bit depending on platform
-	const maxSafeInt = 1<<31 - 1 // Use 32-bit max for cross-platform safety
-	if max > maxSafeInt {
-		max = maxSafeInt
-	}
-
-	var b [8]byte
-	_, err := rand.Read(b[:])
+	// Use crypto/rand.Int() which handles overflow safely
+	nBig, err := rand.Int(rand.Reader, big.NewInt(int64(max)))
 	if err != nil {
 		// Fallback to 0 if crypto/rand fails (should never happen)
 		return 0
 	}
 
-	// Convert bytes to uint64
-	n := binary.BigEndian.Uint64(b[:])
-
-	// Use modulo to get value in range [0, max)
-	// Safe conversion: result of modulo is guaranteed to be < max, which is <= maxSafeInt
-	result := n % uint64(max)
-	return int(result)
+	return int(nBig.Int64())
 }
 
 // randomString generates a cryptographically secure random string
