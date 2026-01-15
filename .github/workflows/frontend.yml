@@ -4,18 +4,18 @@ on:
   push:
     branches: [main, develop]
     paths:
-      - 'src/ui/**'
-      - 'Dockerfile.ui'
-      - '.github/workflows/frontend.yml'
+      - "src/ui/**"
+      - "Dockerfile.ui"
+      - ".github/workflows/frontend.yml"
   pull_request:
     branches: [main, develop]
     paths:
-      - 'src/ui/**'
-      - 'Dockerfile.ui'
-      - '.github/workflows/frontend.yml'
+      - "src/ui/**"
+      - "Dockerfile.ui"
+      - ".github/workflows/frontend.yml"
 
 env:
-  NODE_VERSION: '20'
+  NODE_VERSION: "20"
 
 jobs:
   lint:
@@ -164,7 +164,12 @@ jobs:
 
       - name: Run npm audit
         working-directory: src/ui
-        run: npm audit --audit-level=moderate || true
+        run: |
+          echo "=========================================="
+          echo "🔍 NPM Audit Security Check"
+          echo "=========================================="
+          npm audit --audit-level=moderate || echo "⚠️  Found npm audit issues (non-blocking)"
+          echo "✅ NPM audit check completed (non-blocking)"
         continue-on-error: true
 
       - name: Run Semgrep
@@ -176,19 +181,37 @@ jobs:
             p/typescript
         continue-on-error: true
 
+      - name: Display Semgrep Results
+        if: always()
+        run: |
+          echo "=========================================="
+          echo "🔍 Semgrep scan completed"
+          echo "=========================================="
+          echo "⚠️  Any issues found are non-blocking warnings"
+          echo "Please review and address security findings when possible"
+
       - name: Run Trivy on Node.js dependencies
         uses: aquasecurity/trivy-action@master
         with:
-          scan-type: 'fs'
-          scan-ref: './src/ui'
-          format: 'table'
-          scanners: 'vuln'
-          severity: 'CRITICAL,HIGH,MEDIUM'
+          scan-type: "fs"
+          scan-ref: "./src/ui"
+          format: "table"
+          scanners: "vuln"
+          severity: "CRITICAL,HIGH,MEDIUM"
+          exit-code: "0"
         continue-on-error: true
+
+      - name: Display Trivy Results
+        if: always()
+        run: |
+          echo "=========================================="
+          echo "🔍 Trivy vulnerability scan completed"
+          echo "=========================================="
+          echo "⚠️  Any vulnerabilities found are non-blocking warnings"
+          echo "Please review and update dependencies when possible"
 
       - name: Run Gitleaks
         uses: gitleaks/gitleaks-action@v2
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         continue-on-error: true
-
