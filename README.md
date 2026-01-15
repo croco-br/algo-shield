@@ -2,10 +2,49 @@
 
 **AlgoShield** is an open-source, high-performance fraud detection and anti-money laundering (AML) transaction analysis tool designed to process transactions with ultra-low latency (<50ms).
 
+## 📑 Table of Contents
+
+- [Key Features](#-key-features)
+- [Architecture](#-architecture)
+- [Quick Start](#-quick-start)
+  - [Prerequisites](#prerequisites)
+  - [Using Docker Compose](#using-docker-compose-recommended)
+  - [Local Development](#local-development)
+- [API Documentation](#-api-documentation)
+  - [Authentication](#authentication)
+  - [User Management](#user-management-admin-only)
+  - [Roles Management](#roles-management-admin-only)
+  - [Groups Management](#groups-management-admin-only)
+  - [Branding Configuration](#branding-configuration)
+  - [Transactions](#transactions)
+  - [Dashboard Metrics](#dashboard-metrics)
+  - [Rules Management](#create-rule)
+  - [Event Schemas](#event-schemas)
+- [Custom Expression Rules](#-custom-expression-rules)
+  - [Expression Examples](#expression-examples)
+  - [Helper Functions](#helper-functions)
+  - [Recreating Legacy Rule Types](#recreating-legacy-rule-types)
+- [Rule Actions](#-rule-actions)
+- [Risk Levels](#-risk-levels)
+- [Configuration](#-configuration)
+- [Authentication & Authorization](#-authentication--authorization)
+- [Performance Optimization](#-performance-optimization)
+- [Testing](#-testing)
+- [Building](#-building)
+- [Deployment](#-deployment)
+- [Monitoring](#-monitoring)
+- [CI/CD](#-cicd)
+- [Architecture & Development](#-architecture--development)
+- [Contributing](#-contributing)
+- [License](#-license)
+- [Acknowledgments](#-acknowledgments)
+- [Additional Documentation](#-additional-documentation)
+- [Support](#-support)
+
 ## 🎯 Key Features
 
 - **⚡ Ultra-Fast Processing**: Process transactions in <50ms with highly optimized Go workers
-- **🔧 Custom Expression Rules Engine**: Flexible rule system using [expr-lang](https://github.com/expr-lang/expr) for powerful fraud detection expressions
+- **🔧 Custom Expression Rules Engine**: Flexible rule system using [expr-lang v1.17.7](https://github.com/expr-lang/expr) for powerful fraud detection expressions
 - **🔄 Hot-Reload Rules & Schemas**: Update rules and event schemas in real-time without restarting services
 - **📋 Event Schema Management**: Define and manage event schemas with automatic field extraction from sample JSON
 - **📊 Risk Scoring**: Flexible scoring system with rule-based risk accumulation
@@ -16,6 +55,8 @@
 - **👥 User Management**: Complete user, role, and group management system
 - **🛡️ Permission System**: Fine-grained permissions for rule editing and administrative tasks
 - **🎨 Branding Configuration**: White-label customization with configurable colors, logos, and app name
+- **🌐 Internationalization**: Multi-language support with vue-i18n (pt-BR, en-US)
+- **🧪 Synthetic Event Generation**: Test transaction processing with synthetic mode
 - **📚 OpenSpec Documentation**: Spec-driven development with change proposals and capability documentation
 
 ## 🏗️ Architecture
@@ -38,9 +79,9 @@ AlgoShield is built with a modern microservices architecture:
 
 ### Components
 
-- **API Service**: RESTful API built with Fiber v2 (Go 1.25.4) for high-performance HTTP handling with JWT authentication, validation, dependency injection, and OpenTelemetry observability support
-- **Worker Service**: Transaction processing engine with custom expression-based rules evaluation using expr-lang, schema management, and hot-reload support
-- **UI**: Vue.js 3.5+ (TypeScript 5.9) modern web interface with Vuetify 3.7 (Material Design) components, Pinia 3.0 state management, Tailwind CSS 4.1, standardized base components, Font Awesome 6.5 icons, and Prism.js syntax highlighting for rule management, schema management, and user administration
+- **API Service**: RESTful API built with Fiber v2 (Go 1.25.5) for high-performance HTTP handling with JWT authentication, validation, dependency injection, and OpenTelemetry observability support
+- **Worker Service**: Transaction processing engine with custom expression-based rules evaluation using expr-lang v1.17.7, schema management, hot-reload support, and Asynq v0.25.1 task queue
+- **UI**: Vue.js 3.5.26 (TypeScript 5.9.3) modern web interface with Vuetify 3.11.6 (Material Design) components, Pinia 3.0.4 state management, Tailwind CSS 4.1.18, vue-i18n 11.2.8 (i18n), standardized base components, Font Awesome 7.1.0 icons, and Prism.js 1.30.0 syntax highlighting for rule management, schema management, and user administration
 - **PostgreSQL**: Primary data store for transactions, rules, event schemas, users, roles, and groups (PostgreSQL 16)
 - **Redis**: Message queue for async processing, rules caching, and schema invalidation pub/sub (Redis 7)
 
@@ -49,7 +90,7 @@ AlgoShield is built with a modern microservices architecture:
 ### Prerequisites
 
 - Docker & Docker Compose
-- Go 1.25.4 (for local development)
+- Go 1.25.5 (for local development)
 - Node.js ^20.19.0 or >=22.12.0 (for UI development)
 
 ### Using Docker Compose (Recommended)
@@ -75,7 +116,7 @@ docker-compose up -d
 - **API**: http://localhost:8080
 - **Health Check**: http://localhost:8080/health
 
-**Note**: Default admin credentials are created via migration. Check `scripts/migrations/004_insert_admin.sql` for details.
+**Note**: Default admin credentials are created via migration. Check `scripts/migrations/003_test_data.sql` for details.
 
 ### Local Development
 
@@ -384,6 +425,28 @@ Response:
 }
 ```
 
+**Synthetic Mode:**
+
+For testing purposes, you can submit transactions in synthetic mode by adding the `X-Synthetic-Mode: true` header. Synthetic transactions:
+- Are stored in a separate table (`transactions_synthetic`)
+- Always have status `pending` (not processed by rules engine)
+- Are marked with `_synthetic: true` in metadata
+- Have separate dashboard metrics
+
+```bash
+POST /api/v1/transactions
+Authorization: Bearer <token>
+X-Synthetic-Mode: true
+Content-Type: application/json
+
+{
+  "external_id": "test_txn_123",
+  "amount": 1000.00,
+  "currency": "USD",
+  ...
+}
+```
+
 ### Get Transaction
 
 Retrieve transaction details:
@@ -399,6 +462,53 @@ Authorization: Bearer <token>
 GET /api/v1/transactions?limit=50&offset=0
 Authorization: Bearer <token>
 ```
+
+**Note**: By default, the list excludes synthetic transactions. Synthetic transactions can be viewed separately in the dashboard.
+
+### Dashboard Metrics
+
+#### Get Dashboard Metrics
+
+Retrieve aggregated dashboard metrics including transaction status distribution and temporal data.
+
+```bash
+GET /api/v1/dashboard/metrics
+Authorization: Bearer <token>
+```
+
+Response:
+```json
+{
+  "status_distribution": [
+    {"status": "approved", "count": 150},
+    {"status": "rejected", "count": 25},
+    {"status": "in_review", "count": 10}
+  ],
+  "temporal_24h": [
+    {"bucket": "2024-12-05T10:00:00Z", "count": 45}
+  ],
+  "temporal_7d": [
+    {"bucket": "2024-12-05T00:00:00Z", "count": 185}
+  ],
+  "temporal_30d": [
+    {"bucket": "2024-12-05T00:00:00Z", "count": 750}
+  ],
+  "total_count": 185,
+  "cached_at": "2024-12-05T10:00:00Z"
+}
+```
+
+**Synthetic Mode:**
+
+Add `X-Synthetic-Mode: true` header to retrieve metrics for synthetic transactions only.
+
+```bash
+GET /api/v1/dashboard/metrics
+Authorization: Bearer <token>
+X-Synthetic-Mode: true
+```
+
+**Caching:** Dashboard metrics are cached in Redis with a 30-second TTL for performance optimization.
 
 ### Create Rule
 
@@ -735,7 +845,8 @@ Configuration is managed through environment variables. See `.env.example` for a
 - `TLS_CERT_PATH`: Path to TLS certificate
 - `TLS_KEY_PATH`: Path to TLS private key
 - `JWT_SECRET`: Secret key for JWT token signing (required)
-- `JWT_EXPIRATION_HOURS`: JWT token expiration in hours (default: 24)
+- `JWT_EXPIRATION_HOURS`: JWT access token expiration in hours (default: 24)
+- `JWT_REFRESH_EXPIRATION_HOURS`: JWT refresh token expiration in hours (default: 168)
 - `ENVIRONMENT`: Environment name (development, staging, production)
 - `LOG_LEVEL`: Logging level (debug, info, warn, error)
 
@@ -786,18 +897,26 @@ Permissions are managed through roles. Each role defines what actions users can 
 
 ### Security Features
 
-- JWT-based authentication with configurable expiration
-- Password hashing using bcrypt
-- Role-based access control (RBAC)
-- Group-based permission inheritance
-- User active/inactive status management
-- Protected routes in the UI with automatic redirects
+- **JWT-based authentication** with configurable expiration (access: 24h, refresh: 168h)
+- **Password hashing** using bcrypt (cost 12+)
+- **Role-based access control (RBAC)** with fine-grained permissions
+- **Group-based permission inheritance** for easier management
+- **CSRF protection** with Redis-backed token validation (24h TTL)
+- **Rate limiting** on authentication endpoints (Redis-backed)
+- **Token revocation** via Redis blacklist
+- **Parameterized queries** for SQL injection prevention
+- **Security headers** (X-Content-Type-Options, X-Frame-Options, HSTS, CSP)
+- **TLS/HTTPS support** with configurable certificates
+- **Input validation** on all endpoints (go-playground/validator)
+- **User active/inactive status** management
+- **Protected routes** in the UI with automatic redirects
+- **OWASP Top 10 compliance** with security best practices
 
 ## 🏎️ Performance Optimization
 
 AlgoShield is designed for maximum performance:
 
-1. **Compiled with Go 1.25.4** for enhanced performance
+1. **Compiled with Go 1.25.5** for enhanced performance
 2. **Connection pooling** for PostgreSQL (pgx v5) and Redis (go-redis v9)
 3. **Rule caching** with Redis to minimize database queries
 4. **Schema caching** with in-memory cache and Redis pub/sub invalidation
@@ -819,7 +938,8 @@ AlgoShield is designed for maximum performance:
 - **UI Tests**: Vitest-based unit tests with Vue Test Utils
 - **Integration Tests**: Database integration tests using testcontainers
 - **Benchmarks**: Performance benchmarks for the rules engine
-- **Coverage**: Test coverage reporting for both backend and frontend
+- **Coverage**: Test coverage reporting for both backend and frontend (80% minimum)
+- **Flaky Test Detection**: Run tests multiple times to detect flakiness (`-count=50` for Go, `--repeat=20` for Vue)
 
 ### Running Tests
 
@@ -963,21 +1083,25 @@ AlgoShield follows a **vertical slice architecture** pattern, organizing code by
 ### Key Patterns
 
 - **Dependency Injection**: All handlers and services use dependency injection for better testability and modularity
-- **Validation**: All handlers include request validation as a mandatory practice
-- **Error Handling**: Comprehensive error handling with proper context wrapping
-- **Structured Logging**: All services use structured logging with configurable log levels
-- **Connection Pooling**: Reusable PostgreSQL and Redis connections for optimal performance
+- **Validation**: All handlers include request validation as a mandatory practice (using go-playground/validator)
+- **Error Handling**: Comprehensive error handling with proper context wrapping and custom error types
+- **Structured Logging**: All services use structured logging with zerolog and configurable log levels
+- **Connection Pooling**: Reusable PostgreSQL (pgxpool) and Redis connections for optimal performance
+- **Security**: OWASP Top 10 compliance, CSRF protection, rate limiting, parameterized queries
 
 ### Development Guidelines
 
 - Follow SOLID principles strictly
 - Use vertical slice architecture for new features
 - Implement proper dependency injection
-- Always add validation to handlers
+- Always add validation to handlers (mandatory practice)
 - Use race condition flags (`-race`) when running tests
-- Update `.env.example` when adding new environment variables
+- Update `.env.example` when adding new environment variables (mandatory)
+- All user-facing text must use i18n translation keys (no hardcoded strings)
 - Standardize base components in the frontend for consistency
 - Remove unused code and components regularly
+- Follow regression prevention rules for new features
+- Maintain 80%+ test coverage for all code
 
 ### Git Workflow
 
@@ -1009,25 +1133,36 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 ## 🙏 Acknowledgments
 
 Built with:
-- [Go 1.25.4](https://golang.org/) - Programming language
+- [Go 1.25.5](https://golang.org/) - Programming language
 - [Fiber v2](https://gofiber.io/) - High-performance web framework
-- [pgx v5](https://github.com/jackc/pgx) - PostgreSQL driver with connection pooling
-- [go-redis v9](https://github.com/redis/go-redis) - Redis client
+- [pgx v5.5.5](https://github.com/jackc/pgx) - PostgreSQL driver with connection pooling
+- [go-redis v9.17.2](https://github.com/redis/go-redis) - Redis client
+- [Asynq v0.25.1](https://github.com/hibiken/asynq) - Distributed task queue
 - [expr-lang v1.17.7](https://github.com/expr-lang/expr) - Expression evaluation engine
-- [golang-jwt v5](https://github.com/golang-jwt/jwt) - JWT authentication
+- [golang-jwt v5.3.0](https://github.com/golang-jwt/jwt) - JWT authentication
+- [bcrypt](https://pkg.go.dev/golang.org/x/crypto/bcrypt) - Password hashing
 - [OpenTelemetry](https://opentelemetry.io/) - Observability framework
-- [Vue.js 3.5+](https://vuejs.org/) - Progressive JavaScript framework
-- [TypeScript 5.9](https://www.typescriptlang.org/) - Typed JavaScript
-- [Vuetify 3.7](https://vuetifyjs.com/) - Material Design component framework
-- [Pinia 3.0](https://pinia.vuejs.org/) - State management
-- [Vue Router 4.6](https://router.vuejs.org/) - Routing
-- [Tailwind CSS 4.1](https://tailwindcss.com/) - Utility-first CSS framework
-- [Vite 7.2](https://vitejs.dev/) - Next-generation build tool
-- [Vitest 4.0](https://vitest.dev/) - Fast unit test framework
-- [Font Awesome 6.5](https://fontawesome.com/) - Icon library
-- [Prism.js 1.30](https://prismjs.com/) - Syntax highlighting
+- [Vue.js 3.5.26](https://vuejs.org/) - Progressive JavaScript framework
+- [TypeScript 5.9.3](https://www.typescriptlang.org/) - Typed JavaScript
+- [Vuetify 3.11.6](https://vuetifyjs.com/) - Material Design component framework
+- [Pinia 3.0.4](https://pinia.vuejs.org/) - State management
+- [Vue Router 4.6.4](https://router.vuejs.org/) - Routing
+- [vue-i18n 11.2.8](https://vue-i18n.intlify.dev/) - Internationalization (i18n)
+- [Tailwind CSS 4.1.18](https://tailwindcss.com/) - Utility-first CSS framework
+- [Vite 7.3.1](https://vitejs.dev/) - Next-generation build tool
+- [Vitest 4.0.16](https://vitest.dev/) - Fast unit test framework
+- [Font Awesome 7.1.0](https://fontawesome.com/) - Icon library
+- [Prism.js 1.30.0](https://prismjs.com/) - Syntax highlighting
 - [PostgreSQL 16](https://www.postgresql.org/) - Database
 - [Redis 7](https://redis.io/) - Caching and message queue
+
+## 📚 Additional Documentation
+
+- **CLAUDE.md**: Comprehensive guide for AI agents and developers working with the codebase
+- **openspec/**: OpenSpec documentation for spec-driven development
+- **docs/agents/**: Testing guidelines (unit-test.md, integration-test.md)
+- **src/ui/src/locales/README.md**: Internationalization (i18n) guidelines
+- **.env.example**: Complete environment variable reference
 
 ## 📧 Support
 
