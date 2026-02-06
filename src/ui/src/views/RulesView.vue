@@ -116,6 +116,19 @@
       </div>
     </div>
 
+    <!-- Delete Confirmation Dialog -->
+    <v-dialog v-model="showDeleteConfirm" max-width="400">
+      <v-card>
+        <v-card-title>{{ $t('common.confirm') }}</v-card-title>
+        <v-card-text>{{ $t('views.rules.deleteConfirmation') }}</v-card-text>
+        <v-card-actions>
+          <v-spacer />
+          <v-btn @click="showDeleteConfirm = false">{{ $t('common.cancel') }}</v-btn>
+          <v-btn color="error" @click="confirmDeleteRule">{{ $t('common.delete') }}</v-btn>
+        </v-card-actions>
+      </v-card>
+    </v-dialog>
+
     <RuleFormModal
       v-model="showModal"
       :is-editing="isEditing"
@@ -232,9 +245,9 @@
 <script setup lang="ts">
 import { ref, reactive, onMounted, watch, computed } from 'vue'
 import { useRouter } from 'vue-router'
+import { useI18n } from 'vue-i18n'
 import { useAuthStore } from '@/stores/auth'
 import { api } from '@/lib/api'
-import { i18n } from '@/plugins/i18n'
 import BaseButton from '@/components/BaseButton.vue'
 import BaseBadge from '@/components/BaseBadge.vue'
 import BaseTable from '@/components/BaseTable.vue'
@@ -246,8 +259,8 @@ import VelocityBuilder from '@/components/VelocityBuilder.vue'
 import ConditionBuilder from '@/components/ConditionBuilder.vue'
 
 const router = useRouter()
+const { t } = useI18n()
 const authStore = useAuthStore()
-const t = i18n.global.t
 
 const tableColumns = [
   { key: 'schema', label: 'components.ruleTable.schema' },
@@ -264,6 +277,8 @@ const error = ref('')
 const showModal = ref(false)
 const isEditing = ref(false)
 const saving = ref(false)
+const showDeleteConfirm = ref(false)
+const deleteRuleId = ref<string | null>(null)
 
 // Pagination
 const currentPage = ref(1)
@@ -652,11 +667,11 @@ function removePolygonPoint(index: number) {
 }
 
 // Rule actions must match backend validation: allow|block|review
-const ruleActions = [
-  { value: 'allow', label: 'Allow' },
-  { value: 'block', label: 'Block' },
-  { value: 'review', label: 'Review' },
-]
+const ruleActions = computed(() => [
+  { value: 'allow', label: t('views.rules.actions.allow') },
+  { value: 'block', label: t('views.rules.actions.block') },
+  { value: 'review', label: t('views.rules.actions.review') },
+])
 
 // Preset configurations for common fraud detection scenarios
 interface RulePreset {
@@ -1166,7 +1181,7 @@ async function loadSchemas() {
     const response = await api.get<{ schemas: EventSchema[] }>('/api/v1/schemas')
     schemas.value = response?.schemas || []
   } catch (e) {
-    console.error('Error loading schemas:', e)
+    // Schema loading error is non-critical; silently handled
   }
 }
 
@@ -1181,8 +1196,7 @@ async function loadRules() {
     // Reset to first page when rules are reloaded
     currentPage.value = 1
   } catch (e: any) {
-    error.value = e.message || (window as any).$i18n?.global?.t?.('views.rules.errorLoad') || 'Failed to load rules'
-    console.error('Error loading rules:', e)
+    error.value = e.message || t('views.rules.errorLoad')
   } finally {
     loading.value = false
   }
@@ -1357,7 +1371,7 @@ async function handleSubmit() {
     closeModal()
     await loadRules()
   } catch (e: any) {
-    error.value = e.message || (window as any).$i18n?.global?.t?.('views.rules.errorSave') || 'Failed to save rule'
+    error.value = e.message || t('views.rules.errorSave')
   } finally {
     saving.value = false
   }
@@ -1571,14 +1585,22 @@ function validateAllFieldsExist(expression: string, validFieldPaths: string[]): 
   return invalidFields
 }
 
-async function deleteRule(id: string) {
-  if (!confirm(t('views.rules.deleteConfirmation'))) return
+function deleteRule(id: string) {
+  deleteRuleId.value = id
+  showDeleteConfirm.value = true
+}
+
+async function confirmDeleteRule() {
+  if (!deleteRuleId.value) return
+  showDeleteConfirm.value = false
 
   try {
-    await api.delete(`/api/v1/rules/${id}`)
+    await api.delete(`/api/v1/rules/${deleteRuleId.value}`)
     await loadRules()
   } catch (e: any) {
-    error.value = e.message || (window as any).$i18n?.global?.t?.('views.rules.errorDelete') || 'Failed to delete rule'
+    error.value = e.message || t('views.rules.errorDelete')
+  } finally {
+    deleteRuleId.value = null
   }
 }
 
@@ -1587,7 +1609,7 @@ async function toggleRule(rule: any) {
     await api.put(`/api/v1/rules/${rule.id}`, { ...rule, enabled: !rule.enabled })
     await loadRules()
   } catch (e: any) {
-    error.value = e.message || (window as any).$i18n?.global?.t?.('views.rules.errorToggle') || 'Failed to toggle rule'
+    error.value = e.message || t('views.rules.errorToggle')
   }
 }
 
@@ -1617,11 +1639,7 @@ function getActionBadgeVariant(action: string): 'success' | 'warning' | 'danger'
 function getActionLabel(action: string): string {
   const actionLower = action.toLowerCase()
   const key = `views.rules.actions.${actionLower}`
-  try {
-    return i18n.global.t(key)
-  } catch {
-    return action
-  }
+  return t(key) || action
 }
 </script>
 

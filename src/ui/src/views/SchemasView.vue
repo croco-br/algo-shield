@@ -147,6 +147,19 @@
       </template>
     </BaseModal>
 
+    <!-- Delete Confirmation Dialog -->
+    <v-dialog v-model="showDeleteConfirm" max-width="400">
+      <v-card>
+        <v-card-title>{{ $t('common.confirm') }}</v-card-title>
+        <v-card-text>{{ $t('views.schemas.deleteConfirmation') }}</v-card-text>
+        <v-card-actions>
+          <v-spacer />
+          <v-btn @click="showDeleteConfirm = false">{{ $t('common.cancel') }}</v-btn>
+          <v-btn color="error" @click="confirmDeleteSchema">{{ $t('common.delete') }}</v-btn>
+        </v-card-actions>
+      </v-card>
+    </v-dialog>
+
     <!-- View Schema Modal -->
     <BaseModal
       v-model="showViewModal"
@@ -261,6 +274,8 @@ const sampleJsonText = ref('')
 const jsonError = ref('')
 const extractedFields = ref<ExtractedField[]>([])
 const viewingSchema = ref<EventSchema | null>(null)
+const showDeleteConfirm = ref(false)
+const deleteSchemaId = ref<string | null>(null)
 
 // Maximum nesting depth for field extraction
 const MAX_DEPTH = 5
@@ -280,8 +295,7 @@ async function loadSchemas() {
     const response = await api.get<{ schemas: EventSchema[] }>('/api/v1/schemas')
     schemas.value = response?.schemas || []
   } catch (e: any) {
-    error.value = e.message || (window as any).$i18n?.global?.t?.('views.schemas.errorLoad') || 'Failed to load schemas'
-    console.error('Error loading schemas:', e)
+    error.value = e.message || t('views.schemas.errorLoad')
   } finally {
     loading.value = false
   }
@@ -426,20 +440,28 @@ async function handleSubmit() {
     closeModal()
     await loadSchemas()
   } catch (e: any) {
-    error.value = e.message || (window as any).$i18n?.global?.t?.('views.schemas.errorSave') || 'Failed to save schema'
+    error.value = e.message || t('views.schemas.errorSave')
   } finally {
     saving.value = false
   }
 }
 
-async function deleteSchema(id: string) {
-  if (!confirm(t('views.schemas.deleteConfirmation'))) return
+function deleteSchema(id: string) {
+  deleteSchemaId.value = id
+  showDeleteConfirm.value = true
+}
+
+async function confirmDeleteSchema() {
+  if (!deleteSchemaId.value) return
+  showDeleteConfirm.value = false
 
   try {
-    await api.delete(`/api/v1/schemas/${id}`)
+    await api.delete(`/api/v1/schemas/${deleteSchemaId.value}`)
     await loadSchemas()
   } catch (e: any) {
-    error.value = e.message || (window as any).$i18n?.global?.t?.('views.schemas.errorDelete') || 'Failed to delete schema'
+    error.value = e.message || t('views.schemas.errorDelete')
+  } finally {
+    deleteSchemaId.value = null
   }
 }
 

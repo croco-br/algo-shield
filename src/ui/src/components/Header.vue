@@ -1,9 +1,8 @@
 <template>
   <v-app-bar
     v-if="user && !isLoginPage"
-    :height="'var(--header-height)'"
+    :height="60"
     :color="brandingConfig?.header_color || 'var(--color-header-background)'"
-    fixed
     elevation="0"
     :class="['border-b border-neutral-800', { 'synthetic-mode': syntheticMode }]"
   >
@@ -48,6 +47,7 @@
                 :color="syntheticMode ? 'success' : 'grey'"
                 hide-details
                 density="compact"
+                :aria-label="$t('header.syntheticMode')"
                 @update:model-value="handleSyntheticModeChange"
               />
             </template>
@@ -123,6 +123,10 @@
       </div>
     </div>
   </v-app-bar>
+
+  <v-snackbar v-model="showErrorSnackbar" color="error" :timeout="5000" location="top">
+    {{ errorMessage }}
+  </v-snackbar>
 </template>
 
 <script setup lang="ts">
@@ -145,6 +149,7 @@ const { t } = useI18n()
 
 const showUserMenu = ref(false)
 const errorMessage = ref<string | null>(null)
+const showErrorSnackbar = ref(false)
 
 const user = computed(() => authStore.user)
 const isLoginPage = computed(() => route.path.startsWith('/login'))
@@ -183,7 +188,7 @@ const handleSyntheticModeChange = async (enabled: boolean | null) => {
     // Extract and display user-friendly error message
     errorMessage.value = getErrorMessage(error)
     // Show error as alert
-    alert(t('errors.FORBIDDEN') + '\n\n' + errorMessage.value)
+    showErrorSnackbar.value = true
     // Revert on error - sync back with store
     syntheticMode.value = systemModeStore.syntheticMode
   }

@@ -22,7 +22,7 @@
           size="sm"
           @click="$emit('retry')"
         >
-          Try again
+          {{ $t('common.tryAgain') }}
         </BaseButton>
       </slot>
     </template>

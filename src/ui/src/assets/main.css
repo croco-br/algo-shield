@@ -1,6 +1,7 @@
 /* AlgoShield Design System - Harmonious Spacing & Layout */
 
 @import "tailwindcss";
+@config "../../tailwind.config.js";
 
 /* Vuetify styles are imported in vuetify.ts plugin */
 /* Tailwind CSS and Vuetify coexist - use Tailwind for layouts/utilities, Vuetify for components */
@@ -186,8 +187,9 @@ a:hover {
   color: var(--color-primary-hover);
 }
 
-button,
-a {
+/* Touch target size for primary interactive elements (accessibility) */
+button:not(.v-btn):not(.v-chip):not(.v-pagination__item):not(.v-list-item),
+a:not(.v-list-item):not(.v-chip):not(.v-tab) {
   min-height: 44px;
   min-width: 44px;
 }

@@ -1,7 +1,7 @@
 <template>
   <v-navigation-drawer
     :model-value="!isMobile || isOpen"
-    :width="isCollapsed ? 'var(--sidebar-width-collapsed)' : 'var(--sidebar-width)'"
+    :width="isCollapsed ? 80 : 240"
     :temporary="isMobile"
     :permanent="!isMobile"
     :location="'left'"
@@ -19,8 +19,7 @@
           variant="text"
           size="small"
           @click="toggleCollapse"
-          class="position-absolute"
-          style="right: -12px; top: 24px; z-index: 10;"
+          :aria-label="isCollapsed ? 'Expand sidebar' : 'Collapse sidebar'"
         >
           <v-icon>
             {{ isCollapsed ? 'fa-chevron-right' : 'fa-chevron-left' }}
@@ -35,7 +34,7 @@
         <!-- Transactions with schema submenu -->
         <v-list-group
           v-if="item.path === '/transactions' && !isCollapsed && transactionSchemas.length > 0"
-          :value="isTransactionsActive"
+          :value="'transactions'"
           color="primary"
         >
           <template #activator="{ props }">
@@ -177,7 +176,7 @@ async function loadTransactionSchemas() {
       fieldCount: schema.extracted_fields?.length || 0
     }))
   } catch (e) {
-    console.error('Error loading schemas for sidebar:', e)
+    // Schema loading error is non-critical for sidebar
   }
 }
 

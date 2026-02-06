@@ -27,6 +27,7 @@
     "inactive": "Inativo",
     "download": "Baixar",
     "upload": "Enviar",
+    "tryAgain": "Tentar novamente",
     "retry": "Tentar novamente",
     "back": "Voltar",
     "next": "Próximo",
@@ -128,7 +129,12 @@
       "rejected": "Rejeitadas",
       "inReview": "Em Revisão",
       "pending": "Pendentes",
-      "errorLoad": "Falha ao carregar métricas do dashboard"
+      "errorLoad": "Falha ao carregar métricas do dashboard",
+      "updated": "Atualizado",
+      "justNow": "agora mesmo",
+      "minutesAgo": "{count}m atrás",
+      "hoursAgo": "{count}h atrás",
+      "noDescription": "Sem descrição"
     },
     "transactions": {
       "title": "Transações",
@@ -183,7 +189,8 @@
       "generateSuccess": "Gerado com sucesso {count} eventos",
       "generatePartial": "Gerados {total} eventos: {success} com sucesso, {failed} falharam",
       "generateFailed": "Falha ao gerar eventos",
-      "errorLoad": "Falha ao carregar transações"
+      "errorLoad": "Falha ao carregar transações",
+      "itemsPerPage": "Itens por página:"
     },
     "profile": {
       "title": "Perfil",
@@ -242,7 +249,10 @@
       "noUsers": "Nenhum usuário encontrado",
       "emptyText": "Nenhum usuário encontrado",
       "errorLoad": "Falha ao carregar dados",
-      "assignRoleToUser": "Atribuir Função para {name}"
+      "assignRoleToUser": "Atribuir Função para {name}",
+      "errorAssignRole": "Falha ao atribuir função",
+      "errorRemoveRole": "Falha ao remover função",
+      "errorToggleStatus": "Falha ao alternar status do usuário"
     },
     "rules": {
       "title": "Regras",
@@ -256,6 +266,10 @@
       "ruleDescription": "Descrição da Regra",
       "emptyText": "Nenhuma regra configurada. Crie sua primeira regra para começar.",
       "deleteConfirmation": "Tem certeza que deseja excluir esta regra?",
+      "errorLoad": "Falha ao carregar regras",
+      "errorSave": "Falha ao salvar regra",
+      "errorDelete": "Falha ao excluir regra",
+      "errorToggle": "Falha ao alternar regra",
       "actions": {
         "allow": "Permitir",
         "block": "Bloquear",
@@ -449,6 +463,10 @@
       "generate": "Gerar Eventos",
       "schemaDetails": "Detalhes do Schema",
       "deleteConfirmation": "Tem certeza que deseja excluir este schema?",
+      "noDescription": "Sem descrição",
+      "errorLoad": "Falha ao carregar schemas",
+      "errorSave": "Falha ao salvar schema",
+      "errorDelete": "Falha ao excluir schema",
       "errorLoadSchema": "Falha ao carregar schema",
       "validation": {
         "jsonMustBeObject": "O JSON de exemplo deve ser um objeto",

@@ -52,6 +52,9 @@
 
 <script setup lang="ts">
 import { computed } from 'vue'
+import { useI18n } from 'vue-i18n'
+
+const { t } = useI18n()
 
 interface Column {
   key: string
@@ -79,10 +82,9 @@ const props = withDefaults(defineProps<Props>(), {
 // Normalize columns to Vuetify headers format
 const normalizedHeaders = computed(() => {
   return props.columns.map(column => {
-    // Check if label looks like a translation key
     const isTranslationKey = column.label.includes('.')
     return {
-      title: column.label,
+      title: isTranslationKey ? t(column.label) : column.label,
       key: column.key,
       width: column.width,
       align: 'start' as const,

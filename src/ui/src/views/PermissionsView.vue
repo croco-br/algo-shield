@@ -113,6 +113,7 @@
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
+import { useI18n } from 'vue-i18n'
 import { useAuthStore } from '@/stores/auth'
 import { api } from '@/lib/api'
 import BaseButton from '@/components/BaseButton.vue'
@@ -138,6 +139,7 @@ interface User {
 }
 
 const router = useRouter()
+const { t } = useI18n()
 const authStore = useAuthStore()
 
 const tableColumns = [
@@ -181,8 +183,7 @@ async function loadData() {
 		users.value = usersResponse?.users || []
 		roles.value = rolesResponse?.roles || []
 	} catch (e: any) {
-		error.value = e.message || (window as any).$i18n?.global?.t?.('views.permissions.errorLoad') || 'Failed to load data'
-		console.error('Error loading data:', e)
+		error.value = e.message || t('views.permissions.errorLoad')
 	} finally {
 		loading.value = false
 	}
@@ -205,7 +206,7 @@ async function assignRole(roleId: string) {
 		showRoleModal.value = false
 		await loadData()
 	} catch (e: any) {
-		error.value = e.message || (window as any).$i18n?.global?.t?.('views.permissions.errorAssignRole') || 'Failed to assign role'
+		error.value = e.message || t('views.permissions.errorAssignRole')
 	}
 }
 
@@ -214,7 +215,7 @@ async function removeRole(userId: string, roleId: string) {
 		await api.delete(`/api/v1/permissions/users/${userId}/roles/${roleId}`)
 		await loadData()
 	} catch (e: any) {
-		error.value = e.message || (window as any).$i18n?.global?.t?.('views.permissions.errorRemoveRole') || 'Failed to remove role'
+		error.value = e.message || t('views.permissions.errorRemoveRole')
 	}
 }
 
@@ -223,7 +224,7 @@ async function toggleUserActive(user: User) {
 		await api.put(`/api/v1/permissions/users/${user.id}/active`, { active: !user.active })
 		await loadData()
 	} catch (e: any) {
-		error.value = e.message || (window as any).$i18n?.global?.t?.('views.permissions.errorToggleStatus') || 'Failed to toggle user status'
+		error.value = e.message || t('views.permissions.errorToggleStatus')
 	}
 }
 </script>

@@ -27,6 +27,7 @@
     "inactive": "Inactive",
     "download": "Download",
     "upload": "Upload",
+    "tryAgain": "Try again",
     "retry": "Retry",
     "back": "Back",
     "next": "Next",
@@ -128,7 +129,12 @@
       "rejected": "Rejected",
       "inReview": "In Review",
       "pending": "Pending",
-      "errorLoad": "Failed to load dashboard metrics"
+      "errorLoad": "Failed to load dashboard metrics",
+      "updated": "Updated",
+      "justNow": "just now",
+      "minutesAgo": "{count}m ago",
+      "hoursAgo": "{count}h ago",
+      "noDescription": "No description"
     },
     "transactions": {
       "title": "Transactions",
@@ -183,7 +189,8 @@
       "generateSuccess": "Successfully generated {count} events",
       "generatePartial": "Generated {total} events: {success} succeeded, {failed} failed",
       "generateFailed": "Failed to generate events",
-      "errorLoad": "Failed to load transactions"
+      "errorLoad": "Failed to load transactions",
+      "itemsPerPage": "Items per page:"
     },
     "profile": {
       "title": "Profile",
@@ -242,7 +249,10 @@
       "noUsers": "No users found",
       "emptyText": "No users found",
       "errorLoad": "Failed to load data",
-      "assignRoleToUser": "Assign Role to {name}"
+      "assignRoleToUser": "Assign Role to {name}",
+      "errorAssignRole": "Failed to assign role",
+      "errorRemoveRole": "Failed to remove role",
+      "errorToggleStatus": "Failed to toggle user status"
     },
     "rules": {
       "title": "Rules",
@@ -256,6 +266,10 @@
       "ruleDescription": "Rule Description",
       "emptyText": "No rules configured. Create your first rule to get started.",
       "deleteConfirmation": "Are you sure you want to delete this rule?",
+      "errorLoad": "Failed to load rules",
+      "errorSave": "Failed to save rule",
+      "errorDelete": "Failed to delete rule",
+      "errorToggle": "Failed to toggle rule",
       "actions": {
         "allow": "Allow",
         "block": "Block",
@@ -449,6 +463,10 @@
       "generate": "Generate Events",
       "schemaDetails": "Schema Details",
       "deleteConfirmation": "Are you sure you want to delete this schema?",
+      "noDescription": "No description",
+      "errorLoad": "Failed to load schemas",
+      "errorSave": "Failed to save schema",
+      "errorDelete": "Failed to delete schema",
       "errorLoadSchema": "Failed to load schema",
       "validation": {
         "jsonMustBeObject": "Sample JSON must be an object",

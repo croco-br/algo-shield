@@ -172,22 +172,17 @@
 
       <!-- Transaction Table -->
       <v-card v-else variant="outlined" class="overflow-hidden">
-        <!-- Debug Info -->
-        <div class="pa-2 bg-grey-lighten-4 text-caption">
-          Debug: total={{ total }}, page={{ currentPage }}, itemsPerPage={{ itemsPerPage }},
-          transactions.length={{ transactions.length }}
-        </div>
-        <v-data-table
+        <v-data-table-server
           :headers="dynamicTableHeaders"
           :items="transactions"
-          v-model:items-per-page="itemsPerPage"
-          v-model:page="currentPage"
           :items-length="total"
-          :items-per-page-options="itemsPerPageOptions"
+          :items-per-page="itemsPerPage"
+          :page="currentPage"
           class="elevation-0"
           hover
           :loading="loading"
-          show-current-page
+          @update:page="onPageChange"
+          @update:items-per-page="onItemsPerPageChange"
         >
           <!-- Status Column -->
           <template #item.status="{ item }">
@@ -211,6 +206,7 @@
                     size="small"
                     variant="text"
                     icon="fa-eye"
+                    :aria-label="$t('views.transactions.viewDetails')"
                     @click="openDetailModal(item)"
                   />
                 </template>
@@ -225,6 +221,7 @@
                     variant="text"
                     icon="fa-check"
                     color="success"
+                    :aria-label="$t('views.transactions.approve')"
                     @click="approveTransaction(item.id)"
                   />
                 </template>
@@ -239,6 +236,7 @@
                     variant="text"
                     icon="fa-times"
                     color="error"
+                    :aria-label="$t('views.transactions.reject')"
                     @click="rejectTransaction(item.id)"
                   />
                 </template>
@@ -260,35 +258,37 @@
             <div class="v-data-table-footer pa-4 d-flex align-center justify-space-between">
               <div class="text-body-2">
                 <template v-if="total > 0">
-                  Showing {{ ((currentPage - 1) * itemsPerPage) + 1 }} to {{ Math.min(currentPage * itemsPerPage, total) }} of {{ total }} entries
+                  {{ $t('views.transactions.showing') }} {{ ((currentPage - 1) * itemsPerPage) + 1 }} {{ $t('views.transactions.to') }} {{ Math.min(currentPage * itemsPerPage, total) }} {{ $t('views.transactions.of') }} {{ total }} {{ $t('views.transactions.transactions') }}
                 </template>
                 <template v-else>
-                  No entries
+                  {{ $t('common.noData') }}
                 </template>
               </div>
               <div class="d-flex align-center gap-4">
                 <div class="d-flex align-center gap-2">
-                  <span class="text-body-2">Items per page:</span>
+                  <span class="text-body-2">{{ $t('components.table.rowsPerPage') }}:</span>
                   <v-select
-                    v-model="itemsPerPage"
+                    :model-value="itemsPerPage"
                     :items="itemsPerPageOptions"
                     density="compact"
                     variant="outlined"
                     hide-details
                     style="width: 100px"
+                    @update:model-value="onItemsPerPageChange"
                   />
                 </div>
                 <v-pagination
                   v-if="total > 0"
-                  v-model="currentPage"
+                  :model-value="currentPage"
                   :length="Math.max(1, Math.ceil(total / itemsPerPage))"
                   :total-visible="7"
                   size="small"
+                  @update:model-value="onPageChange"
                 />
               </div>
             </div>
           </template>
-        </v-data-table>
+        </v-data-table-server>
       </v-card>
     </template>
 
@@ -365,7 +365,7 @@
 <script setup lang="ts">
 import { ref, reactive, onMounted, onUnmounted, computed, watch } from 'vue'
 import { useRoute } from 'vue-router'
-import { useLocale } from '@/composables/useLocale'
+import { useI18n } from 'vue-i18n'
 import { useSystemModeStore } from '@/stores/systemMode'
 import { useAuthStore } from '@/stores/auth'
 import { api } from '@/lib/api'
@@ -399,7 +399,7 @@ interface EventSchema {
 }
 
 const route = useRoute()
-const { t } = useLocale()
+const { t } = useI18n()
 const systemModeStore = useSystemModeStore()
 const authStore = useAuthStore()
 
@@ -504,6 +504,22 @@ const dynamicTableHeaders = computed(() => {
   return headers
 })
 
+// Pagination event handlers
+function onPageChange(page: number) {
+  if (page !== currentPage.value) {
+    currentPage.value = page
+    loadTransactions()
+  }
+}
+
+function onItemsPerPageChange(perPage: number) {
+  if (perPage !== itemsPerPage.value) {
+    itemsPerPage.value = perPage
+    currentPage.value = 1
+    loadTransactions()
+  }
+}
+
 onMounted(async () => {
   await systemModeStore.loadMode()
   await loadSchemas()
@@ -550,35 +566,6 @@ watch(() => systemModeStore.syntheticMode, () => {
   }
 })
 
-// Debug watcher for total
-watch(total, (newVal, oldVal) => {
-  console.log('[WATCH] total changed from', oldVal, 'to', newVal)
-})
-
-// Watch for page changes
-watch(currentPage, (newPage, oldPage) => {
-  if (filters.schemaId && newPage !== oldPage) {
-    console.log('[Watch] currentPage changed from', oldPage, 'to', newPage)
-    loadTransactions()
-  }
-})
-
-// Watch for items per page changes
-watch(itemsPerPage, (newValue, oldValue) => {
-  if (filters.schemaId && newValue !== oldValue) {
-    console.log('[Watch] itemsPerPage changed from', oldValue, 'to', newValue)
-    // Reset to first page but don't trigger currentPage watcher if already on page 1
-    const wasOnFirstPage = currentPage.value === 1
-    currentPage.value = 1
-
-    // Only call loadTransactions if we were already on page 1
-    // (otherwise the currentPage watcher will handle it)
-    if (wasOnFirstPage) {
-      loadTransactions()
-    }
-  }
-})
-
 onUnmounted(() => {
   stopLiveUpdates()
 })
@@ -588,7 +575,7 @@ async function loadSchemas() {
     const response = await api.get<{ schemas: Schema[] }>('/api/v1/schemas')
     schemas.value = response?.schemas || []
   } catch (e) {
-    console.error('Error loading schemas:', e)
+    // Schema load failure is non-critical
   }
 }
 
@@ -597,7 +584,6 @@ async function loadSchemaData(schemaId: string) {
     const response = await api.get<EventSchema>(`/api/v1/schemas/${schemaId}`)
     selectedSchemaData.value = response
   } catch (e) {
-    console.error('Error loading schema data:', e)
     selectedSchemaData.value = null
   }
 }
@@ -645,7 +631,6 @@ function formatSchemaFieldValue(value: any, type: string): string {
 async function loadTransactions() {
   if (!filters.schemaId) return
 
-  // Ensure currentPage is valid (at least 1)
   if (currentPage.value < 1) {
     currentPage.value = 1
   }
@@ -661,21 +646,14 @@ async function loadTransactions() {
     if (filters.status) params.append('status', filters.status)
     if (filters.schemaId) params.append('schema_id', filters.schemaId)
 
-    console.log('[Load Transactions] Request params:', {
-      schemaId: filters.schemaId,
-      status: filters.status,
-      syntheticMode: syntheticMode.value,
-      limit: itemsPerPage.value,
-      offset: offset
-    })
     if (filters.startDate && filters.startDate.trim() !== '') {
       try {
         const startDate = new Date(filters.startDate + 'T00:00:00Z')
         if (!isNaN(startDate.getTime())) {
           params.append('start_date', startDate.toISOString())
         }
-      } catch (e) {
-        console.error('Error parsing start date:', e)
+      } catch {
+        // Invalid date - skip
       }
     }
     if (filters.endDate && filters.endDate.trim() !== '') {
@@ -684,14 +662,12 @@ async function loadTransactions() {
         if (!isNaN(endDate.getTime())) {
           params.append('end_date', endDate.toISOString())
         }
-      } catch (e) {
-        console.error('Error parsing end date:', e)
+      } catch {
+        // Invalid date - skip
       }
     }
 
     const response = await api.get<{ transactions: Transaction[]; total?: number }>(`/api/v1/transactions?${params.toString()}`)
-    console.log('[Load Transactions] Raw Response:', response)
-    console.log('[Load Transactions] Response.total type:', typeof response.total, 'value:', response.total)
 
     const rawTransactions = response.transactions || []
     total.value = response.total ?? 0
@@ -700,7 +676,6 @@ async function loadTransactions() {
     transactions.value = rawTransactions.map(transaction => {
       const processed: Record<string, any> = { ...transaction }
 
-      // Add schema field values to the transaction object
       if (schemaFields.value.length > 0) {
         schemaFields.value.forEach((field: ExtractedField) => {
           const safeKey = field.path.replace(/\./g, '_')
@@ -713,26 +688,13 @@ async function loadTransactions() {
       return processed as Transaction
     })
 
-    console.log('[Load Transactions] After assignment - total.value:', total.value)
-    console.log('[Load Transactions] transactions.value.length:', transactions.value.length)
-    console.log('[Load Transactions] First transaction:', transactions.value[0])
-    console.log('[Load Transactions] Response:', {
-      count: transactions.value.length,
-      total: total.value,
-      transactions: transactions.value
-    })
-    console.log('[Load Transactions] dynamicTableHeaders:', dynamicTableHeaders.value)
-
     // If currentPage is beyond available pages, adjust it
     const maxPage = Math.ceil(total.value / itemsPerPage.value)
     if (maxPage > 0 && currentPage.value > maxPage) {
-      console.log('[Load Transactions] currentPage', currentPage.value, 'exceeds maxPage', maxPage, '- adjusting')
       currentPage.value = maxPage
-      // Don't call loadTransactions here to avoid infinite loop - the watcher will handle it
     }
   } catch (e: any) {
     error.value = e.message || t('views.transactions.errorLoad')
-    console.error('[Load Transactions] Error:', e)
   } finally {
     loading.value = false
   }
@@ -772,22 +734,11 @@ async function handleGenerateEvents() {
       count: generateCount.value,
     }
 
-    console.log('[Generate Events] Sending request:', {
-      schemaId: generateSchemaId.value,
-      count: generateCount.value,
-      syntheticMode: syntheticMode.value,
-      hasToken: !!authStore.getToken(),
-      hasCsrfToken: !!authStore.getCsrfToken()
-    })
-
     const response = await api.post<{ generated_count: number; failed_count: number; message: string }>(
       `/api/v1/schemas/${generateSchemaId.value}/generate-events`,
       payload
     )
 
-    console.log('[Generate Events] Response:', response)
-
-    // Use i18n messages based on success/failure counts
     let message: string
     if (response?.failed_count === 0) {
       message = t('views.transactions.generateSuccess', { count: response.generated_count })
@@ -804,56 +755,25 @@ async function handleGenerateEvents() {
       message: message,
     }
 
-    // Worker should process in <50ms per project SLA
-    // Wait 100ms to account for queue + processing + DB write
+    // Wait for worker processing
     await new Promise(resolve => setTimeout(resolve, 100))
-    console.log('[Generate Events] Reloading after 100ms...')
     await loadTransactions()
 
     if (transactions.value.length === 0) {
-      console.error('[Generate Events] CRITICAL: No transactions found')
-      console.error('Expected processing time: <50ms per transaction')
-      console.error('Possible causes:')
-      console.error('  1. Worker container NOT RUNNING - check: docker ps | grep worker')
-      console.error('  2. Worker not connected to Redis queue')
-      console.error('  3. Synthetic mode not active (current:', syntheticMode.value, ')')
-      console.error('  4. Worker crashed or has errors - check: docker logs algo-shield-worker')
-      console.error('  5. Schema ID mismatch in worker processing')
-      console.error('')
-      console.error('Enable Live Updates to see transactions as they arrive')
-
       generateResult.value = {
         success: false,
-        message: 'Events queued but not processed. Worker may not be running. Check console for details.',
+        message: t('views.transactions.generateFailed'),
       }
-    } else {
-      console.log(`[Generate Events] Success: ${transactions.value.length} transactions loaded`)
     }
   } catch (e: any) {
-    console.error('[Generate Events] Error:', e)
-
-    // Check if it's a CSRF error (403 Forbidden with CSRF in message)
-    const errorMessage = e.message || 'Failed to generate events'
+    const errorMessage = e.message || t('views.transactions.generateFailed')
     const isCSRFError = errorMessage.includes('CSRF') || errorMessage.includes('403') || errorMessage.includes('Forbidden')
 
-    if (isCSRFError) {
-      console.error('[Generate Events] CSRF token error detected')
-      console.error('This typically happens when:')
-      console.error('  1. User logged in before CSRF system was implemented')
-      console.error('  2. CSRF token expired (24h TTL)')
-      console.error('  3. Redis connection lost')
-      console.error('')
-      console.error('Solution: Please logout and login again to refresh CSRF token')
-
-      generateResult.value = {
-        success: false,
-        message: 'CSRF token error. Please logout and login again.',
-      }
-    } else {
-      generateResult.value = {
-        success: false,
-        message: errorMessage,
-      }
+    generateResult.value = {
+      success: false,
+      message: isCSRFError
+        ? t('errors.FORBIDDEN')
+        : errorMessage,
     }
   } finally {
     generating.value = false
@@ -872,7 +792,11 @@ function startLiveUpdates() {
   isLive.value = true
 
   try {
-    const token = localStorage.getItem('token')
+    const token = authStore.getToken()
+    if (!token) {
+      startPolling()
+      return
+    }
     eventSource = new EventSource(`/api/v1/transactions/stream?token=${token}`)
 
     eventSource.onmessage = (event) => {
@@ -881,8 +805,8 @@ function startLiveUpdates() {
         if (data.type === 'update' || data.type === 'new') {
           loadTransactions()
         }
-      } catch (e) {
-        console.error('Error parsing SSE message:', e)
+      } catch {
+        // Ignore malformed SSE messages
       }
     }
 
@@ -893,7 +817,7 @@ function startLiveUpdates() {
       }
       startPolling()
     }
-  } catch (e) {
+  } catch {
     startPolling()
   }
 }
@@ -926,14 +850,12 @@ async function approveTransaction(id: string) {
   try {
     error.value = ''
     await api.patch(`/api/v1/transactions/${id}/approve`)
-    // Update transaction status locally instead of reloading entire list
     const transaction = transactions.value.find(t => t.id === id)
     if (transaction) {
       transaction.status = 'approved'
     }
   } catch (e: any) {
-    error.value = e.message || 'Failed to approve transaction'
-    console.error('Error approving transaction:', e)
+    error.value = e.message || t('views.transactions.errorLoad')
   }
 }
 
@@ -941,14 +863,12 @@ async function rejectTransaction(id: string) {
   try {
     error.value = ''
     await api.patch(`/api/v1/transactions/${id}/reject`)
-    // Update the transaction status locally instead of reloading
     const transaction = transactions.value.find(t => t.id === id)
     if (transaction) {
       transaction.status = 'rejected'
     }
   } catch (e: any) {
-    error.value = e.message || 'Failed to reject transaction'
-    console.error('Error rejecting transaction:', e)
+    error.value = e.message || t('views.transactions.errorLoad')
   }
 }
 

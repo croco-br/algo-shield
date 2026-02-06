@@ -1,6 +1,6 @@
 <template>
   <v-container fluid class="fill-height pa-0">
-    <v-row align="start" justify="center" class="fill-height">
+    <v-row align="center" justify="center" class="fill-height">
       <v-col cols="12" sm="8" md="5" lg="4" class="pt-12">
         <v-card class="pa-8 elevation-2">
           <!-- Logo Section -->
@@ -124,7 +124,7 @@
 <script setup lang="ts">
 import { ref } from 'vue'
 import { useRouter } from 'vue-router'
-import { i18n } from '@/plugins/i18n'
+import { useI18n } from 'vue-i18n'
 import { useAuthStore } from '@/stores/auth'
 import { api } from '@/lib/api'
 import BaseButton from '@/components/BaseButton.vue'
@@ -133,7 +133,7 @@ import ErrorMessage from '@/components/ErrorMessage.vue'
 
 const router = useRouter()
 const authStore = useAuthStore()
-const t = i18n.global.t
+const { t } = useI18n()
 
 const email = ref('')
 const password = ref('')
@@ -170,7 +170,6 @@ async function handleLogin() {
     await authStore.setToken(response.token, response.csrf_token, response.refresh_token)
     router.push('/')
   } catch (e: any) {
-    console.error('Login error:', e)
     const errorMsg = e.message || t('auth.errors.loginFailed')
     
     if (errorMsg.includes('Invalid email or password') || errorMsg.includes('invalid email or password')) {
@@ -218,7 +217,6 @@ async function handleRegister() {
     await authStore.setToken(response.token, response.csrf_token, response.refresh_token)
     router.push('/')
   } catch (e: any) {
-    console.error('Registration error:', e)
     const errorMsg = e.message || t('auth.errors.registrationFailed')
     
     if (errorMsg.includes('already exists') || errorMsg.includes('já existe')) {

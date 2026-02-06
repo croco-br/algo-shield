@@ -109,11 +109,11 @@
 </template>
 
 <script setup lang="ts">
-import { i18n } from '@/plugins/i18n'
+import { useI18n } from 'vue-i18n'
 import BaseSelect from '@/components/BaseSelect.vue'
 import BaseInput from '@/components/BaseInput.vue'
 
-const t = i18n.global.t
+const { t } = useI18n()
 
 interface ConditionRow {
   id: string
@@ -218,11 +218,11 @@ function getValuePlaceholder(fieldPath: string): string {
 
   const type = field.type
   if (type === 'string') {
-    return 'e.g., "USD" or "active"'
+    return t('views.rules.modal.validation.valuePlaceholderString')
   } else if (type === 'number') {
-    return 'e.g., 1000 or 5000'
+    return t('views.rules.modal.validation.valuePlaceholderNumber')
   } else if (type === 'array') {
-    return 'e.g., "US", "CA", "GB" or 1, 2, 3'
+    return t('views.rules.modal.validation.valuePlaceholderArray')
   }
   
   return defaultValue

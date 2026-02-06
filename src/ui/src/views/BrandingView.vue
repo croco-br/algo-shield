@@ -28,9 +28,9 @@
       @click:close="success = ''"
     />
 
-    <v-row class="g-0" style="margin: 0;">
+    <v-row no-gutters style="margin: 0;">
       <!-- Configuration Form -->
-      <v-col cols="12" lg="6" class="pr-lg-2" style="padding-left: 0;">
+      <v-col cols="12" lg="6" class="pr-lg-2">
         <v-card class="pa-3">
           <v-card-title class="text-subtitle-1 mb-3" style="font-weight: 600;">{{ $t('views.branding.configuration') }}</v-card-title>
 
@@ -176,7 +176,7 @@
       </v-col>
 
       <!-- Live Preview -->
-      <v-col cols="12" lg="6" class="pl-lg-2" style="padding-right: 0;">
+      <v-col cols="12" lg="6" class="pl-lg-2">
         <v-card class="pa-3">
           <v-card-title class="text-subtitle-1 mb-3" style="font-weight: 600;">{{ $t('views.branding.livePreview') }}</v-card-title>
 
@@ -295,10 +295,12 @@
 
 <script setup lang="ts">
 import { ref, reactive, watch } from 'vue'
+import { useI18n } from 'vue-i18n'
 import { useBrandingStore, type BrandingConfig } from '@/stores/branding'
 import BaseButton from '@/components/BaseButton.vue'
 import BaseInput from '@/components/BaseInput.vue'
 
+const { t } = useI18n()
 const brandingStore = useBrandingStore()
 
 const loading = ref(false)
@@ -345,12 +347,12 @@ async function handleSubmit() {
       header_color: form.header_color,
     })
 
-    success.value = (window as any).$i18n?.global?.t?.('views.branding.saveSuccess') || 'Branding configuration updated successfully!'
+    success.value = t('views.branding.saveSuccess')
     setTimeout(() => {
       success.value = ''
     }, 5000)
   } catch (e) {
-    error.value = e instanceof Error ? e.message : ((window as any).$i18n?.global?.t?.('views.branding.saveError') || 'Failed to update branding configuration')
+    error.value = e instanceof Error ? e.message : t('views.branding.saveError')
   } finally {
     loading.value = false
   }

@@ -160,13 +160,13 @@
 
 <script setup lang="ts">
 import { ref, computed, watch } from 'vue'
-import { i18n } from '@/plugins/i18n'
+import { useI18n } from 'vue-i18n'
 import BaseModal from '@/components/BaseModal.vue'
 import BaseInput from '@/components/BaseInput.vue'
 import BaseSelect from '@/components/BaseSelect.vue'
 import BaseButton from '@/components/BaseButton.vue'
 
-const t = i18n.global.t
+const { t } = useI18n()
 
 interface Props {
   modelValue: boolean

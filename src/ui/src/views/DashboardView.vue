@@ -16,7 +16,7 @@
               {{ responseTime }}ms
             </span>
             <span v-if="lastUpdated" class="text-caption text-grey-darken-1">
-              Updated {{ formatTimeAgo(lastUpdated) }}
+              {{ $t('views.dashboard.updated') }} {{ formatTimeAgo(lastUpdated) }}
             </span>
             <BaseButton @click="loadMetrics" :loading="loading" prepend-icon="fa-refresh">
               {{ $t('views.dashboard.refresh') }}
@@ -118,13 +118,13 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted, onUnmounted } from 'vue'
-import { useLocale } from '@/composables/useLocale'
+import { useI18n } from 'vue-i18n'
 import { api } from '@/lib/api'
 import BaseButton from '@/components/BaseButton.vue'
 import LoadingSpinner from '@/components/LoadingSpinner.vue'
 import ErrorMessage from '@/components/ErrorMessage.vue'
 
-const { t } = useLocale()
+const { t } = useI18n()
 
 interface StatusCount {
   status: string
@@ -162,28 +162,28 @@ const statusCards = computed(() => {
     pending: { color: 'info', icon: 'fa-hourglass', labelKey: 'views.dashboard.pending' },
   }
 
-  // Garantir que approved e rejected sempre apareçam
+  // Ensure approved and rejected always appear
   const requiredStatuses = ['approved', 'rejected']
   const distribution = metrics.value?.status_distribution || []
 
-  // Criar um mapa dos status existentes
+  // Create a map of existing statuses
   const statusMap = new Map(distribution.map(item => [item.status, item.count]))
 
-  // Garantir que os status obrigatórios existam
+  // Ensure required statuses exist
   requiredStatuses.forEach(status => {
     if (!statusMap.has(status)) {
       statusMap.set(status, 0)
     }
   })
 
-  // Adicionar outros status que possam existir
+  // Add other statuses that may exist
   distribution.forEach(item => {
     if (!statusMap.has(item.status)) {
       statusMap.set(item.status, item.count)
     }
   })
 
-  // Converter para array e ordenar (approved, rejected, depois outros)
+  // Convert to array and sort (approved, rejected, then others)
   return Array.from(statusMap.entries())
     .map(([status, count]) => {
       const config = statusConfig[status] || { color: 'grey', icon: 'fa-question', labelKey: '' }
@@ -196,7 +196,7 @@ const statusCards = computed(() => {
       }
     })
     .sort((a, b) => {
-      // Ordem: approved, rejected, depois outros
+      // Order: approved, rejected, then others
       const order = ['approved', 'rejected', 'in_review', 'pending']
       const indexA = order.indexOf(a.name)
       const indexB = order.indexOf(b.name)
@@ -247,7 +247,6 @@ async function loadMetrics() {
     lastUpdated.value = new Date()
   } catch (e: any) {
     error.value = e.message || t('views.dashboard.errorLoad')
-    console.error('Error loading metrics:', e)
   } finally {
     loading.value = false
   }
@@ -288,9 +287,9 @@ function formatNumber(num: number): string {
 
 function formatTimeAgo(date: Date): string {
   const seconds = Math.floor((new Date().getTime() - date.getTime()) / 1000)
-  if (seconds < 60) return 'just now'
-  if (seconds < 3600) return Math.floor(seconds / 60) + 'm ago'
-  return Math.floor(seconds / 3600) + 'h ago'
+  if (seconds < 60) return t('views.dashboard.justNow')
+  if (seconds < 3600) return t('views.dashboard.minutesAgo', { count: Math.floor(seconds / 60) })
+  return t('views.dashboard.hoursAgo', { count: Math.floor(seconds / 3600) })
 }
 </script>
 
@@ -339,6 +338,9 @@ function formatTimeAgo(date: Date): string {
   color: #999;
   margin-top: 4px;
   white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
 }
 
 .status-bar-item {
