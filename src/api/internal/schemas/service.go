@@ -4,6 +4,8 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/google/uuid"
@@ -199,6 +201,9 @@ func (s *Service) ParseSampleJSON(ctx context.Context, id uuid.UUID) (*EventSche
 	return schema, nil
 }
 
+// enqueueConcurrency controls the number of parallel Redis enqueue operations
+const enqueueConcurrency = 20
+
 // GenerateEvents generates synthetic events from a schema and queues them for processing
 func (s *Service) GenerateEvents(ctx context.Context, id uuid.UUID, req *GenerateEventsRequest) (*GenerateEventsResponse, error) {
 	if s.enqueuer == nil {
@@ -214,38 +219,64 @@ func (s *Service) GenerateEvents(ctx context.Context, id uuid.UUID, req *Generat
 	}
 
 	generator := NewEventGenerator()
-	generated := 0
-	failed := 0
 
+	// Generate all events first (CPU-bound, fast)
+	events := make([]map[string]any, req.Count)
 	for i := 0; i < req.Count; i++ {
 		event := generator.GenerateEvent(schema)
-		// Add schema_id to the event for tracking
 		event["_schema_id"] = id.String()
-		// Mark as synthetic event for separate table storage
 		event["_synthetic"] = true
-
-		// Enqueue using Asynq (default priority)
-		_, err := s.enqueuer.EnqueueTransactionWithPriority(ctx, event, "default")
-		if err != nil {
-			// TODO: Add structured logging when available
-			// log.Warn("Failed to enqueue synthetic event", "error", err, "index", i, "schema_id", id)
-			failed++
-			continue
-		}
-		generated++
+		events[i] = event
 	}
 
+	// Enqueue in parallel with bounded concurrency
+	var generated atomic.Int64
+	var failed atomic.Int64
+	sem := make(chan struct{}, enqueueConcurrency)
+	var wg sync.WaitGroup
+
+	for _, event := range events {
+		if ctx.Err() != nil {
+			break
+		}
+
+		wg.Add(1)
+		sem <- struct{}{} // Acquire semaphore slot
+
+		go func(ev map[string]any) {
+			defer wg.Done()
+			defer func() { <-sem }() // Release semaphore slot
+
+			if ctx.Err() != nil {
+				failed.Add(1)
+				return
+			}
+
+			_, err := s.enqueuer.EnqueueTransactionWithPriority(ctx, ev, "default")
+			if err != nil {
+				failed.Add(1)
+				return
+			}
+			generated.Add(1)
+		}(event)
+	}
+
+	wg.Wait()
+
+	gen := int(generated.Load())
+	fail := int(failed.Load())
+
 	var message string
-	if failed == 0 {
-		message = fmt.Sprintf("Successfully generated and queued %d events", generated)
+	if fail == 0 {
+		message = fmt.Sprintf("Successfully generated and queued %d events", gen)
 	} else {
-		message = fmt.Sprintf("Generated %d events (%d succeeded, %d failed)", req.Count, generated, failed)
+		message = fmt.Sprintf("Generated %d events (%d succeeded, %d failed)", req.Count, gen, fail)
 	}
 
 	return &GenerateEventsResponse{
 		SchemaID:       id,
-		GeneratedCount: generated,
-		FailedCount:    failed,
+		GeneratedCount: gen,
+		FailedCount:    fail,
 		Message:        message,
 	}, nil
 }

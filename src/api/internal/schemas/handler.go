@@ -239,7 +239,7 @@ func (h *Handler) GenerateEvents(c *fiber.Ctx) error {
 		})
 	}
 
-	ctx, cancel := context.WithTimeout(c.Context(), internal.GetHandlerTimeout())
+	ctx, cancel := context.WithTimeout(c.Context(), internal.GetBatchOperationTimeout())
 	defer cancel()
 
 	response, err := h.service.GenerateEvents(ctx, id, &req)

@@ -70,7 +70,7 @@ describe('DashboardView', () => {
     })
 
     i18n = createI18n({
-      legacy: true,
+      legacy: false,
       locale: 'en-US',
       messages: {
         'en-US': {
@@ -81,6 +81,8 @@ describe('DashboardView', () => {
               refresh: 'Refresh',
               loading: 'Loading metrics...',
               errorTitle: 'Error loading dashboard',
+              errorLoad: 'Failed to load metrics',
+              updated: 'Updated',
               totalTransactions: 'Total Transactions',
               approved: 'Approved',
               rejected: 'Rejected',
@@ -88,6 +90,9 @@ describe('DashboardView', () => {
               pending: 'Pending',
               statusDistribution: 'Status Distribution',
               transactionVolume: 'Transaction Volume',
+              justNow: 'just now',
+              minutesAgo: '{count}m ago',
+              hoursAgo: '{count}h ago',
             },
           },
         },

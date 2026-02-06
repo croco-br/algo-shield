@@ -307,6 +307,7 @@
           v-model="generateSchemaId"
           :items="generateSchemaOptions"
           :label="$t('views.transactions.selectSchema')"
+          :disabled="generating"
           density="compact"
           variant="outlined"
           class="mb-4"
@@ -319,10 +320,29 @@
           type="number"
           min="1"
           max="10000"
+          :disabled="generating"
           :placeholder="$t('views.transactions.eventCountPlaceholder')"
           prepend-inner-icon="fa-hashtag"
           class="mb-4"
         />
+
+        <!-- Progress bar -->
+        <div v-if="generating && generateTotal > 0" class="mt-4">
+          <div class="d-flex justify-space-between mb-1">
+            <span class="text-body-2 font-weight-medium">
+              {{ $t('views.transactions.generating') }}
+            </span>
+            <span class="text-body-2 text-grey-darken-1">
+              {{ generateProgress }} / {{ generateTotal }}
+            </span>
+          </div>
+          <v-progress-linear
+            :model-value="(generateProgress / generateTotal) * 100"
+            color="primary"
+            height="8"
+            rounded
+          />
+        </div>
 
         <v-alert
           v-if="generateResult"
@@ -338,6 +358,7 @@
         <BaseButton
           variant="ghost"
           @click="showGenerateModal = false"
+          :disabled="generating"
           prepend-icon="fa-xmark"
         >
           {{ $t('components.modal.cancel') }}
@@ -345,7 +366,7 @@
         <BaseButton
           @click="handleGenerateEvents"
           :loading="generating"
-          :disabled="!generateSchemaId || !generateCount || generateCount < 1 || generateCount > 10000"
+          :disabled="generating || !generateSchemaId || !generateCount || generateCount < 1 || generateCount > 10000"
           prepend-icon="fa-bolt"
         >
           {{ $t('views.transactions.generate') }}
@@ -431,6 +452,9 @@ const generateSchemaId = ref<string | null>(null)
 const generateCount = ref(10)
 const generating = ref(false)
 const generateResult = ref<{ success: boolean; message: string } | null>(null)
+const generateProgress = ref(0)
+const generateTotal = ref(0)
+const generateBatchSize = 100
 
 // Transaction detail modal state
 const showDetailModal = ref(false)
@@ -559,11 +583,12 @@ watch(() => filters.status, () => {
   }
 })
 
-// Watch for synthetic mode changes
+// Watch for synthetic mode changes — reload data and close generate modal
 watch(() => systemModeStore.syntheticMode, () => {
   if (!systemModeStore.syntheticMode && showGenerateModal.value) {
     showGenerateModal.value = false
   }
+  loadTransactions()
 })
 
 onUnmounted(() => {
@@ -720,6 +745,8 @@ function openGenerateModal() {
   generateSchemaId.value = filters.schemaId
   generateCount.value = 10
   generateResult.value = null
+  generateProgress.value = 0
+  generateTotal.value = 0
   showGenerateModal.value = true
 }
 
@@ -729,33 +756,45 @@ async function handleGenerateEvents() {
   try {
     generating.value = true
     generateResult.value = null
+    generateProgress.value = 0
+    generateTotal.value = generateCount.value
 
-    const payload = {
-      count: generateCount.value,
+    const total = generateCount.value
+    let totalGenerated = 0
+    let totalFailed = 0
+
+    // Split into batches for progress tracking
+    let remaining = total
+    while (remaining > 0) {
+      const batchCount = Math.min(remaining, generateBatchSize)
+
+      const response = await api.post<{ generated_count: number; failed_count: number; message: string }>(
+        `/api/v1/schemas/${generateSchemaId.value}/generate-events`,
+        { count: batchCount }
+      )
+
+      totalGenerated += response?.generated_count || 0
+      totalFailed += response?.failed_count || 0
+      remaining -= batchCount
+      generateProgress.value = totalGenerated + totalFailed
     }
 
-    const response = await api.post<{ generated_count: number; failed_count: number; message: string }>(
-      `/api/v1/schemas/${generateSchemaId.value}/generate-events`,
-      payload
-    )
-
     let message: string
-    if (response?.failed_count === 0) {
-      message = t('views.transactions.generateSuccess', { count: response.generated_count })
+    if (totalFailed === 0) {
+      message = t('views.transactions.generateSuccess', { count: totalGenerated })
     } else {
       message = t('views.transactions.generatePartial', {
-        total: (response?.generated_count || 0) + (response?.failed_count || 0),
-        success: response?.generated_count || 0,
-        failed: response?.failed_count || 0
+        total: totalGenerated + totalFailed,
+        success: totalGenerated,
+        failed: totalFailed
       })
     }
 
     generateResult.value = {
-      success: response?.failed_count === 0,
+      success: totalFailed === 0,
       message: message,
     }
 
-    // Wait for worker processing
     await new Promise(resolve => setTimeout(resolve, 100))
     await loadTransactions()
 

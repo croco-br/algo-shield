@@ -31,6 +31,17 @@ func GetHandlerTimeout() time.Duration {
 	return 500 * time.Millisecond // Default fallback
 }
 
+// GetBatchOperationTimeout returns the configured timeout for batch operations
+// Falls back to default if config is not set
+func GetBatchOperationTimeout() time.Duration {
+	configMutex.RLock()
+	defer configMutex.RUnlock()
+	if globalConfig != nil && globalConfig.API.Timeouts.BatchOperationTimeout > 0 {
+		return globalConfig.API.Timeouts.BatchOperationTimeout
+	}
+	return 30 * time.Second // Default fallback
+}
+
 // GetHealthCheckTimeout returns the configured health check timeout from config
 // Falls back to default if config is not set
 func GetHealthCheckTimeout() time.Duration {

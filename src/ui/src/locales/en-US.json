@@ -186,6 +186,7 @@
       "eventCount": "Number of Events",
       "eventCountPlaceholder": "Enter number (1-10000)",
       "generate": "Generate Events",
+      "generating": "Generating events...",
       "generateSuccess": "Successfully generated {count} events",
       "generatePartial": "Generated {total} events: {success} succeeded, {failed} failed",
       "generateFailed": "Failed to generate events",
@@ -545,7 +546,8 @@
     },
     "modal": {
       "cancel": "Cancel",
-      "save": "Save"
+      "save": "Save",
+      "close": "Close"
     },
     "transactionDetailModal": {
       "title": "Transaction Details",

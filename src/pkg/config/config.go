@@ -109,8 +109,9 @@ func (ac AsynqConfig) GetLowPriorityTimeout() time.Duration {
 }
 
 type APITimeouts struct {
-	HandlerTimeout time.Duration // Default timeout for API handlers
-	HealthCheck    time.Duration // Timeout for health check endpoints
+	HandlerTimeout        time.Duration // Default timeout for API handlers
+	HealthCheck           time.Duration // Timeout for health check endpoints
+	BatchOperationTimeout time.Duration // Timeout for batch operations (e.g., generating synthetic events)
 }
 
 type APICacheConfig struct {
@@ -181,8 +182,9 @@ func Load() (*Config, error) {
 			CORSAllowOrigins: getEnv("CORS_ALLOWED_ORIGINS", "*"),
 			BodyLimit:        getEnvInt("API_BODY_LIMIT", 4*1024*1024), // SECURITY: Default 4MB to prevent DoS
 			Timeouts: APITimeouts{
-				HandlerTimeout: getEnvDuration("API_TIMEOUT_HANDLER", 500*time.Millisecond),
-				HealthCheck:    getEnvDuration("API_TIMEOUT_HEALTH", 2*time.Second),
+				HandlerTimeout:        getEnvDuration("API_TIMEOUT_HANDLER", 500*time.Millisecond),
+				HealthCheck:           getEnvDuration("API_TIMEOUT_HEALTH", 2*time.Second),
+				BatchOperationTimeout: getEnvDuration("API_TIMEOUT_BATCH_OPERATION", 30*time.Second),
 			},
 			Cache: APICacheConfig{
 				DashboardTTL: getEnvDuration("API_CACHE_DASHBOARD_TTL", 30*time.Second),

@@ -3,6 +3,7 @@ package auth
 import (
 	"context"
 	"strings"
+	"time"
 
 	"github.com/algo-shield/algo-shield/src/api/internal"
 	"github.com/algo-shield/algo-shield/src/api/internal/shared/validation"
@@ -12,6 +13,12 @@ import (
 	"github.com/gofiber/fiber/v2"
 	"github.com/redis/go-redis/v9"
 )
+
+// csrfStoreTimeout is a dedicated timeout for CSRF token Redis storage.
+// This must NOT reuse the handler context because bcrypt in login/register
+// can consume nearly all of the handler timeout, leaving no time for the
+// Redis SET operation — causing the CSRF token to silently not be stored.
+const csrfStoreTimeout = 5 * time.Second
 
 type Handler struct {
 	service     AuthService
@@ -61,9 +68,11 @@ func (h *Handler) Register(c *fiber.Ctx) error {
 		return apierrors.SendError(c, apierrors.InternalError("Failed to generate CSRF token"))
 	}
 
-	// Store CSRF token in Redis
-	if err := csrf.StoreToken(ctx, h.redis, user.ID.String(), csrfToken); err != nil {
-		// Log error but don't fail registration
+	// Store CSRF token in Redis with a dedicated context (not the handler ctx
+	// which may be nearly expired after bcrypt)
+	csrfCtx, csrfCancel := context.WithTimeout(context.Background(), csrfStoreTimeout)
+	defer csrfCancel()
+	if err := csrf.StoreToken(csrfCtx, h.redis, user.ID.String(), csrfToken); err != nil {
 		c.Context().Logger().Printf("Failed to store CSRF token: %v", err)
 	}
 
@@ -105,9 +114,11 @@ func (h *Handler) Login(c *fiber.Ctx) error {
 		return apierrors.SendError(c, apierrors.InternalError("Failed to generate CSRF token"))
 	}
 
-	// Store CSRF token in Redis
-	if err := csrf.StoreToken(ctx, h.redis, user.ID.String(), csrfToken); err != nil {
-		// Log error but don't fail login
+	// Store CSRF token in Redis with a dedicated context (not the handler ctx
+	// which may be nearly expired after bcrypt)
+	csrfCtx, csrfCancel := context.WithTimeout(context.Background(), csrfStoreTimeout)
+	defer csrfCancel()
+	if err := csrf.StoreToken(csrfCtx, h.redis, user.ID.String(), csrfToken); err != nil {
 		c.Context().Logger().Printf("Failed to store CSRF token: %v", err)
 	}
 
@@ -209,8 +220,10 @@ func (h *Handler) RefreshToken(c *fiber.Ctx) error {
 		return apierrors.SendError(c, apierrors.InternalError("Failed to generate CSRF token"))
 	}
 
-	// Store CSRF token in Redis
-	if err := csrf.StoreToken(ctx, h.redis, user.ID.String(), csrfToken); err != nil {
+	// Store CSRF token in Redis with a dedicated context
+	csrfCtx, csrfCancel := context.WithTimeout(context.Background(), csrfStoreTimeout)
+	defer csrfCancel()
+	if err := csrf.StoreToken(csrfCtx, h.redis, user.ID.String(), csrfToken); err != nil {
 		c.Context().Logger().Printf("Failed to store CSRF token: %v", err)
 	}
 

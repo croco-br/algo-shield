@@ -117,14 +117,16 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, onUnmounted } from 'vue'
+import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { api } from '@/lib/api'
+import { useSystemModeStore } from '@/stores/systemMode'
 import BaseButton from '@/components/BaseButton.vue'
 import LoadingSpinner from '@/components/LoadingSpinner.vue'
 import ErrorMessage from '@/components/ErrorMessage.vue'
 
 const { t } = useI18n()
+const systemModeStore = useSystemModeStore()
 
 interface StatusCount {
   status: string
@@ -220,6 +222,11 @@ const temporalData = computed(() => {
 
 const maxTemporalCount = computed(() => {
   return Math.max(...temporalData.value.map(d => d.count), 1)
+})
+
+// Reload metrics when synthetic mode changes
+watch(() => systemModeStore.syntheticMode, () => {
+  loadMetrics()
 })
 
 onMounted(() => {

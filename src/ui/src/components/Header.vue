@@ -176,20 +176,9 @@ const handleSyntheticModeChange = async (enabled: boolean | null) => {
   errorMessage.value = null
   try {
     await systemModeStore.setMode(enabled)
-    // Navigate to dashboard to ensure a fresh state without losing authentication
-    // This approach preserves the JWT token in memory while refreshing the UI
-    if (route.path !== '/dashboard') {
-      await router.push('/dashboard')
-    } else {
-      // If already on dashboard, force a component refresh by navigating away and back
-      await router.push('/').then(() => router.push('/dashboard'))
-    }
   } catch (error) {
-    // Extract and display user-friendly error message
     errorMessage.value = getErrorMessage(error)
-    // Show error as alert
     showErrorSnackbar.value = true
-    // Revert on error - sync back with store
     syntheticMode.value = systemModeStore.syntheticMode
   }
 }
