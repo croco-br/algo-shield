@@ -151,7 +151,7 @@ services:
       redis:
         condition: service_healthy
     healthcheck:
-      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8080/health"]
+      test: ["CMD", "/healthcheck"]
       interval: ${HEALTHCHECK_INTERVAL_API:-30s}
       timeout: ${HEALTHCHECK_TIMEOUT_API:-10s}
       retries: ${HEALTHCHECK_RETRIES:-3}
@@ -210,12 +210,9 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
-    healthcheck:
-      test: ["CMD-SHELL", "ps aux | grep -v grep | grep -q /worker || exit 1"]
-      interval: ${HEALTHCHECK_INTERVAL_WORKER:-30s}
-      timeout: ${HEALTHCHECK_TIMEOUT_WORKER:-5s}
-      retries: ${HEALTHCHECK_RETRIES:-3}
-      start_period: ${HEALTHCHECK_START_PERIOD_WORKER:-10s}
+    # No healthcheck — scratch image has no shell or utilities.
+    # Worker liveness is managed by restart policy (unless-stopped).
+    # If the worker process crashes, Docker automatically restarts the container.
     security_opt:
       - no-new-privileges:true
     read_only: true
@@ -225,10 +222,10 @@ services:
       replicas: 1
       resources:
         limits:
-          cpus: '2'
+          cpus: "2"
           memory: 1G
         reservations:
-          cpus: '0.5'
+          cpus: "0.5"
           memory: 256M
 
   # =============================================================================
@@ -263,7 +260,15 @@ services:
       api:
         condition: service_healthy
     healthcheck:
-      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:3000/health"]
+      test:
+        [
+          "CMD",
+          "wget",
+          "--no-verbose",
+          "--tries=1",
+          "--spider",
+          "http://localhost:3000/health",
+        ]
       interval: ${HEALTHCHECK_INTERVAL_UI:-30s}
       timeout: ${HEALTHCHECK_TIMEOUT_UI:-10s}
       retries: ${HEALTHCHECK_RETRIES:-3}
@@ -273,6 +278,9 @@ services:
     read_only: true
     tmpfs:
       - /tmp
+      - /var/lib/nginx
+      - /var/log/nginx
+      - /run/nginx
 
 # =============================================================================
 # Networks
