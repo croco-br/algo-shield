@@ -1,6 +1,6 @@
 import { defineStore } from 'pinia';
 import { ref, computed } from 'vue';
-import { api, setTokenGetter, setCsrfTokenGetter } from '@/lib/api';
+import { api, setTokenGetter, setCsrfTokenGetter, setRefreshTokenFn, setForceLogoutFn } from '@/lib/api';
 
 export interface Role {
 	id: string;
@@ -61,11 +61,17 @@ export const useAuthStore = defineStore('auth', () => {
 
 	async function refreshAccessToken() {
 		try {
-			const response = await api.post<{ token: string; csrf_token?: string }>('/api/v1/auth/refresh', {
+			const response = await api.post<{ token: string; refresh_token?: string; csrf_token?: string }>('/api/v1/auth/refresh', {
 				refresh_token: refreshToken.value
 			});
 			token.value = response.token;
 			csrfToken.value = response.csrf_token || null;
+
+			// Store new refresh token if returned (rotation)
+			if (response.refresh_token) {
+				refreshToken.value = response.refresh_token;
+				localStorage.setItem('refresh_token', response.refresh_token);
+			}
 
 			// Load user data with new token
 			const userData = await api.get<User>('/api/v1/auth/me');
@@ -122,10 +128,15 @@ export const useAuthStore = defineStore('auth', () => {
 		return user.value?.roles?.some((role) => role.name === 'admin') || false;
 	});
 
-	// SECURITY: Register token getters with API module to avoid circular dependencies
+	// SECURITY: Register token getters and refresh function with API module to avoid circular dependencies
 	// This allows api.ts to get the tokens from memory without importing the store
 	setTokenGetter(getToken);
 	setCsrfTokenGetter(getCsrfToken);
+	setRefreshTokenFn(refreshAccessToken);
+	setForceLogoutFn(() => {
+		clearTokens();
+		window.location.href = '/login';
+	});
 
 	// Initialize on store creation (token will be null on page load)
 	loadUserFromToken();

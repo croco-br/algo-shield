@@ -19,6 +19,8 @@ vi.mock('@/lib/api', () => ({
   },
   setTokenGetter: vi.fn(),
   setCsrfTokenGetter: vi.fn(),
+  setRefreshTokenFn: vi.fn(),
+  setForceLogoutFn: vi.fn(),
   setSyntheticModeStorage: vi.fn(),
 }))
 

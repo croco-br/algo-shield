@@ -47,6 +47,7 @@ func TestGetDatabaseDSN(t *testing.T) {
 			User:     "testuser",
 			Password: "testpass",
 			Database: "testdb",
+			SSLMode:  "disable",
 		},
 	}
 
@@ -99,6 +100,8 @@ func TestLoad_ProductionRequiresTLS(t *testing.T) {
 	_ = os.Setenv("TLS_KEY_PATH", "/path/to/key.pem")
 	// Set proper CORS origins for production (not wildcard)
 	_ = os.Setenv("CORS_ALLOWED_ORIGINS", "https://example.com,https://app.example.com")
+	// Set SSL mode for production (cannot be 'disable')
+	_ = os.Setenv("POSTGRES_SSL_MODE", "require")
 
 	cfg, err := Load()
 	if err != nil {
@@ -125,4 +128,5 @@ func TestLoad_ProductionRequiresTLS(t *testing.T) {
 	_ = os.Unsetenv("TLS_CERT_PATH")
 	_ = os.Unsetenv("TLS_KEY_PATH")
 	_ = os.Unsetenv("CORS_ALLOWED_ORIGINS")
+	_ = os.Unsetenv("POSTGRES_SSL_MODE")
 }

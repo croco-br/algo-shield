@@ -3,6 +3,7 @@ package csrf
 import (
 	"context"
 	"crypto/rand"
+	"crypto/subtle"
 	"encoding/base64"
 	"fmt"
 	"time"
@@ -48,7 +49,7 @@ func ValidateToken(ctx context.Context, redis *redis.Client, userID string, toke
 		return false
 	}
 
-	return storedToken == token
+	return subtle.ConstantTimeCompare([]byte(storedToken), []byte(token)) == 1
 }
 
 // DeleteToken deletes a CSRF token from Redis (used on logout)

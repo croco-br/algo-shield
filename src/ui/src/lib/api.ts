@@ -15,12 +15,33 @@ const csrfTokenGetterHolder: { getter: (() => string | null) | null } = {
 	getter: null
 };
 
+// Refresh token function holder — injected by auth store to avoid circular dependencies
+const refreshTokenHolder: { refreshFn: (() => Promise<void>) | null } = {
+	refreshFn: null
+};
+
+// Force logout function holder — injected by auth store to clear tokens and redirect
+const forceLogoutHolder: { fn: (() => void) | null } = {
+	fn: null
+};
+
+// Module-level promise to deduplicate concurrent refresh attempts
+let activeRefreshPromise: Promise<void> | null = null;
+
 export function setTokenGetter(getter: () => string | null): void {
 	tokenGetterHolder.getter = getter;
 }
 
 export function setCsrfTokenGetter(getter: () => string | null): void {
 	csrfTokenGetterHolder.getter = getter;
+}
+
+export function setRefreshTokenFn(fn: () => Promise<void>): void {
+	refreshTokenHolder.refreshFn = fn;
+}
+
+export function setForceLogoutFn(fn: () => void): void {
+	forceLogoutHolder.fn = fn;
 }
 
 // Get synthetic mode from localStorage (synced by systemMode store)
@@ -47,7 +68,8 @@ export function setSyntheticModeStorage(enabled: boolean): void {
 
 async function request<T>(
 	endpoint: string,
-	options: RequestInit = {}
+	options: RequestInit = {},
+	_isRetry = false
 ): Promise<T> {
 	if (!uiConfig.api.baseUrl) {
 		throw new Error('API base URL is not configured. Please rebuild the UI container with VITE_API_URL set.');
@@ -98,8 +120,36 @@ async function request<T>(
 		const isJson = contentType && contentType.includes('application/json');
 
 		if (!response.ok) {
+			// 401 interceptor: attempt token refresh and retry once
+			// Skip for auth endpoints to prevent infinite recursion (refresh → 401 → refresh → ...)
+			const isAuthEndpoint = endpoint.includes('/auth/login') ||
+				endpoint.includes('/auth/register') ||
+				endpoint.includes('/auth/refresh');
+
+			if (response.status === 401 && refreshTokenHolder.refreshFn && !_isRetry && !isAuthEndpoint) {
+				try {
+					// Deduplicate concurrent refresh attempts
+					if (!activeRefreshPromise) {
+						activeRefreshPromise = refreshTokenHolder.refreshFn().finally(() => {
+							activeRefreshPromise = null;
+						});
+					}
+					await activeRefreshPromise;
+
+					// Retry the original request once with the new token
+					return request<T>(endpoint, options, true);
+				} catch {
+					// Refresh failed — force logout and fall through
+				}
+			}
+
+			// Unrecoverable 401: force logout (skip for auth endpoints like login)
+			if (response.status === 401 && !isAuthEndpoint && forceLogoutHolder.fn) {
+				forceLogoutHolder.fn();
+			}
+
 			let errorMessage = `HTTP ${response.status}`;
-			
+
 			if (isJson) {
 				try {
 					const error: ApiError = await response.json();
@@ -124,7 +174,7 @@ async function request<T>(
 					errorMessage = text.substring(0, 200) || errorMessage;
 				}
 			}
-			
+
 			throw new Error(errorMessage);
 		}
 

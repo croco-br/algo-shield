@@ -4,6 +4,7 @@
 package auth
 
 import (
+	context "context"
 	reflect "reflect"
 
 	models "github.com/algo-shield/algo-shield/src/pkg/models"
@@ -34,16 +35,16 @@ func (m *MockHandler) EXPECT() *MockHandlerMockRecorder {
 }
 
 // ValidateToken mocks base method.
-func (m *MockHandler) ValidateToken(token string) (*models.User, error) {
+func (m *MockHandler) ValidateToken(ctx context.Context, token string) (*models.User, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ValidateToken", token)
+	ret := m.ctrl.Call(m, "ValidateToken", ctx, token)
 	ret0, _ := ret[0].(*models.User)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // ValidateToken indicates an expected call of ValidateToken.
-func (mr *MockHandlerMockRecorder) ValidateToken(token interface{}) *gomock.Call {
+func (mr *MockHandlerMockRecorder) ValidateToken(ctx, token any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ValidateToken", reflect.TypeOf((*MockHandler)(nil).ValidateToken), token)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ValidateToken", reflect.TypeOf((*MockHandler)(nil).ValidateToken), ctx, token)
 }

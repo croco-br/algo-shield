@@ -186,8 +186,8 @@ func (h *Handler) Logout(c *fiber.Ctx) error {
 	})
 }
 
-func (h *Handler) ValidateToken(tokenString string) (*models.User, error) {
-	return h.service.ValidateToken(tokenString)
+func (h *Handler) ValidateToken(ctx context.Context, tokenString string) (*models.User, error) {
+	return h.service.ValidateToken(ctx, tokenString)
 }
 
 func (h *Handler) RefreshToken(c *fiber.Ctx) error {
@@ -204,8 +204,8 @@ func (h *Handler) RefreshToken(c *fiber.Ctx) error {
 	ctx, cancel := context.WithTimeout(c.Context(), internal.GetHandlerTimeout())
 	defer cancel()
 
-	// Refresh token
-	user, newAccessToken, err := h.service.RefreshToken(ctx, req.RefreshToken)
+	// Refresh token (returns new access + refresh token via rotation)
+	user, newAccessToken, newRefreshToken, err := h.service.RefreshToken(ctx, req.RefreshToken)
 	if err != nil {
 		// Check if it's an APIError
 		if apiErr, ok := err.(*apierrors.APIError); ok {
@@ -228,7 +228,8 @@ func (h *Handler) RefreshToken(c *fiber.Ctx) error {
 	}
 
 	return c.JSON(fiber.Map{
-		"token":      newAccessToken,
-		"csrf_token": csrfToken,
+		"token":         newAccessToken,
+		"refresh_token": newRefreshToken,
+		"csrf_token":    csrfToken,
 	})
 }

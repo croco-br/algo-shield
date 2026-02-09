@@ -105,13 +105,14 @@ func (mr *MockAuthServiceMockRecorder) LogoutUser(ctx, tokenString any) *gomock.
 }
 
 // RefreshToken mocks base method.
-func (m *MockAuthService) RefreshToken(ctx context.Context, refreshToken string) (*models.User, string, error) {
+func (m *MockAuthService) RefreshToken(ctx context.Context, refreshToken string) (*models.User, string, string, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "RefreshToken", ctx, refreshToken)
 	ret0, _ := ret[0].(*models.User)
 	ret1, _ := ret[1].(string)
-	ret2, _ := ret[2].(error)
-	return ret0, ret1, ret2
+	ret2, _ := ret[2].(string)
+	ret3, _ := ret[3].(error)
+	return ret0, ret1, ret2, ret3
 }
 
 // RefreshToken indicates an expected call of RefreshToken.
@@ -152,18 +153,18 @@ func (mr *MockAuthServiceMockRecorder) RevokeAllUserTokens(ctx, userID any) *gom
 }
 
 // ValidateToken mocks base method.
-func (m *MockAuthService) ValidateToken(tokenString string) (*models.User, error) {
+func (m *MockAuthService) ValidateToken(ctx context.Context, tokenString string) (*models.User, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ValidateToken", tokenString)
+	ret := m.ctrl.Call(m, "ValidateToken", ctx, tokenString)
 	ret0, _ := ret[0].(*models.User)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // ValidateToken indicates an expected call of ValidateToken.
-func (mr *MockAuthServiceMockRecorder) ValidateToken(tokenString any) *gomock.Call {
+func (mr *MockAuthServiceMockRecorder) ValidateToken(ctx, tokenString any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ValidateToken", reflect.TypeOf((*MockAuthService)(nil).ValidateToken), tokenString)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ValidateToken", reflect.TypeOf((*MockAuthService)(nil).ValidateToken), ctx, tokenString)
 }
 
 // MockUserService is a mock of UserService interface.
@@ -330,6 +331,21 @@ func (m *MockTokenRevokeService) RevokeAllUserTokens(ctx context.Context, userID
 func (mr *MockTokenRevokeServiceMockRecorder) RevokeAllUserTokens(ctx, userID, tokenExpiry any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RevokeAllUserTokens", reflect.TypeOf((*MockTokenRevokeService)(nil).RevokeAllUserTokens), ctx, userID, tokenExpiry)
+}
+
+// IsTokenOrUserRevoked mocks base method.
+func (m *MockTokenRevokeService) IsTokenOrUserRevoked(ctx context.Context, token string, userID string) (bool, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "IsTokenOrUserRevoked", ctx, token, userID)
+	ret0, _ := ret[0].(bool)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// IsTokenOrUserRevoked indicates an expected call of IsTokenOrUserRevoked.
+func (mr *MockTokenRevokeServiceMockRecorder) IsTokenOrUserRevoked(ctx, token, userID any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "IsTokenOrUserRevoked", reflect.TypeOf((*MockTokenRevokeService)(nil).IsTokenOrUserRevoked), ctx, token, userID)
 }
 
 // RevokeToken mocks base method.

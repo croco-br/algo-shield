@@ -54,7 +54,7 @@
     "emailPlaceholder": "seu-email",
     "passwordPlaceholder": "••••••••",
     "namePlaceholder": "Seu Nome",
-    "passwordHint": "Mínimo 8 caracteres",
+    "passwordHint": "8-128 caracteres, maiúscula, minúscula, número, caractere especial",
     "rememberMe": "Lembrar-me",
     "forgotPassword": "Esqueceu a senha?",
     "errors": {
@@ -64,7 +64,7 @@
       "connectionError": "Não foi possível conectar ao servidor. Verifique sua conexão e se o servidor está rodando.",
       "emailPassword": "Por favor, insira email e senha",
       "allFields": "Por favor, preencha todos os campos",
-      "passwordLength": "A senha deve ter pelo menos 8 caracteres",
+      "passwordLength": "A senha deve ter 8-128 caracteres com maiúscula, minúscula, número e caractere especial",
       "invalidResponse": "Resposta inválida do servidor",
       "emailExists": "Este email já está cadastrado. Use outro email ou faça login.",
       "validationFailed": "Dados inválidos. Verifique os campos e tente novamente.",

@@ -101,6 +101,19 @@ func hashToken(token string) string {
 	return hex.EncodeToString(hash[:])
 }
 
+// IsTokenOrUserRevoked checks if a specific token or all user tokens are revoked in a single Redis round-trip
+func (s *Service) IsTokenOrUserRevoked(ctx context.Context, token string, userID string) (bool, error) {
+	tokenHash := hashToken(token)
+	tokenKey := fmt.Sprintf("blacklist:%s", tokenHash)
+	userKey := fmt.Sprintf("blacklist:user:%s", userID)
+
+	exists, err := s.redis.Exists(ctx, tokenKey, userKey).Result()
+	if err != nil {
+		return false, fmt.Errorf("failed to check revocation status: %w", err)
+	}
+	return exists > 0, nil
+}
+
 // Health checks if the Redis connection is healthy
 func (s *Service) Health(ctx context.Context) error {
 	return s.redis.Ping(ctx).Err()

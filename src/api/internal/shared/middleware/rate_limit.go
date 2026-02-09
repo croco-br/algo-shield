@@ -3,6 +3,7 @@ package middleware
 import (
 	"context"
 	"fmt"
+	"sync"
 	"time"
 
 	"github.com/gofiber/fiber/v2"
@@ -16,12 +17,21 @@ type RateLimitConfig struct {
 	KeyPrefix   string        // Redis key prefix (e.g., "ratelimit:login:")
 }
 
+// fallbackEntry tracks request counts when Redis is unavailable
+type fallbackEntry struct {
+	count     int
+	windowEnd time.Time
+}
+
+// fallbackLimiter provides in-memory rate limiting when Redis is unavailable
+var fallbackLimiter sync.Map
+
 // RateLimiter creates a rate limiting middleware using Redis for distributed rate limiting
 // Uses sliding window algorithm for accurate rate limiting
+// Falls back to in-memory limiting when Redis is unavailable
 func RateLimiter(redisClient *redis.Client, config RateLimitConfig) fiber.Handler {
 	return func(c *fiber.Ctx) error {
 		// Get client identifier (IP address)
-		// In production, you might want to use a combination of IP + user agent
 		clientIP := c.IP()
 		key := fmt.Sprintf("%s%s", config.KeyPrefix, clientIP)
 
@@ -43,9 +53,8 @@ func RateLimiter(redisClient *redis.Client, config RateLimitConfig) fiber.Handle
 		// Execute pipeline
 		_, err := pipe.Exec(ctx)
 		if err != nil {
-			// On Redis error, allow the request (fail open for availability)
-			// Log the error in production
-			return c.Next()
+			// Redis unavailable: use in-memory fallback with 2x limit as safety buffer
+			return handleFallbackRateLimit(c, key, config, now)
 		}
 
 		currentCount := countCmd.Val()
@@ -71,8 +80,8 @@ func RateLimiter(redisClient *redis.Client, config RateLimitConfig) fiber.Handle
 		}
 		_, err = redisClient.ZAdd(ctx, key, member).Result()
 		if err != nil {
-			// On Redis error, allow the request (fail open)
-			return c.Next()
+			// Redis unavailable: use in-memory fallback
+			return handleFallbackRateLimit(c, key, config, now)
 		}
 
 		// Set TTL on the key to auto-cleanup
@@ -89,6 +98,34 @@ func RateLimiter(redisClient *redis.Client, config RateLimitConfig) fiber.Handle
 
 		return c.Next()
 	}
+}
+
+// handleFallbackRateLimit uses an in-memory counter when Redis is unavailable.
+// Allows up to 2x the configured limit as a degraded-but-not-open safety buffer.
+func handleFallbackRateLimit(c *fiber.Ctx, key string, config RateLimitConfig, now time.Time) error {
+	fallbackLimit := config.MaxRequests * 2
+
+	val, _ := fallbackLimiter.LoadOrStore(key, &fallbackEntry{
+		count:     0,
+		windowEnd: now.Add(config.Window),
+	})
+	entry := val.(*fallbackEntry)
+
+	// Reset if window has expired
+	if now.After(entry.windowEnd) {
+		entry.count = 0
+		entry.windowEnd = now.Add(config.Window)
+	}
+
+	entry.count++
+	if entry.count > fallbackLimit {
+		return c.Status(fiber.StatusTooManyRequests).JSON(fiber.Map{
+			"error":   "Rate limit exceeded",
+			"message": fmt.Sprintf("Too many requests. Please try again in %v", config.Window),
+		})
+	}
+
+	return c.Next()
 }
 
 // Default rate limit configurations for different endpoints

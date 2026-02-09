@@ -433,7 +433,6 @@ const selectedSchemaData = ref<EventSchema | null>(null)
 const isLive = ref(false)
 const syntheticMode = computed(() => systemModeStore.syntheticMode)
 let pollingInterval: ReturnType<typeof setInterval> | null = null
-let eventSource: EventSource | null = null
 
 // Pagination state
 const currentPage = ref(1)
@@ -829,36 +828,7 @@ function toggleLiveUpdates() {
 
 function startLiveUpdates() {
   isLive.value = true
-
-  try {
-    const token = authStore.getToken()
-    if (!token) {
-      startPolling()
-      return
-    }
-    eventSource = new EventSource(`/api/v1/transactions/stream?token=${token}`)
-
-    eventSource.onmessage = (event) => {
-      try {
-        const data = JSON.parse(event.data)
-        if (data.type === 'update' || data.type === 'new') {
-          loadTransactions()
-        }
-      } catch {
-        // Ignore malformed SSE messages
-      }
-    }
-
-    eventSource.onerror = () => {
-      if (eventSource) {
-        eventSource.close()
-        eventSource = null
-      }
-      startPolling()
-    }
-  } catch {
-    startPolling()
-  }
+  startPolling()
 }
 
 function startPolling() {
@@ -873,11 +843,6 @@ function startPolling() {
 
 function stopLiveUpdates() {
   isLive.value = false
-
-  if (eventSource) {
-    eventSource.close()
-    eventSource = null
-  }
 
   if (pollingInterval) {
     clearInterval(pollingInterval)

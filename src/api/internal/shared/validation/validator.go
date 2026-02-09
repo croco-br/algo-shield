@@ -85,7 +85,7 @@ func formatError(e validator.FieldError) string {
 	case "transaction_type":
 		return fmt.Sprintf("%s must be a valid transaction type", field)
 	case "password":
-		return fmt.Sprintf("%s must be between 8 and 128 characters", field)
+		return fmt.Sprintf("%s must be 8-128 chars with uppercase, lowercase, number, and special character", field)
 	default:
 		return fmt.Sprintf("%s is invalid", field)
 	}
@@ -128,25 +128,20 @@ func registerCustomValidations() {
 		panic(fmt.Sprintf("failed to register transaction_type validation: %v", err))
 	}
 
-	// Password validation: at least 8 chars, can be relaxed for development
-	// In production, enforce: uppercase, lowercase, number, special char
+	// Password validation: 8-128 chars with uppercase, lowercase, number, special char
 	if err := validate.RegisterValidation("password", func(fl validator.FieldLevel) bool {
 		password := fl.Field().String()
-		// Minimum 8 characters required
 		if len(password) < 8 {
 			return false
 		}
-		// Maximum 128 characters to prevent DoS
 		if len(password) > 128 {
 			return false
 		}
-		// For now, just check length. Can be enhanced for production with:
-		// hasUpper, _ := regexp.MatchString(`[A-Z]`, password)
-		// hasLower, _ := regexp.MatchString(`[a-z]`, password)
-		// hasNumber, _ := regexp.MatchString(`[0-9]`, password)
-		// hasSpecial, _ := regexp.MatchString(`[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]`, password)
-		// return hasUpper && hasLower && hasNumber && hasSpecial
-		return true
+		hasUpper, _ := regexp.MatchString(`[A-Z]`, password)
+		hasLower, _ := regexp.MatchString(`[a-z]`, password)
+		hasNumber, _ := regexp.MatchString(`[0-9]`, password)
+		hasSpecial, _ := regexp.MatchString(`[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]`, password)
+		return hasUpper && hasLower && hasNumber && hasSpecial
 	}); err != nil {
 		panic(fmt.Sprintf("failed to register password validation: %v", err))
 	}

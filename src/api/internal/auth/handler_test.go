@@ -2,6 +2,7 @@ package auth
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"errors"
 	"io"
@@ -55,7 +56,7 @@ func Test_Handler_Register_WhenValidRequest_ThenReturnsUserAndToken(t *testing.T
 	expectedToken := "test-token-123"
 	expectedRefreshToken := "test-refresh-token-123"
 	mockService.EXPECT().
-		RegisterUser(gomock.Any(), "test@example.com", "Test User", "password123").
+		RegisterUser(gomock.Any(), "test@example.com", "Test User", "Password123!").
 		Return(expectedUser, expectedToken, expectedRefreshToken, nil)
 	redisClient := setupTestRedis(t)
 	handler := NewHandler(mockService, mockUserService, redisClient)
@@ -64,7 +65,7 @@ func Test_Handler_Register_WhenValidRequest_ThenReturnsUserAndToken(t *testing.T
 	reqBody := RegisterRequest{
 		Email:    "test@example.com",
 		Name:     "Test User",
-		Password: "password123",
+		Password: "Password123!",
 	}
 	body, _ := json.Marshal(reqBody)
 	req := httptest.NewRequest("POST", "/auth/register", bytes.NewReader(body))
@@ -135,7 +136,7 @@ func Test_Handler_Login_WhenValidCredentials_ThenReturnsUserAndToken(t *testing.
 	expectedToken := "test-token-123"
 	expectedRefreshToken := "test-refresh-token-123"
 	mockService.EXPECT().
-		LoginUser(gomock.Any(), "test@example.com", "password123").
+		LoginUser(gomock.Any(), "test@example.com", "Password123!").
 		Return(expectedUser, expectedToken, expectedRefreshToken, nil)
 	redisClient := setupTestRedis(t)
 	handler := NewHandler(mockService, mockUserService, redisClient)
@@ -143,7 +144,7 @@ func Test_Handler_Login_WhenValidCredentials_ThenReturnsUserAndToken(t *testing.
 	app.Post("/auth/login", handler.Login)
 	reqBody := LoginRequest{
 		Email:    "test@example.com",
-		Password: "password123",
+		Password: "Password123!",
 	}
 	body, _ := json.Marshal(reqBody)
 	req := httptest.NewRequest("POST", "/auth/login", bytes.NewReader(body))
@@ -378,13 +379,14 @@ func Test_Handler_ValidateToken_WhenValidToken_ThenReturnsUser(t *testing.T) {
 		Email: "test@example.com",
 		Name:  "Test User",
 	}
+	ctx := context.Background()
 	mockService.EXPECT().
-		ValidateToken("valid-token").
+		ValidateToken(gomock.Any(), "valid-token").
 		Return(expectedUser, nil)
 	redisClient := setupTestRedis(t)
 	handler := NewHandler(mockService, mockUserService, redisClient)
 
-	user, err := handler.ValidateToken("valid-token")
+	user, err := handler.ValidateToken(ctx, "valid-token")
 
 	require.NoError(t, err)
 	assert.Equal(t, expectedUser, user)
@@ -396,13 +398,14 @@ func Test_Handler_ValidateToken_WhenInvalidToken_ThenReturnsError(t *testing.T) 
 
 	mockService := NewMockAuthService(ctrl)
 	mockUserService := NewMockUserService(ctrl)
+	ctx := context.Background()
 	mockService.EXPECT().
-		ValidateToken("invalid-token").
+		ValidateToken(gomock.Any(), "invalid-token").
 		Return(nil, apierrors.TokenInvalid())
 	redisClient := setupTestRedis(t)
 	handler := NewHandler(mockService, mockUserService, redisClient)
 
-	user, err := handler.ValidateToken("invalid-token")
+	user, err := handler.ValidateToken(ctx, "invalid-token")
 
 	require.Error(t, err)
 	assert.Nil(t, user)

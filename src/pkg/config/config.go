@@ -26,6 +26,7 @@ type DatabaseConfig struct {
 	User     string
 	Password string
 	Database string
+	SSLMode  string
 }
 
 type RedisConfig struct {
@@ -168,6 +169,7 @@ func Load() (*Config, error) {
 			User:     getEnv("POSTGRES_USER", "algoshield"),
 			Password: dbPassword,
 			Database: getEnv("POSTGRES_DB", "algoshield"),
+			SSLMode:  getEnv("POSTGRES_SSL_MODE", "disable"),
 		},
 		Redis: RedisConfig{
 			Host: getEnv("REDIS_HOST", "localhost"),
@@ -231,6 +233,11 @@ func Load() (*Config, error) {
 		},
 	}
 
+	// Validate database SSL configuration
+	if isProduction && config.Database.SSLMode == "disable" {
+		return nil, fmt.Errorf("POSTGRES_SSL_MODE must not be 'disable' in production. Use 'require' or 'verify-full' for security")
+	}
+
 	// Validate TLS configuration
 	if isProduction {
 		// In production, TLS is REQUIRED
@@ -267,12 +274,13 @@ func Load() (*Config, error) {
 
 func (c *Config) GetDatabaseDSN() string {
 	return fmt.Sprintf(
-		"postgres://%s:%s@%s:%d/%s?sslmode=disable",
+		"postgres://%s:%s@%s:%d/%s?sslmode=%s",
 		c.Database.User,
 		c.Database.Password,
 		c.Database.Host,
 		c.Database.Port,
 		c.Database.Database,
+		c.Database.SSLMode,
 	)
 }
 

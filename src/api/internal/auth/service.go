@@ -2,11 +2,11 @@ package auth
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log"
 	"time"
 
-	"github.com/algo-shield/algo-shield/src/api/internal"
 	"github.com/algo-shield/algo-shield/src/pkg/config"
 	apierrors "github.com/algo-shield/algo-shield/src/pkg/errors"
 	"github.com/algo-shield/algo-shield/src/pkg/models"
@@ -19,8 +19,8 @@ import (
 type AuthService interface {
 	RegisterUser(ctx context.Context, email, name, password string) (*models.User, string, string, error)
 	LoginUser(ctx context.Context, email, password string) (*models.User, string, string, error)
-	RefreshToken(ctx context.Context, refreshToken string) (*models.User, string, error)
-	ValidateToken(tokenString string) (*models.User, error)
+	RefreshToken(ctx context.Context, refreshToken string) (*models.User, string, string, error)
+	ValidateToken(ctx context.Context, tokenString string) (*models.User, error)
 	LogoutUser(ctx context.Context, tokenString string) error
 	RevokeAllUserTokens(ctx context.Context, userID uuid.UUID) error
 	GenerateJWT(user *models.User) (string, error)
@@ -42,6 +42,7 @@ type TokenRevokeService interface {
 	IsTokenRevoked(ctx context.Context, token string) (bool, error)
 	RevokeAllUserTokens(ctx context.Context, userID string, tokenExpiry time.Duration) error
 	IsUserTokensRevoked(ctx context.Context, userID string) (bool, error)
+	IsTokenOrUserRevoked(ctx context.Context, token string, userID string) (bool, error)
 }
 
 type Service struct {
@@ -189,8 +190,8 @@ func (s *Service) GenerateRefreshToken(user *models.User) (string, error) {
 	return tokenString, nil
 }
 
-// RefreshToken validates a refresh token and generates a new access token
-func (s *Service) RefreshToken(ctx context.Context, refreshToken string) (*models.User, string, error) {
+// RefreshToken validates a refresh token and generates new access + refresh tokens (rotation)
+func (s *Service) RefreshToken(ctx context.Context, refreshToken string) (*models.User, string, string, error) {
 	// Parse and validate JWT signature
 	token, err := jwt.Parse(refreshToken, func(token *jwt.Token) (interface{}, error) {
 		// Validate signing method
@@ -201,73 +202,80 @@ func (s *Service) RefreshToken(ctx context.Context, refreshToken string) (*model
 	})
 
 	if err != nil {
-		if err.Error() == "token is expired" || err.Error() == "Token is expired" {
-			return nil, "", apierrors.TokenExpired()
+		if errors.Is(err, jwt.ErrTokenExpired) {
+			return nil, "", "", apierrors.TokenExpired()
 		}
-		return nil, "", apierrors.TokenInvalid()
+		return nil, "", "", apierrors.TokenInvalid()
 	}
 
 	// Extract and validate claims
 	claims, ok := token.Claims.(jwt.MapClaims)
 	if !ok || !token.Valid {
-		return nil, "", apierrors.TokenInvalid()
+		return nil, "", "", apierrors.TokenInvalid()
 	}
 
 	// Verify this is a refresh token
 	tokenType, ok := claims["type"].(string)
 	if !ok || tokenType != "refresh" {
-		return nil, "", apierrors.NewAPIError(apierrors.ErrUnauthorized, "Invalid token type")
+		return nil, "", "", apierrors.NewAPIError(apierrors.ErrUnauthorized, "Invalid token type")
 	}
 
 	userIDStr, ok := claims["user_id"].(string)
 	if !ok {
-		return nil, "", apierrors.TokenInvalid()
+		return nil, "", "", apierrors.TokenInvalid()
 	}
 
 	userID, err := uuid.Parse(userIDStr)
 	if err != nil {
-		return nil, "", apierrors.TokenInvalid()
+		return nil, "", "", apierrors.TokenInvalid()
 	}
 
-	// Check if token is revoked
-	isRevoked, err := s.tokenRevokeService.IsTokenRevoked(ctx, refreshToken)
+	// Check if token or user tokens are revoked (single Redis round-trip)
+	isRevoked, err := s.tokenRevokeService.IsTokenOrUserRevoked(ctx, refreshToken, userID.String())
 	if err != nil {
 		log.Printf("Failed to check refresh token revocation status: %v", err)
-	} else if isRevoked {
-		return nil, "", apierrors.TokenRevoked()
+		return nil, "", "", apierrors.InternalError("Unable to verify token status")
 	}
-
-	// Check if all user tokens are revoked
-	userTokensRevoked, err := s.tokenRevokeService.IsUserTokensRevoked(ctx, userID.String())
-	if err != nil {
-		log.Printf("Failed to check user tokens revocation status: %v", err)
-	} else if userTokensRevoked {
-		return nil, "", apierrors.TokenRevoked()
+	if isRevoked {
+		return nil, "", "", apierrors.TokenRevoked()
 	}
 
 	// Get user from database
 	user, err := s.userService.GetUserByID(ctx, userID)
 	if err != nil {
-		return nil, "", apierrors.NotFound("User")
+		return nil, "", "", apierrors.NotFound("User")
 	}
 
 	// Check if user is active
 	if !user.Active {
-		return nil, "", apierrors.UserInactive()
+		return nil, "", "", apierrors.UserInactive()
+	}
+
+	// Revoke the old refresh token (rotation: one-time use)
+	exp, _ := claims["exp"].(float64)
+	oldExpiresAt := time.Unix(int64(exp), 0)
+	if err := s.tokenRevokeService.RevokeToken(ctx, refreshToken, oldExpiresAt); err != nil {
+		log.Printf("Failed to revoke old refresh token: %v", err)
 	}
 
 	// Generate new access token
 	newAccessToken, err := s.GenerateJWT(user)
 	if err != nil {
-		return nil, "", apierrors.InternalError("Failed to generate access token")
+		return nil, "", "", apierrors.InternalError("Failed to generate access token")
 	}
 
-	return user, newAccessToken, nil
+	// Generate new refresh token (rotation)
+	newRefreshToken, err := s.GenerateRefreshToken(user)
+	if err != nil {
+		return nil, "", "", apierrors.InternalError("Failed to generate refresh token")
+	}
+
+	return user, newAccessToken, newRefreshToken, nil
 }
 
 // ValidateToken validates a JWT token and returns the user
-// Performs comprehensive validation: signature, expiration, revocation, user status
-func (s *Service) ValidateToken(tokenString string) (*models.User, error) {
+// Performs comprehensive validation: signature, expiration, type, revocation, user status
+func (s *Service) ValidateToken(ctx context.Context, tokenString string) (*models.User, error) {
 	// Parse and validate JWT signature
 	token, err := jwt.Parse(tokenString, func(token *jwt.Token) (interface{}, error) {
 		// Validate signing method
@@ -278,8 +286,7 @@ func (s *Service) ValidateToken(tokenString string) (*models.User, error) {
 	})
 
 	if err != nil {
-		// Check if token is expired
-		if err.Error() == "token is expired" || err.Error() == "Token is expired" {
+		if errors.Is(err, jwt.ErrTokenExpired) {
 			return nil, apierrors.TokenExpired()
 		}
 		return nil, apierrors.TokenInvalid()
@@ -291,6 +298,12 @@ func (s *Service) ValidateToken(tokenString string) (*models.User, error) {
 		return nil, apierrors.TokenInvalid()
 	}
 
+	// Verify this is an access token (prevent refresh tokens from being used as Bearer tokens)
+	tokenType, ok := claims["type"].(string)
+	if !ok || tokenType != "access" {
+		return nil, apierrors.TokenInvalid()
+	}
+
 	userIDStr, ok := claims["user_id"].(string)
 	if !ok {
 		return nil, apierrors.TokenInvalid()
@@ -301,24 +314,13 @@ func (s *Service) ValidateToken(tokenString string) (*models.User, error) {
 		return nil, apierrors.TokenInvalid()
 	}
 
-	// Check if token is revoked (individual token blacklist)
-	ctx, cancel := context.WithTimeout(context.Background(), internal.GetHandlerTimeout())
-	defer cancel()
-
-	isRevoked, err := s.tokenRevokeService.IsTokenRevoked(ctx, tokenString)
+	// Check if token or user tokens are revoked (single Redis round-trip, fail-closed)
+	isRevoked, err := s.tokenRevokeService.IsTokenOrUserRevoked(ctx, tokenString, userID.String())
 	if err != nil {
-		// Log error but don't fail validation (graceful degradation)
 		log.Printf("Failed to check token revocation status: %v", err)
-	} else if isRevoked {
-		return nil, apierrors.TokenRevoked()
+		return nil, apierrors.InternalError("Unable to verify token status")
 	}
-
-	// Check if all user tokens are revoked (e.g., password change)
-	userTokensRevoked, err := s.tokenRevokeService.IsUserTokensRevoked(ctx, userID.String())
-	if err != nil {
-		// Log error but don't fail validation (graceful degradation)
-		log.Printf("Failed to check user tokens revocation status: %v", err)
-	} else if userTokensRevoked {
+	if isRevoked {
 		return nil, apierrors.TokenRevoked()
 	}
 

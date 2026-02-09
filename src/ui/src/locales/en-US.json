@@ -54,7 +54,7 @@
     "emailPlaceholder": "your-email",
     "passwordPlaceholder": "••••••••",
     "namePlaceholder": "Your Name",
-    "passwordHint": "Minimum 8 characters",
+    "passwordHint": "8-128 chars, uppercase, lowercase, number, special character",
     "rememberMe": "Remember me",
     "forgotPassword": "Forgot password?",
     "errors": {
@@ -64,7 +64,7 @@
       "connectionError": "Unable to connect to server. Please check your connection and if the server is running.",
       "emailPassword": "Please enter email and password",
       "allFields": "Please fill in all fields",
-      "passwordLength": "Password must be at least 8 characters",
+      "passwordLength": "Password must be 8-128 chars with uppercase, lowercase, number, and special character",
       "invalidResponse": "Invalid response from server",
       "emailExists": "This email is already registered. Use another email or log in.",
       "validationFailed": "Invalid data. Please check the fields and try again.",

@@ -37,7 +37,7 @@ func Test_Service_LoginUser_WhenValidCredentials_ThenReturnsUserAndToken(t *test
 
 	ctx := context.Background()
 	email := "test@example.com"
-	password := "password123"
+	password := "Password123!"
 
 	// Hash password for mock user
 	passwordHash, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
@@ -92,7 +92,7 @@ func Test_Service_LoginUser_WhenInvalidEmail_ThenReturnsInvalidCredentialsError(
 
 	ctx := context.Background()
 	email := "nonexistent@example.com"
-	password := "password123"
+	password := "Password123!"
 
 	mockUserService.EXPECT().
 		GetUserByEmailWithPassword(ctx, email).
@@ -133,7 +133,7 @@ func Test_Service_LoginUser_WhenWrongPassword_ThenReturnsInvalidCredentialsError
 
 	ctx := context.Background()
 	email := "test@example.com"
-	correctPassword := "password123"
+	correctPassword := "Password123!"
 	wrongPassword := "wrongpassword"
 
 	// Hash correct password
@@ -189,7 +189,7 @@ func Test_Service_LoginUser_WhenUserInactive_ThenReturnsUserInactiveError(t *tes
 
 	ctx := context.Background()
 	email := "test@example.com"
-	password := "password123"
+	password := "Password123!"
 
 	passwordHash, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
 	require.NoError(t, err)
@@ -309,14 +309,11 @@ func Test_Service_ValidateToken_WhenValidToken_ThenReturnsUser(t *testing.T) {
 	tokenString, err := service.GenerateJWT(user)
 	require.NoError(t, err)
 
+	ctx := context.Background()
+
 	// Set up mock expectations before calling ValidateToken
 	mockTokenRevoke.EXPECT().
-		IsTokenRevoked(gomock.Any(), tokenString).
-		Return(false, nil).
-		Times(1)
-
-	mockTokenRevoke.EXPECT().
-		IsUserTokensRevoked(gomock.Any(), userID.String()).
+		IsTokenOrUserRevoked(gomock.Any(), tokenString, userID.String()).
 		Return(false, nil).
 		Times(1)
 
@@ -326,7 +323,7 @@ func Test_Service_ValidateToken_WhenValidToken_ThenReturnsUser(t *testing.T) {
 		Times(1)
 
 	// Act
-	validatedUser, err := service.ValidateToken(tokenString)
+	validatedUser, err := service.ValidateToken(ctx, tokenString)
 
 	// Assert
 	require.NoError(t, err)
@@ -354,9 +351,10 @@ func Test_Service_ValidateToken_WhenInvalidToken_ThenReturnsTokenInvalidError(t 
 	service := NewService(cfg, mockUserService, mockTokenRevoke)
 
 	invalidToken := "invalid.token.here"
+	ctx := context.Background()
 
 	// Act
-	user, err := service.ValidateToken(invalidToken)
+	user, err := service.ValidateToken(ctx, invalidToken)
 
 	// Assert
 	require.Error(t, err)
@@ -398,13 +396,15 @@ func Test_Service_ValidateToken_WhenRevokedToken_ThenReturnsTokenRevokedError(t 
 	tokenString, err := service.GenerateJWT(user)
 	require.NoError(t, err)
 
-	// Mock token as revoked
+	ctx := context.Background()
+
+	// Mock token as revoked (combined check)
 	mockTokenRevoke.EXPECT().
-		IsTokenRevoked(gomock.Any(), tokenString).
+		IsTokenOrUserRevoked(gomock.Any(), tokenString, userID.String()).
 		Return(true, nil)
 
 	// Act
-	validatedUser, err := service.ValidateToken(tokenString)
+	validatedUser, err := service.ValidateToken(ctx, tokenString)
 
 	// Assert
 	require.Error(t, err)
@@ -446,18 +446,15 @@ func Test_Service_ValidateToken_WhenUserTokensRevoked_ThenReturnsTokenRevokedErr
 	tokenString, err := service.GenerateJWT(user)
 	require.NoError(t, err)
 
-	// Token itself is not revoked
-	mockTokenRevoke.EXPECT().
-		IsTokenRevoked(gomock.Any(), tokenString).
-		Return(false, nil)
+	ctx := context.Background()
 
-	// But all user tokens are revoked (e.g., password change)
+	// All user tokens are revoked (e.g., password change) — combined check returns true
 	mockTokenRevoke.EXPECT().
-		IsUserTokensRevoked(gomock.Any(), userID.String()).
+		IsTokenOrUserRevoked(gomock.Any(), tokenString, userID.String()).
 		Return(true, nil)
 
 	// Act
-	validatedUser, err := service.ValidateToken(tokenString)
+	validatedUser, err := service.ValidateToken(ctx, tokenString)
 
 	// Assert
 	require.Error(t, err)
@@ -562,7 +559,7 @@ func Test_Service_RegisterUser_WhenValidData_ThenCreatesUserAndToken(t *testing.
 	ctx := context.Background()
 	email := "newuser@example.com"
 	name := "New User"
-	password := "password123"
+	password := "Password123!"
 
 	userID := uuid.New()
 	createdUser := &models.User{
@@ -614,7 +611,7 @@ func Test_Service_RegisterUser_WhenEmailExists_ThenReturnsError(t *testing.T) {
 	ctx := context.Background()
 	email := "existing@example.com"
 	name := "New User"
-	password := "password123"
+	password := "Password123!"
 
 	existingUser := &models.User{
 		ID:     uuid.New(),
@@ -658,7 +655,7 @@ func Test_Service_RegisterUser_WhenCreateUserFails_ThenReturnsError(t *testing.T
 	ctx := context.Background()
 	email := "newuser@example.com"
 	name := "New User"
-	password := "password123"
+	password := "Password123!"
 
 	mockUserService.EXPECT().
 		GetUserByEmail(ctx, email).
@@ -695,7 +692,7 @@ func Test_Service_LoginUser_WhenPasswordHashIsNil_ThenReturnsInvalidCredentials(
 
 	ctx := context.Background()
 	email := "test@example.com"
-	password := "password123"
+	password := "Password123!"
 
 	userWithoutPassword := &models.User{
 		ID:           uuid.New(),
@@ -738,8 +735,9 @@ func Test_Service_ValidateToken_WhenInvalidSigningMethod_ThenReturnsError(t *tes
 	service := NewService(cfg, mockUserService, mockTokenRevoke)
 
 	invalidToken := "eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIiwibmFtZSI6IkpvaG4gRG9lIiwiYWRtaW4iOnRydWUsImlhdCI6MTUxNjIzOTAyMn0.invalid"
+	ctx := context.Background()
 
-	user, err := service.ValidateToken(invalidToken)
+	user, err := service.ValidateToken(ctx, invalidToken)
 
 	require.Error(t, err)
 	assert.Nil(t, user)
@@ -774,19 +772,17 @@ func Test_Service_ValidateToken_WhenUserNotFound_ThenReturnsError(t *testing.T) 
 	tokenString, err := service.GenerateJWT(user)
 	require.NoError(t, err)
 
-	mockTokenRevoke.EXPECT().
-		IsTokenRevoked(gomock.Any(), tokenString).
-		Return(false, nil)
+	ctx := context.Background()
 
 	mockTokenRevoke.EXPECT().
-		IsUserTokensRevoked(gomock.Any(), userID.String()).
+		IsTokenOrUserRevoked(gomock.Any(), tokenString, userID.String()).
 		Return(false, nil)
 
 	mockUserService.EXPECT().
 		GetUserByID(gomock.Any(), userID).
 		Return(nil, errors.New("user not found"))
 
-	validatedUser, err := service.ValidateToken(tokenString)
+	validatedUser, err := service.ValidateToken(ctx, tokenString)
 
 	require.Error(t, err)
 	assert.Nil(t, validatedUser)
@@ -825,6 +821,8 @@ func Test_Service_ValidateToken_WhenUserInactive_ThenReturnsError(t *testing.T) 
 	tokenString, err := service.GenerateJWT(user)
 	require.NoError(t, err)
 
+	ctx := context.Background()
+
 	inactiveUser := &models.User{
 		ID:     userID,
 		Email:  "test@example.com",
@@ -833,18 +831,14 @@ func Test_Service_ValidateToken_WhenUserInactive_ThenReturnsError(t *testing.T) 
 	}
 
 	mockTokenRevoke.EXPECT().
-		IsTokenRevoked(gomock.Any(), tokenString).
-		Return(false, nil)
-
-	mockTokenRevoke.EXPECT().
-		IsUserTokensRevoked(gomock.Any(), userID.String()).
+		IsTokenOrUserRevoked(gomock.Any(), tokenString, userID.String()).
 		Return(false, nil)
 
 	mockUserService.EXPECT().
 		GetUserByID(gomock.Any(), userID).
 		Return(inactiveUser, nil)
 
-	validatedUser, err := service.ValidateToken(tokenString)
+	validatedUser, err := service.ValidateToken(ctx, tokenString)
 
 	require.Error(t, err)
 	assert.Nil(t, validatedUser)
@@ -911,4 +905,96 @@ func Test_Service_RevokeAllUserTokens_WhenServiceFails_ThenReturnsError(t *testi
 
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "redis error")
+}
+
+// Test_Service_ValidateToken_WhenRefreshTokenUsedAsAccess_ThenReturnsTokenInvalid tests token type enforcement
+func Test_Service_ValidateToken_WhenRefreshTokenUsedAsAccess_ThenReturnsTokenInvalid(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	mockUserService := NewMockUserService(ctrl)
+	mockTokenRevoke := NewMockTokenRevokeService(ctrl)
+
+	cfg := &config.Config{
+		Auth: config.AuthConfig{
+			JWTSecret:                 "test-secret-key",
+			JWTExpirationHours:        24,
+			JWTRefreshExpirationHours: 168,
+		},
+	}
+
+	service := NewService(cfg, mockUserService, mockTokenRevoke)
+
+	userID := uuid.New()
+	user := &models.User{
+		ID:     userID,
+		Email:  "test@example.com",
+		Name:   "Test User",
+		Active: true,
+	}
+
+	// Generate a refresh token
+	refreshToken, err := service.GenerateRefreshToken(user)
+	require.NoError(t, err)
+
+	ctx := context.Background()
+
+	// Act: try to use refresh token as access token
+	validatedUser, err := service.ValidateToken(ctx, refreshToken)
+
+	// Assert: should be rejected
+	require.Error(t, err)
+	assert.Nil(t, validatedUser)
+
+	apiErr, ok := err.(*apierrors.APIError)
+	require.True(t, ok, "Expected APIError")
+	assert.Equal(t, apierrors.ErrTokenInvalid, apiErr.Code)
+}
+
+// Test_Service_ValidateToken_WhenRedisError_ThenFailsClosed tests fail-closed on Redis error
+func Test_Service_ValidateToken_WhenRedisError_ThenFailsClosed(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	mockUserService := NewMockUserService(ctrl)
+	mockTokenRevoke := NewMockTokenRevokeService(ctrl)
+
+	jwtSecret := "test-secret-key"
+	cfg := &config.Config{
+		Auth: config.AuthConfig{
+			JWTSecret:          jwtSecret,
+			JWTExpirationHours: 24,
+		},
+	}
+
+	service := NewService(cfg, mockUserService, mockTokenRevoke)
+
+	userID := uuid.New()
+	user := &models.User{
+		ID:     userID,
+		Email:  "test@example.com",
+		Name:   "Test User",
+		Active: true,
+	}
+
+	tokenString, err := service.GenerateJWT(user)
+	require.NoError(t, err)
+
+	ctx := context.Background()
+
+	// Redis returns an error
+	mockTokenRevoke.EXPECT().
+		IsTokenOrUserRevoked(gomock.Any(), tokenString, userID.String()).
+		Return(false, errors.New("redis connection error"))
+
+	// Act
+	validatedUser, err := service.ValidateToken(ctx, tokenString)
+
+	// Assert: should fail closed (return error, not allow through)
+	require.Error(t, err)
+	assert.Nil(t, validatedUser)
+
+	apiErr, ok := err.(*apierrors.APIError)
+	require.True(t, ok, "Expected APIError")
+	assert.Equal(t, apierrors.ErrInternalError, apiErr.Code)
 }

@@ -23,7 +23,7 @@ func AuthMiddleware(authHandler *auth.Handler) fiber.Handler {
 		}
 
 		token := parts[1]
-		user, err := authHandler.ValidateToken(token)
+		user, err := authHandler.ValidateToken(c.UserContext(), token)
 		if err != nil {
 			// Check if it's an APIError with specific error code
 			if apiErr, ok := err.(*apierrors.APIError); ok {

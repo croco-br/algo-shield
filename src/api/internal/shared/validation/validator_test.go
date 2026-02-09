@@ -229,7 +229,7 @@ func Test_ValidateStruct_WhenInvalidTransactionType_ThenReturnsError(t *testing.
 
 func Test_ValidateStruct_WhenValidPassword_ThenReturnsNil(t *testing.T) {
 	valid := PasswordStruct{
-		Password: "12345678",
+		Password: "Abcdef1!",
 	}
 
 	err := ValidateStruct(valid)
@@ -260,7 +260,7 @@ func Test_ValidateStruct_WhenPasswordTooLong_ThenReturnsError(t *testing.T) {
 
 func Test_ValidateStruct_WhenPasswordAtMinLength_ThenReturnsNil(t *testing.T) {
 	valid := PasswordStruct{
-		Password: "12345678",
+		Password: "Abcde1!x",
 	}
 
 	err := ValidateStruct(valid)
@@ -270,7 +270,7 @@ func Test_ValidateStruct_WhenPasswordAtMinLength_ThenReturnsNil(t *testing.T) {
 
 func Test_ValidateStruct_WhenPasswordAtMaxLength_ThenReturnsNil(t *testing.T) {
 	valid := PasswordStruct{
-		Password: strings.Repeat("a", 128),
+		Password: "Aa1!" + strings.Repeat("x", 124),
 	}
 
 	err := ValidateStruct(valid)
