@@ -1,4 +1,4 @@
-.PHONY: help install up up-dev down logs test test-api test-ui test-coverage test-coverage-unit test-coverage-integration test-coverage-html bench clean clean-volumes reset-db fix ui api api-bg api-stop worker dev-api dev-worker air infra-up infra-down test-watch coverage-ci check-deps lint build build-fast
+.PHONY: help install up up-dev down logs test test-api test-ui test-coverage test-coverage-unit test-coverage-integration test-coverage-html bench clean lint build build-fast ui api worker dev-api dev-worker infra-up infra-down test-watch coverage-ci check-deps
 
 # Enable BuildKit for faster builds with better caching
 export DOCKER_BUILDKIT=1
@@ -9,6 +9,25 @@ GREEN  := $(shell tput -Txterm setaf 2)
 YELLOW := $(shell tput -Txterm setaf 3)
 BLUE   := $(shell tput -Txterm setaf 4)
 RESET  := $(shell tput -Txterm sgr0)
+
+# Dev-mode healthcheck overrides (shared by up-dev build & run)
+DEV_HC_ENV = \
+	HEALTHCHECK_INTERVAL_POSTGRES=5s \
+	HEALTHCHECK_TIMEOUT_POSTGRES=2s \
+	HEALTHCHECK_START_PERIOD_POSTGRES=5s \
+	HEALTHCHECK_INTERVAL_REDIS=5s \
+	HEALTHCHECK_TIMEOUT_REDIS=2s \
+	HEALTHCHECK_START_PERIOD_REDIS=3s \
+	HEALTHCHECK_INTERVAL_API=10s \
+	HEALTHCHECK_TIMEOUT_API=3s \
+	HEALTHCHECK_START_PERIOD_API=8s \
+	HEALTHCHECK_INTERVAL_WORKER=10s \
+	HEALTHCHECK_TIMEOUT_WORKER=3s \
+	HEALTHCHECK_START_PERIOD_WORKER=5s \
+	HEALTHCHECK_INTERVAL_UI=10s \
+	HEALTHCHECK_TIMEOUT_UI=3s \
+	HEALTHCHECK_START_PERIOD_UI=8s \
+	HEALTHCHECK_RETRIES=3
 
 help: ## Show this help message
 	@echo '${BLUE}Available commands:${RESET}'
@@ -37,40 +56,8 @@ up: ## Start all services in Docker (API + Worker + UI + infra)
 
 up-dev: ## Start all services in development mode (faster health checks)
 	@echo "${YELLOW}Starting all services in development mode...${RESET}"
-	@HEALTHCHECK_INTERVAL_POSTGRES=5s \
-	HEALTHCHECK_TIMEOUT_POSTGRES=2s \
-	HEALTHCHECK_START_PERIOD_POSTGRES=5s \
-	HEALTHCHECK_INTERVAL_REDIS=5s \
-	HEALTHCHECK_TIMEOUT_REDIS=2s \
-	HEALTHCHECK_START_PERIOD_REDIS=3s \
-	HEALTHCHECK_INTERVAL_API=10s \
-	HEALTHCHECK_TIMEOUT_API=3s \
-	HEALTHCHECK_START_PERIOD_API=8s \
-	HEALTHCHECK_INTERVAL_WORKER=10s \
-	HEALTHCHECK_TIMEOUT_WORKER=3s \
-	HEALTHCHECK_START_PERIOD_WORKER=5s \
-	HEALTHCHECK_INTERVAL_UI=10s \
-	HEALTHCHECK_TIMEOUT_UI=3s \
-	HEALTHCHECK_START_PERIOD_UI=8s \
-	HEALTHCHECK_RETRIES=3 \
-	DOCKER_BUILDKIT=1 docker-compose build --parallel
-	@HEALTHCHECK_INTERVAL_POSTGRES=5s \
-	HEALTHCHECK_TIMEOUT_POSTGRES=2s \
-	HEALTHCHECK_START_PERIOD_POSTGRES=5s \
-	HEALTHCHECK_INTERVAL_REDIS=5s \
-	HEALTHCHECK_TIMEOUT_REDIS=2s \
-	HEALTHCHECK_START_PERIOD_REDIS=3s \
-	HEALTHCHECK_INTERVAL_API=10s \
-	HEALTHCHECK_TIMEOUT_API=3s \
-	HEALTHCHECK_START_PERIOD_API=8s \
-	HEALTHCHECK_INTERVAL_WORKER=10s \
-	HEALTHCHECK_TIMEOUT_WORKER=3s \
-	HEALTHCHECK_START_PERIOD_WORKER=5s \
-	HEALTHCHECK_INTERVAL_UI=10s \
-	HEALTHCHECK_TIMEOUT_UI=3s \
-	HEALTHCHECK_START_PERIOD_UI=8s \
-	HEALTHCHECK_RETRIES=3 \
-	docker-compose up -d
+	@$(DEV_HC_ENV) DOCKER_BUILDKIT=1 docker-compose build --parallel
+	@$(DEV_HC_ENV) docker-compose up -d
 	@echo "${GREEN}✓ Services started in dev mode!${RESET}"
 	@echo "${BLUE}API:${RESET} http://localhost:8080"
 	@echo "${BLUE}UI:${RESET}  http://localhost:3000"
@@ -175,7 +162,7 @@ bench: ## Run rules engine benchmark
 clean: ## Remove build artifacts and Docker volumes
 	@echo "${YELLOW}Cleaning artifacts...${RESET}"
 	@rm -rf bin/ coverage.out coverage.html coverage-unit.out coverage-integration.out coverage-combined.out
-	@rm -rf src/ui/node_modules src/ui/.next
+	@rm -rf src/ui/node_modules
 	@docker-compose down -v
 	@echo "${YELLOW}Removing stale Docker containers...${RESET}"
 	@docker container prune -f

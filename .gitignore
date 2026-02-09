@@ -51,14 +51,12 @@ coverage.html
 #node modules
 node_modules/
 src/ui/node_modules/
-src/ui/.next/
-src/ui/.next
 .todo
 
 
 #agents
 .agent
-.bmad   
+.bmad
 .claude
 .cursor
 

@@ -6,624 +6,184 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 AlgoShield is an open-source, high-performance fraud detection and AML transaction analysis system. It processes transactions with ultra-low latency (<50ms) using a custom expression-based rules engine powered by expr-lang.
 
-**Key Capabilities:**
-- Real-time transaction processing (<50ms latency)
-- Custom rules engine with hot-reload support
-- Event schema management with automatic field extraction
-- Risk scoring and transaction classification
-- JWT-based authentication with RBAC
-- White-label branding customization
-- Synthetic event generation
+**Key Capabilities:** Real-time transaction processing, custom rules engine with hot-reload, event schema management, risk scoring, JWT-based auth with RBAC, white-label branding, synthetic event generation.
 
 ## Tech Stack
 
-**Backend (Go 1.25.5):**
-- Fiber v2 (web framework)
-- pgx v5 (PostgreSQL driver with connection pooling)
-- go-redis v9 (Redis client)
-- Asynq (task queue for async processing)
-- golang-jwt v5 + bcrypt (authentication)
-- expr-lang v1.17.7 (rule expression engine)
-- OpenTelemetry (observability infrastructure)
-
-**Frontend (Vue.js 3.5):**
-- Vue 3.5.26 with Composition API (`<script setup>`)
-- TypeScript 5.9.3 (strict mode)
-- Pinia 3.0 (state management)
-- Vuetify 3.11.6 (Material Design components)
-- Tailwind CSS 4.1.18 (utility-first styling)
-- Vite 7.3.1 (build tool)
-- vue-i18n 11.2.8 (internationalization - Composition API mode)
-- Font Awesome 7.1.0 (icons)
-- Prism.js 1.30 (syntax highlighting)
-
-**Infrastructure:**
-- PostgreSQL 16 (primary data store)
-- Redis 7 (message queue + caching)
-- Docker + Docker Compose (containerization)
+**Backend (Go 1.25.5):** Fiber v2, pgx v5, go-redis v9, Asynq, golang-jwt v5, expr-lang v1.17.7, OpenTelemetry
+**Frontend (Vue.js 3.5):** Vue 3.5.26 (`<script setup>`), TypeScript 5.9.3, Pinia 3.0, Vuetify 3.11.6, Tailwind CSS 4.1.18, Vite 7.3.1, vue-i18n 11.2.8, Font Awesome 7.1.0
+**Infrastructure:** PostgreSQL 16, Redis 7, Docker + Docker Compose
 
 ## Common Commands
 
-### Development Setup
-
 ```bash
-# Install all dependencies (Go + npm + golangci-lint)
-make install
+make install                 # Install all deps (Go + npm + golangci-lint)
+./scripts/install-hooks.sh   # Git hooks (pre-commit: lint, pre-push: tests)
+make up                      # Start all services (Docker Compose)
+make up-dev                  # Start with faster health checks
+make down                    # Stop all services
+make logs                    # Tail service logs
 
-# Install Git hooks (recommended - includes pre-commit checks)
-./scripts/install-hooks.sh
+# Local dev (requires postgres + redis running)
+cd src/api/cmd && go run main.go       # API on :8080
+cd src/workers/cmd && go run main.go   # Worker
+cd src/ui && npm run dev               # UI on :5173
 
-# Start all services with Docker Compose
-make up
+# Testing
+make test                    # All (API + UI)
+make test-api                # Go with race detector
+make test-ui                 # Vitest
+go test -race -run TestName ./src/api/internal/auth/...  # Specific
+go test -count=50 ./src/...  # Flaky detection
+make bench                   # Rules engine benchmark
 
-# Start only infrastructure (postgres + redis)
-docker-compose up -d postgres redis
-```
-
-### Local Development
-
-```bash
-# Run API locally (requires postgres + redis running)
-cd src/api/cmd && go run main.go
-
-# Run Worker locally (requires postgres + redis running)
-cd src/workers/cmd && go run main.go
-
-# Run UI locally (Vite dev server on port 5173)
-cd src/ui && npm run dev
-```
-
-### Testing
-
-```bash
-# Run all tests
-make test                    # API + UI
-make test-api                # API only with race detector
-
-# Run with better output
-gotestsum --format testdox -- -race -parallel 8 ./src/...
-
-# Run specific tests
-go test -race ./src/api/internal/auth/service_test.go
-go test -race -run TestServiceName ./src/api/internal/auth/...
-
-# Integration tests (requires Docker)
-gotestsum --format testdox -- -tags=integration -race -parallel 2 ./src/api/... ./src/workers/...
-
-# Check flaky tests
-go test -count=50 ./src/...
-
-# UI tests
-make test-ui                 # Run tests
-cd src/ui && npm run test:coverage  # With coverage
-cd src/ui && npm run test:ui        # Interactive
-
-# Benchmarks
-make bench
-go test -bench=. -benchmem -benchtime=5s -run=^$$ ./src/workers/internal/rules/...
-```
-
-### Building and Linting
-
-```bash
-# Build all Docker images in parallel (with BuildKit)
-make build
-
-# Build only changed services (fast incremental)
-make build-fast
-
-# Run linters (golangci-lint)
-make lint
-
-# Type check UI
+# Quality
+make lint                    # golangci-lint
 cd src/ui && npm run type-check
+
+# Coverage
+make test-coverage           # Combined unit + integration
+make coverage-ci             # 80% minimum check
+
+# Security
+make check-deps              # govulncheck + npm audit
 ```
 
 ### Database Migrations
 
-```bash
-# Run migrations manually (local development)
-export POSTGRES_HOST=localhost
-export POSTGRES_PORT=5432
-export POSTGRES_USER=algoshield
-export POSTGRES_PASSWORD=algoshield_secret
-export POSTGRES_DB=algoshield
-
-# Run in order
-psql -h localhost -U algoshield -d algoshield -f scripts/migrations/001_schema.sql
-psql -h localhost -U algoshield -d algoshield -f scripts/migrations/002_indexes.sql
-psql -h localhost -U algoshield -d algoshield -f scripts/migrations/003_test_data.sql
-```
-
-**Note:** Current migration process is being improved - evaluate migration libraries for better workflow.
+SQL files in `scripts/migrations/` — run in order: `001_schema.sql` → `002_indexes.sql` → `003_test_data.sql`.
 
 ## Architecture
 
-### High-Level Structure
-
-AlgoShield follows a **vertical slice architecture** pattern, organizing code by feature rather than technical layers:
+Vertical slice architecture — code organized by feature, not by technical layer.
 
 ```
 src/
-├── api/              # RESTful API service (Fiber v2)
-│   ├── cmd/          # Application entry point
+├── api/              # RESTful API (Fiber v2)
+│   ├── cmd/          # Entry point
 │   └── internal/     # Feature modules (auth, transactions, rules, schemas, etc.)
-│       ├── auth/           # Authentication & JWT
-│       ├── branding/       # White-label customization
-│       ├── dashboard/      # Metrics & analytics
-│       ├── groups/         # User group management
-│       ├── health/         # Health checks
-│       ├── permissions/    # User permission management
-│       ├── roles/          # Role management
-│       ├── routes/         # Route setup & middleware
-│       ├── rules/          # Rule management endpoints
-│       ├── schemas/        # Event schema management
-│       ├── shared/         # Shared middleware & utilities
-│       ├── system/         # System configuration
-│       ├── transactions/   # Transaction processing API
-│       └── user/           # User management
-├── workers/          # Background job processing (Asynq)
-│   ├── cmd/          # Worker entry point
+├── workers/          # Background processing (Asynq)
+│   ├── cmd/          # Entry point
 │   └── internal/     # Rule engine, transaction processing
-│       ├── config/         # Worker configuration
-│       ├── rules/          # Rules engine & evaluation
-│       ├── schemas/        # Schema loading & caching
-│       └── transactions/   # Transaction processing logic
-├── pkg/              # Shared packages
-│   ├── config/       # Configuration management
-│   ├── csrf/         # CSRF token handling
-│   ├── database/     # PostgreSQL & Redis clients
-│   ├── errors/       # Custom error types
-│   ├── models/       # Shared data models
-│   ├── queue/        # Asynq queue client & worker
-│   ├── rules/        # Rule repository
-│   ├── tokenrevoke/  # Token revocation service
-│   └── utils/        # Shared utilities
-└── ui/               # Vue.js 3.5 frontend
-    └── src/
-        ├── components/   # Reusable Vue components
-        ├── composables/  # Vue composition functions
-        ├── lib/          # API client, error handling
-        ├── locales/      # i18n translations (pt-BR, en-US)
-        ├── plugins/      # Vue plugins (vuetify, i18n)
-        ├── router/       # Vue Router configuration
-        ├── stores/       # Pinia stores (state management)
-        ├── types/        # TypeScript type definitions
-        └── views/        # Page components
+├── pkg/              # Shared packages (config, database, errors, models, queue, etc.)
+└── ui/               # Vue.js frontend
+    └── src/          # components, composables, lib, locales, stores, views
 ```
 
-### Dependency Flow (Clean Architecture)
+**Dependency flow:** Handler → Service (interfaces) → Repository → DB
+**Wiring:** `src/api/internal/routes/routes.go`
 
-The project follows clean architecture principles with clear dependency boundaries:
+### Key Subsystems
 
-1. **Presentation Layer** (`internal/*/handler.go`): HTTP handlers receive requests and return responses
-2. **Business Layer** (`internal/*/service.go`): Services contain business logic and orchestrate operations
-3. **Data Layer** (`internal/*/repository.go`): Repositories handle database operations
-4. **Shared Layer** (`src/pkg/`): Shared utilities, models, and infrastructure
+**Message Queue (Asynq):** API enqueues → Redis → Worker pops (BRPOP) → Evaluate rules → Save result. 3 priority levels, batch processing with semaphore concurrency.
 
-**Key Pattern:** Services depend on interfaces (not concrete implementations) for better testability and flexibility.
+**Rules Engine:** expr-lang expressions, hot-reload every 10s, cached per schema. Helpers: `velocityCount`, `velocitySum`, `pointInPolygon`. Field paths validated (`^[a-zA-Z0-9_.]+$`).
 
-### Dependency Injection
+**Auth:** JWT access (24h) + refresh (168h), Redis revocation, CSRF for state-changing ops, RBAC (admin | rule_editor | viewer).
 
-All handlers/services use **DI** following SOLID:
+**Transactions:** `pending` → `approved` / `rejected` / `in_review`. Synthetic mode uses separate tables via `X-Synthetic-Mode` header.
 
-```go
-type Service struct { repo Repository }  // Interface, not concrete type
-type Handler struct { service ServiceInterface }
-
-// Wiring in routes.go
-func Setup(app *fiber.App, db *pgxpool.Pool, redis *redis.Client, ...) {
-    userRepo := user.NewPostgresUserRepository(db)  // Infrastructure
-    userService := user.NewService(userRepo, ...)    // Business
-    userHandler := user.NewHandler(userService)      // Presentation
-}
-```
-See `src/api/internal/routes/routes.go` for complete wiring.
-
-### Message Queue Architecture (Asynq)
-
-**Flow:** API → Enqueue (`LPUSH`) → Redis Queue → Worker (`BRPOP`) → Process → Update DB
-
-- **3 priority levels**: critical, default, low | **Configurable**: concurrency, retries, timeouts, batch size
-- **Queue timeout**: 5s (returns `ErrTimeout` if no events - expected)
-- **Batch processing**: Collects up to `batchSize`, processes in parallel (semaphore-controlled)
-
-**Worker Flow:** Pop (`BRPOP`) → Collect batch → Parallel processing → Evaluate rules → Save result (status, matched rules, time) → Record metrics → Continue
-
-### Rules Engine
-
-**expr-lang** for flexible evaluation. Hot-reload every 10s, expression cache (cleared on schema changes).
-
-**Flow:** Transaction → Schema Validation → Rule Evaluation → Risk Score → Action
-**Actions:** `allow` (approved) | `block` (rejected, highest priority) | `review` (in_review)
-
-**Helpers:**
-- `velocityCount(fieldPath, timeWindow)` - Count transactions by field
-- `velocitySum(fieldPath, [sumField,] timeWindow)` - Sum numeric field
-- `pointInPolygon(lat, lon, polygon)` - Point in polygon (ray casting)
-
-**Security:** Field paths validated (`^[a-zA-Z0-9_.]+$`) to prevent SQL injection.
-
-### Caching Strategy
-
-- **Rules**: Redis, 5min TTL | **Schema**: In-memory + Redis pub/sub | **Dashboard**: Redis, 30s TTL (synthetic/real)
-- **Branding**: Redis with TTL | **CSRF**: Redis, 24h | **Token Revocation**: Redis sets (JWT blacklist)
-
-### Authentication & Authorization
-
-**JWT:** Access 24h, Refresh 168h (configurable), Redis revocation, CSRF for state-changing ops, rate limiting on auth endpoints
-
-**RBAC:** admin (full access) | rule_editor (rules/schemas CRUD) | viewer (read-only)
-**Groups:** Users → multiple groups → roles → inherited permissions
-
-**Flow:** Login → JWT+Refresh+CSRF → Redis → Client | Request → Validate JWT → Check revocation → Verify CSRF → Process | Logout → Blacklist token
-
-### Transaction Processing
-
-**Statuses:** `pending` (synthetic only) | `approved` (no blocks) | `rejected` (blocked) | `in_review` (flagged)
-
-**Lifecycle:** Submit (`POST /api/v1/transactions`) → Validate → Queue Redis → `202 Accepted` → Worker picks (`BRPOP`) → Evaluate rules → Save (status, matched rules, time, metadata JSONB) → Manual review if `in_review`/`pending`
-
-**Synthetic Mode:** Separate tables (`transactions` vs `transactions_synthetic`), marked `_synthetic: true`, always `pending` (not rule-processed), controlled via `X-Synthetic-Mode` header, separate dashboard metrics
+**Caching:** Rules (Redis, 5min TTL), Schema (in-memory + Redis pub/sub), Dashboard (Redis, 30s TTL), CSRF (Redis, 24h), Token revocation (Redis sets).
 
 ## Key Conventions
 
-### Go Code
+### Go
 
-- Follow standard Go conventions (gofmt, golangci-lint)
-- Use `internal/` packages for private API code
-- Package structure: `cmd/` for executables, `internal/` for application logic, `pkg/` for shared libraries
-- Error handling: Always check errors, wrap with context using `fmt.Errorf("context: %w", err)`
-- Naming: camelCase for unexported, PascalCase for exported
-- Structured logging with log levels (debug, info, warn, error)
-- Connection pooling for all database and Redis connections
-- **Validation**: All handlers MUST include request validation (mandatory practice)
-- Use `context.Context` for all database and Redis operations
-- Package names match directory names (feature-based)
-- Interfaces defined in the same package that uses them
-- Mock implementations use `Mock*` prefix and `_test.go` suffix
+- Standard conventions (gofmt, golangci-lint), `internal/` for private code
+- Error wrapping: `fmt.Errorf("context: %w", err)`
+- **All handlers MUST validate requests**
+- `context.Context` for all DB/Redis ops
+- Interfaces in the consumer package; mocks use `Mock*` prefix in `_test.go`
 
-### TypeScript/Vue Code
+### TypeScript / Vue
 
-- Use TypeScript strict mode
-- Prefer Composition API over Options API (use `<script setup lang="ts">` syntax)
-- Component naming: PascalCase for component files
-- Organize by feature, not by type
-- Use Pinia stores for shared state
-- Tailwind utility classes for styling (avoid custom CSS when possible)
-- Standardize base components for consistency (BaseButton, BaseInput, BaseTable, etc.)
-- Use standardized validation fields and form components
-- Remove unused code and components regularly
-- Use fundamental abstractions to simplify complex logic
-- Component structure: base components in `src/ui/src/components/`
-- Type-safe API calls (see `src/ui/src/lib/api.ts`)
-- Standardized error handling (see `src/ui/src/lib/error-handler.ts`)
+- `<script setup lang="ts">`, strict mode, PascalCase components
+- Pinia for state, Tailwind for styling, base components (BaseButton, BaseInput, etc.)
+- Type-safe API calls via `src/ui/src/lib/api.ts`
+- **CSRF**: Always use `api.post/put/patch/delete` — never raw `fetch()`
 
-### Internationalization (i18n)
+### i18n
 
-**CRITICAL: All user-facing text MUST use translation keys. No hardcoded strings.**
-
-**Usage:** `{{ $t('common.save') }}` in templates, `const { t } = useI18n()` in scripts
-
-**Key naming (dot-notation):**
-- `common.*` - Shared (buttons, actions, labels)
-- `auth.*`, `header.*`, `sidebar.*` - Auth/layout
-- `views.<viewName>.*` - View-specific
-- `components.<componentName>.*` - Component-specific
-- `errors.*`, `languages.*` - Errors and language names
-
-**Adding translations:**
-1. Add to BOTH `pt-BR.json` AND `en-US.json`
-2. Descriptive paths: `auth.errors.invalidCredentials` not `err1`
-3. Use parameters: `{{ $t('welcome', { name: user.name }) }}`
-
-**Languages:** pt-BR, en-US (default: en-US) | **Details:** `src/ui/src/locales/README.md`
+**CRITICAL: No hardcoded user-facing strings.** Use `$t('key')` in templates, `useI18n()` in scripts.
+Add to BOTH `pt-BR.json` and `en-US.json`. Key convention: `common.*`, `auth.*`, `views.<name>.*`, `errors.*`.
+Details: `src/ui/src/locales/README.md`
 
 ### Database
 
-- Migrations: SQL files in `scripts/migrations/` (`001_schema.sql` → `002_indexes.sql` → `003_test_data.sql`)
-- Use `pgxpool` for connection pooling, `pgx.Tx` for atomic operations
-- **ALWAYS parameterized queries** (`$1, $2, $3`) - NEVER concatenate user input
-```go
-// ✅ query := "SELECT * FROM users WHERE email = $1"
-// ❌ query := fmt.Sprintf("SELECT * FROM users WHERE email = '%s'", userEmail)
-```
+- **ALWAYS parameterized queries** (`$1, $2`) — NEVER concatenate user input
+- `pgxpool` for pooling, `pgx.Tx` for atomic ops
 
 ### Environment Variables
 
-- All configuration uses environment variables (see `.env.example`)
-- **Required variables**: `POSTGRES_*`, `REDIS_*`, `JWT_SECRET`, `ENVIRONMENT`
-- **JWT settings**: `JWT_EXPIRATION_HOURS` (default: 24), `JWT_REFRESH_EXPIRATION_HOURS` (default: 168)
-- Security settings: `TLS_ENABLE`, `CORS_ALLOWED_ORIGINS`, `API_BODY_LIMIT`
-- Worker settings: `WORKER_CONCURRENCY`, timeouts, retry configuration
-- **MANDATORY**: Update `.env.example` when adding new environment variables
-- **ALL timeout values MUST be configurable** via environment variables (no hardcoded timeouts)
+- All config via env vars (see `.env.example`)
+- **MANDATORY**: Update `.env.example` when adding new vars
+- **ALL timeouts MUST be configurable** — no hardcoded timeout values
 
-## Testing Patterns
+## Security
 
-### Test Strategy
+**OWASP Top 10 compliance required.** Key rules:
 
-- **Unit Tests**: Follow `docs/agents/unit-test.md` | **Integration Tests**: Follow `docs/agents/integration-test.md`
-- **Coverage**: 80% minimum | **Race detection**: `-race` flag | **Flaky tests**: `-count=50` (Go), `--repeat=20` (Vue)
-- **AAA Pattern**: No comments, use blank lines | **Lint**: All tests must pass linters
+- **SQL injection**: Parameterized queries only
+- **XSS**: Vue auto-escapes; never `v-html` with user input; no `eval()`
+- **CSRF**: Tokens in Redis (24h TTL), auto-added by API client
+- **Auth**: bcrypt (cost 12+), JWT with Redis revocation, rate-limit login
+- **Tokens**: Pinia (memory) only — NEVER localStorage for access/CSRF tokens
+- **Headers**: `X-Content-Type-Options`, `X-Frame-Options`, `Strict-Transport-Security`, `CSP`
+- **CORS**: Never `*` in production — use `CORS_ALLOWED_ORIGINS`
+- **Sensitive data**: Never log passwords, tokens, PII
+- **Scanning**: `govulncheck`, `npm audit`, `gitleaks`, `semgrep`
 
-### Unit Tests (Go)
+Full security guidelines: `openspec/project.md` § "Code Security Guidelines"
 
-- Mock dependencies (interfaces), test in isolation, table-driven for multiple scenarios, `-race` flag, 80%+ coverage
-```go
-func TestServiceOperation(t *testing.T) {
-    mockRepo := &MockRepository{}
-    service := NewService(mockRepo)
+## Testing
 
-    result, err := service.Operation(ctx, input)
+**Coverage minimum: 80%. Race detection: mandatory.**
 
-    assert.NoError(t, err)
-    assert.Equal(t, expected, result)
-}
-```
+- **Unit tests**: Mock dependencies, table-driven, AAA pattern, `-race` flag
+- **Integration tests**: `//go:build integration`, testcontainers-go, <500ms per test
+- **UI tests**: Vitest + Vue Test Utils, `flushPromises()` for async, <300ms per test
+- **Flaky detection**: `go test -count=50` / `npm run test -- --repeat=20`
 
-### Integration Tests (Go)
+**Anti-patterns** — do NOT generate:
+- Trivial constructor tests (no logic = no test)
+- Interface implementation tests (compiler checks this)
+- Duplicate validation across layers (test once at service level)
+- `exists()` without verifying actual values
+- 3+ similar tests → consolidate to table-driven
 
-- Build tag `//go:build integration`, Docker containers, testcontainers-go, <500ms per test
-- **Isolation:** Transactions (fastest) → Truncate tables (moderate) → Recreate DB (slowest)
+Full testing guides: `docs/agents/unit-test.md`, `docs/agents/integration-test.md`
 
-### UI Tests (Vue/TypeScript)
+## Regression Prevention
 
-- Vitest + Vue Test Utils, Mock API with MSW, test interactions/state, `flushPromises()` for async, <300ms per test
+Follow when adding new features. Full checklists: `openspec/project.md` § "Regression Prevention Rules"
 
-### Coverage & Quality Verification
-
-```bash
-# Go: Lint then coverage
-go vet ./... && golangci-lint run ./...
-go test -coverprofile=coverage.txt -covermode=atomic ./...
-go tool cover -func=coverage.txt | grep total  # ≥80%
-
-# Vue: Lint then coverage
-npm run lint && npm run test:coverage  # ≥80%
-
-# Flaky test detection
-go test -count=50 ./...           # Go
-npm run test -- --repeat=20       # Vue
-
-# Race conditions (MANDATORY)
-go test -race ./...
-go test -tags=integration -race ./...
-```
-
-## Important Patterns and Gotcas
-
-### Security
-
-**CRITICAL: OWASP Top 10 Compliance Required**
-
-#### 1. SQL Injection Prevention
-- **ALWAYS** use parameterized queries (`$1, $2, $3`)
-- **NEVER** concatenate user input into SQL
-```go
-// ✅ GOOD: query := "SELECT * FROM users WHERE email = $1"
-// ❌ BAD: query := fmt.Sprintf("SELECT * FROM users WHERE email = '%s'", userEmail)
-```
-
-#### 2. XSS Prevention
-**Backend:** Validate all input, set `Content-Type: application/json`, sanitize HTML with bluemonday
-**Frontend:** Vue auto-escapes `{{ }}`, NEVER use `v-html` with user input, avoid `eval()`, use CSP headers
-
-#### 3. Command Injection Prevention
-- Use `exec.Command("ls", "-l", dir)` with separate args
-- NEVER `exec.Command("sh", "-c", "ls " + userInput)`
-
-#### 4. Expression Injection (Rules Engine)
-- Validate field paths: `^[a-zA-Z0-9_.]+$`
-- Use expr-lang type safety
-
-#### 5. CSRF Protection (Implemented)
-- Tokens in Redis (24h TTL), auto-added via API client
-- **MUST use** `api.post()` not `fetch()` directly
-
-#### 6. Authentication
-**JWT:** Strong secrets (32+ bytes), expiration (24h access/168h refresh), Redis revocation
-**Passwords:** bcrypt (cost 12+), never log hashes, rate limit login
-
-#### 7. Sensitive Data
-- NEVER log passwords, tokens, PII
-- Use HTTPS/TLS in production
-- Filter sensitive fields from API responses
-
-#### 8. Access Control
-- RBAC on ALL endpoints via middleware
-- Verify user owns resource (prevent horizontal escalation)
-- Admins can't deactivate themselves or last admin
-
-#### 9. Security Misconfiguration
-**Headers (MANDATORY):**
-```go
-c.Set("X-Content-Type-Options", "nosniff")
-c.Set("X-Frame-Options", "DENY")
-c.Set("X-XSS-Protection", "1; mode=block")
-c.Set("Strict-Transport-Security", "max-age=31536000")
-c.Set("Content-Security-Policy", "default-src 'self'")
-```
-
-#### 10. CSP
-- Strict CSP: `default-src 'self'; script-src 'self'`
-- No inline scripts (use nonces if needed)
-
-#### 11. Dependency Vulnerabilities
-**Scan regularly:**
-```bash
-govulncheck ./...          # Go
-npm audit && npm audit fix # Frontend
-gitleaks detect --source . # Secrets
-semgrep --config auto      # SAST
-```
-
-#### 12. Security Logging
-- Log auth attempts, authorization failures, critical ops
-- Include correlation IDs, structured JSON format
-
-#### 13-14. Rate Limiting & Resource Limits
-- Rate limit auth endpoints (Redis-backed)
-- Limit body size (4MB default), set query/Redis timeouts
-
-#### 15. TLS/HTTPS
-- **MANDATORY in production** (`TLS_ENABLE=true`)
-- HSTS headers, secure cookies
-
-#### 16. CORS
-- NEVER `*` in production
-- Configure via `CORS_ALLOWED_ORIGINS`
-
-#### 17. Token Storage
-- Store in Pinia (memory), NEVER localStorage
-- Clear on logout
-
-### Performance
-
-- **Connection pooling** (`pgxpool.Pool`), **Redis pipelining** (bulk ops), **Caching** (rules 5min TTL)
-- **Hot-reload** (10s interval), **Expression compilation** (cached per schema), **Race detector** (`-race`)
-- **Target**: <50ms per transaction, batch processing with controlled concurrency (semaphore)
-
-### Error Handling & Transaction Flow
-
-- Custom error types (`src/pkg/errors/`), appropriate HTTP codes, log with context
-- Worker errors → Asynq retries, generic client messages (no stack traces)
-- **Status flow:** `queued` → `approved`/`in_review`/`rejected`
-- **Risk levels:** Low (0-49), Medium (50-79), High (80-100)
-- **Actions:** `allow`, `block` (highest priority), `review`
-
-## Testing Anti-Patterns
-
-**AI agents must avoid generating useless tests.**
-
-### What NOT to Test
-
-1. **Trivial Constructors** - Don't test constructors that only assign fields (no logic)
-2. **Interface Implementation** - Compiler already validates
-3. **Duplicate Validation** - Test validation ONCE at service layer, not at handler/private function layers
-4. **Repetitive Tests** - Use table-driven tests instead of separate functions for similar scenarios
-5. **Component Existence Only** - Verify actual prop values, not just `exists()`
-
-### Decision Tree
-
-```
-Constructor only assigns fields? → ❌ Don't test
-Test only verifies interface impl? → ❌ Don't test (compiler checks)
-Validation tested in another layer? → ❌ Don't duplicate
-3+ similar tests with same assertions? → ⚠️  Consolidate to table-driven
-Test only checks exists() without props? → ❌ Verify actual values
-Test verifies actual behavior/logic? → ✅ Write it
-```
-
-### Cleanup Checklist
-
-- [ ] No trivial constructor/interface tests
-- [ ] No duplicate validation across layers
-- [ ] Repetitive tests consolidated (table-driven)
-- [ ] Component tests verify props not just existence
-- [ ] Tests pass linting and `-count=50` (Go) or `--repeat=20` (Vue)
-- [ ] Coverage ≥80%
-
-**Details:** See `docs/agents/unit-test.md` section 7
-
-## Regression Prevention Rules
-
-**CRITICAL: Follow when adding new features to prevent regressions.**
-
-### Pre-Implementation Checklist
-
-1. **OpenSpec Compliance** - Create proposal if required, validate with `openspec validate --strict`
-2. **Impact Analysis** - Identify affected modules, document breaking changes with migration plan
-3. **Test Coverage** - Plan unit (80%+), integration, API, frontend, E2E tests; run with `-race` and `-count=50`
-
-### Mandatory Test Categories
-
-1. **Unit Tests** - All functions, edge cases, mocked dependencies, deterministic, 80%+ coverage
-2. **Integration Tests** - Real DB/Redis (testcontainers-go), transaction flows, rules engine, velocity functions
-3. **API Tests** - Endpoints, auth/authz, validation, errors, status codes
-4. **Frontend Tests** - Components, views, stores, router guards, i18n keys
-5. **Regression Tests** - Existing tests pass, APIs work, UI renders, rules evaluate correctly
-
-### Performance Requirements
-
-- Transaction processing <50ms
-- Optimized queries with indexes
-- No N+1 queries
-- Connection pool limits respected
-
-### Pre-Merge Validation
-
-**Code Quality:** Linters pass, tests pass, no race conditions, 80%+ coverage, security scans clean
-**Documentation:** Update README, API docs, `.env.example`, archive OpenSpec proposals
-**Integration:** Tests pass with real DBs, Docker builds, CI/CD passes
-**Manual Testing:** Feature works, existing features work, i18n correct, performance acceptable
-
-### AI Agent Requirements
-
-**Before:** OpenSpec proposal, impact analysis, identify modules, plan tests
-**During:** Write tests with code (TDD), run tests frequently, check for race conditions
-**After:** Run full suite, verify coverage ≥80%, check linters, update docs
-**Before Completion:** Verify rules followed, no breaking changes (or documented), backward compatible, <50ms latency
-
-### Enforcement
-
-**MANDATORY** - CI/CD automated checks, code review verification, pre-merge hooks
-**Violations:** Missing tests/docs rejected, breaking changes without migration rejected, performance regressions block deployment
-
-**Details:** See `openspec/project.md` "Regression Prevention Rules"
+1. **Before**: Impact analysis, identify affected modules, plan tests
+2. **During**: Write tests alongside code, run frequently, check for race conditions
+3. **After**: Full suite passes, coverage ≥80%, linters clean, docs updated
+4. **Performance**: <50ms per transaction, no N+1 queries, connection pool limits respected
 
 ## Development Workflow
 
 1. Install Git hooks: `./scripts/install-hooks.sh`
-2. Make changes following vertical slice architecture
-3. Add tests for new functionality (unit + integration if needed)
-4. Run tests locally: `make test`
-5. Run linters: `make lint`
-6. Commit with conventional commit prefixes: `feat:`, `fix:`, `chore:`, `docs:`, `refactor:`, etc.
-7. Pre-commit hook runs tests and checks formatting automatically
+2. Pre-commit runs formatting + linting; pre-push runs full test suite
+3. Conventional commits: `feat:`, `fix:`, `chore:`, `docs:`, `refactor:`, etc.
+4. For significant changes, use OpenSpec proposals (`openspec/AGENTS.md`)
 
-## Known Issues & Areas for Improvement
+## Known Issues
 
-**Layout Bugs:**
-- Some layout bugs remain from Vue.js migration
-- Root cause not yet identified
-- Needs investigation and resolution
+- **Layout bugs**: Some remain from Vue.js migration — needs investigation
+- **Database migrations**: Script-based process needs a proper migration library
+- **OpenTelemetry**: Infrastructure defined but not fully implemented
 
-**Database Migrations:**
-- Current migration process via scripts is not ideal
-- Needs improvement with a proper migration library
-- Action required: Evaluate migration tools
+## Canonical Documentation
 
-**OpenTelemetry:**
-- Metrics infrastructure defined but not fully implemented
-- Plan to use for observability and performance monitoring
-
-## AI Agent Guidelines
-
-**MANDATORY REQUIREMENTS:**
-
-1. **Code Generation** - SOLID principles, vertical slice architecture, dependency injection, ISP compliance, avoid complexity, refactor magic numbers
-2. **Validation** - Always add validation to handlers (mandatory)
-3. **Environment Variables** - Update `.env.example`, group related vars, no hardcoded timeouts
-4. **Testing** - Follow `docs/agents/unit-test.md` & `docs/agents/integration-test.md`, use `-race`, 80%+ coverage, `-count=50` for flaky tests, testcontainers-go for integration
-5. **i18n** - NEVER hardcode strings, add to BOTH `pt-BR.json` AND `en-US.json`, hierarchical keys (`views.dashboard.title`)
-6. **CSRF** - Use `api.post/put/patch/delete` ONLY (never `fetch()` directly), verify `X-CSRF-Token` header
-7. **Code Quality** - Remove unused code, fix race conditions immediately, standardize base components
-8. **Documentation** - OpenSpec for spec-driven dev, update README for significant features
-9. **Code Review** - Proactively scan: guidelines adherence, tests generated/updated, patterns followed, 80%+ coverage
-10. **Regression Prevention** - Follow "Regression Prevention Rules", complete checklists, verify no breaking changes, <50ms latency
-11. **Security** - OWASP Top 10, security headers, never log PII, parameterized queries, validate all input, rate limiting, run scanners (`govulncheck`, `npm audit`, `gitleaks`, `semgrep`), CSP, TLS in production
-12. **Anti-Patterns** - No trivial constructor tests, no interface tests, no duplicate validation, consolidate to table-driven, verify behavior not existence
-13. **Coverage** - 80% minimum, verify with `go test -coverprofile=coverage.txt` and `npm run test:coverage`
-14. **Lint** - All tests pass linters, fix ALL errors, no unused vars/imports/debugging code
-
-## Additional Resources
-
-- **Rules engine expressions**: https://github.com/expr-lang/expr
-- **Fiber framework**: https://gofiber.io/
-- **Asynq task queue**: https://github.com/hibiken/asynq
-- **Vue.js Composition API**: https://vuejs.org/guide/extras/composition-api-faq.html
-- **Vuetify components**: https://vuetifyjs.com/
-- **OpenSpec documentation**: `openspec/AGENTS.md`
-- **Testing guidelines**: `docs/agents/unit-test.md`, `docs/agents/integration-test.md`
-- **i18n guidelines**: `src/ui/src/locales/README.md`
+| Topic | Location |
+|-------|----------|
+| Project conventions & security | `openspec/project.md` |
+| OpenSpec workflow | `openspec/AGENTS.md` |
+| Unit testing guide | `docs/agents/unit-test.md` |
+| Integration testing guide | `docs/agents/integration-test.md` |
+| i18n guidelines | `src/ui/src/locales/README.md` |
+| API documentation | `README.md` § "API Documentation" |
+| Environment variables | `.env.example` |
+| DI wiring | `src/api/internal/routes/routes.go` |

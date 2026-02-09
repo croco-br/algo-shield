@@ -1085,7 +1085,7 @@ AlgoShield follows a **vertical slice architecture** pattern, organizing code by
 - **Dependency Injection**: All handlers and services use dependency injection for better testability and modularity
 - **Validation**: All handlers include request validation as a mandatory practice (using go-playground/validator)
 - **Error Handling**: Comprehensive error handling with proper context wrapping and custom error types
-- **Structured Logging**: All services use structured logging with zerolog and configurable log levels
+- **Structured Logging**: Structured logging with configurable log levels (worker uses zerolog, API uses stdlib log)
 - **Connection Pooling**: Reusable PostgreSQL (pgxpool) and Redis connections for optimal performance
 - **Security**: OWASP Top 10 compliance, CSRF protection, rate limiting, parameterized queries
 

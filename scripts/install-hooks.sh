@@ -27,7 +27,7 @@ chmod +x .githooks/*
 echo -e "${GREEN}✓ Git hooks installed successfully!${NC}"
 echo ""
 echo -e "${YELLOW}Installed hooks:${NC}"
-echo "  • pre-commit:  Runs tests and checks formatting before commit"
+echo "  • pre-commit:  Runs formatting and linting before commit"
 echo "  • commit-msg:  Validates commit message format (Conventional Commits)"
 echo "  • pre-push:    Runs full test suite before push"
 echo ""
@@ -36,4 +36,3 @@ echo "  git commit --no-verify"
 echo "  git push --no-verify"
 echo ""
 echo -e "${GREEN}Happy coding! 🛡️${NC}"
-
