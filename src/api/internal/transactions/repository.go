@@ -110,7 +110,7 @@ func (r *PostgresRepository) ListTransactions(ctx context.Context, limit, offset
 			&transaction.ProcessedAt,
 		)
 		if err != nil {
-			continue
+			return nil, err
 		}
 		transaction.SchemaName = schemaName
 		transactions = append(transactions, transaction)
@@ -195,7 +195,7 @@ func (r *PostgresRepository) ListTransactionsWithFilter(ctx context.Context, fil
 			&transaction.ProcessedAt,
 		)
 		if err != nil {
-			continue
+			return nil, 0, err
 		}
 		transaction.SchemaName = schemaName
 		transactions = append(transactions, transaction)
@@ -229,7 +229,7 @@ func (r *PostgresRepository) ApproveTransaction(ctx context.Context, id uuid.UUI
 		FROM %s t
 		LEFT JOIN event_schemas es ON t.schema_id = es.id
 		WHERE t.id = $1
-	`, tableName)
+	`, pgx.Identifier{tableName}.Sanitize())
 
 	var transaction models.Transaction
 	var schemaName *string
@@ -277,7 +277,7 @@ func (r *PostgresRepository) RejectTransaction(ctx context.Context, id uuid.UUID
 		FROM %s t
 		LEFT JOIN event_schemas es ON t.schema_id = es.id
 		WHERE t.id = $1
-	`, tableName)
+	`, pgx.Identifier{tableName}.Sanitize())
 
 	var transaction models.Transaction
 	var schemaName *string

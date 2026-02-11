@@ -75,7 +75,7 @@ src/
 
 ### Key Subsystems
 
-**Message Queue (Asynq):** API enqueues → Redis → Worker pops (BRPOP) → Evaluate rules → Save result. 3 priority levels, batch processing with semaphore concurrency.
+**Message Queue (Asynq):** API enqueues → Redis (Asynq task queue) → Worker processes tasks → Evaluate rules → Save result. 3 priority levels, batch processing with semaphore concurrency.
 
 **Rules Engine:** expr-lang expressions, hot-reload every 10s, cached per schema. Helpers: `velocityCount`, `velocitySum`, `pointInPolygon`. Field paths validated (`^[a-zA-Z0-9_.]+$`).
 

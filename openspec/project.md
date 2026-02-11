@@ -221,7 +221,7 @@ AlgoShield provides a comprehensive fraud detection and AML platform with the fo
   2. Event validated (must be non-empty JSON object)
   3. Event queued in Redis (`transaction:queue` list)
   4. API returns `202 Accepted` immediately
-  5. Worker picks up event from queue (FIFO via `BRPOP`)
+  5. Worker picks up event from queue (Asynq task queue backed by Redis)
   6. Rules engine evaluates event against all enabled rules
   7. Result saved to database with status, matched rules, and processing time
   8. Full event stored in `metadata` JSONB column
@@ -458,7 +458,7 @@ AlgoShield provides a comprehensive fraud detection and AML platform with the fo
 - **Queue Service**:
   - Redis list: `transaction:queue` (FIFO queue)
   - API pushes events via `LPUSH` (left push, adds to head)
-  - Workers pop events via `BRPOP` (blocking right pop, removes from tail)
+  - Workers process tasks via Asynq (Redis-backed task queue)
   - Queue pop timeout: Configurable timeout (default: 5s) - returns `ErrTimeout` if no events available (expected behavior)
   - Events serialized as JSON before queuing
   - Invalid JSON or unmarshal errors return `ErrInvalidData`
@@ -468,7 +468,7 @@ AlgoShield provides a comprehensive fraud detection and AML platform with the fo
   - Timeouts: Configurable transaction timeout (default: 300ms) and rule evaluation timeout (default: 300ms)
   - Queue pop timeout: Configurable timeout for queue operations (default: 5s)
 - **Processing Flow**:
-  1. Worker pops transaction(s) from Redis queue using `BRPOP` (blocking, waits for events)
+  1. Worker receives transaction task(s) from Asynq (Redis-backed task queue)
   2. For batch mode: Collects up to `batchSize` transactions (stops on timeout or batch full)
   3. Processes transactions in parallel (controlled concurrency via semaphore)
   4. Each transaction evaluated against all enabled rules

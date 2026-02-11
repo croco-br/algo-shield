@@ -1,5 +1,23 @@
 import { vi } from 'vitest'
 
+// Polyfill for Vuetify v-dialog/overlay (uses visualViewport; missing in happy-dom)
+if (typeof window !== 'undefined' && !window.visualViewport) {
+  Object.defineProperty(window, 'visualViewport', {
+    value: {
+      width: window.innerWidth,
+      height: window.innerHeight,
+      offsetLeft: 0,
+      offsetTop: 0,
+      pageLeft: 0,
+      pageTop: 0,
+      scale: 1,
+      addEventListener: vi.fn(),
+      removeEventListener: vi.fn(),
+    },
+    writable: true,
+  })
+}
+
 // Stub CSS imports globally
 // This prevents errors when Vuetify or other libraries try to import CSS files
 vi.mock('vuetify/lib/components/VCode/VCode.css', () => ({}))

@@ -2,6 +2,7 @@ package transactions
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"time"
 
@@ -173,7 +174,7 @@ func (h *Handler) ApproveTransaction(c *fiber.Ctx) error {
 
 	transaction, err := h.service.ApproveTransaction(ctx, id)
 	if err != nil {
-		if err == pgx.ErrNoRows {
+		if errors.Is(err, pgx.ErrNoRows) {
 			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
 				"error": "Transaction not found or not in pending/in_review status",
 			})
@@ -201,7 +202,7 @@ func (h *Handler) RejectTransaction(c *fiber.Ctx) error {
 
 	transaction, err := h.service.RejectTransaction(ctx, id)
 	if err != nil {
-		if err == pgx.ErrNoRows {
+		if errors.Is(err, pgx.ErrNoRows) {
 			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
 				"error": "Transaction not found or not in pending/in_review status",
 			})

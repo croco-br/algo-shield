@@ -148,8 +148,14 @@ describe('RulesView', () => {
       locale: 'en-US',
       messages: {
         'en-US': {
+          common: {
+            confirm: 'Confirm',
+            cancel: 'Cancel',
+            delete: 'Delete',
+          },
           views: {
             rules: {
+              deleteConfirmation: 'Are you sure you want to delete this rule?',
               title: 'Rules',
               subtitle: 'Manage fraud detection rules',
               createRule: 'Create Rule',
@@ -419,8 +425,6 @@ describe('RulesView', () => {
 
     vi.mocked(api.delete).mockResolvedValue({})
 
-    globalThis.confirm = vi.fn(() => true) as typeof confirm
-
     const wrapper = mount(RulesView, {
       global: {
         plugins: [router, vuetify, i18n, pinia],
@@ -429,7 +433,15 @@ describe('RulesView', () => {
 
     await flushPromises()
 
-    await (wrapper.vm as any).deleteRule('1')
+    // deleteRule only opens the confirm dialog; confirmDeleteRule (triggered by the Delete button) performs the API call.
+    // v-dialog teleports content to body, so we find the Delete button in document.body.
+    ;(wrapper.vm as any).deleteRule('1')
+    await wrapper.vm.$nextTick()
+
+    const buttons = document.body.querySelectorAll('button')
+    const deleteBtn = Array.from(buttons).find((el) => el.textContent?.trim() === 'Delete')
+    expect(deleteBtn).toBeDefined()
+    deleteBtn!.click()
     await flushPromises()
 
     expect(api.delete).toHaveBeenCalledWith('/api/v1/rules/1')

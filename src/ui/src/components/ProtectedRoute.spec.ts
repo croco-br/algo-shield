@@ -5,6 +5,16 @@ import { createPinia, setActivePinia } from 'pinia'
 import ProtectedRoute from './ProtectedRoute.vue'
 import { useAuthStore } from '@/stores/auth'
 
+// Stub LoadingSpinner so we don't depend on Vuetify's v-progress-circular in tests.
+// The real component uses v-progress-circular, which isn't resolved without a full Vuetify mount.
+vi.mock('@/components/LoadingSpinner.vue', () => ({
+  default: {
+    name: 'LoadingSpinner',
+    template: '<div class="animate-spin">Loading</div>',
+    props: ['text', 'size', 'centered', 'fullscreen'],
+  },
+}))
+
 describe('ProtectedRoute', () => {
   let router: ReturnType<typeof createRouter>
   let pinia: ReturnType<typeof createPinia>

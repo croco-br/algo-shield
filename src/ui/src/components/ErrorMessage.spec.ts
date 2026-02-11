@@ -1,6 +1,19 @@
 import { describe, it, expect } from 'vitest'
 import { mount } from '@vue/test-utils'
+import { createI18n } from 'vue-i18n'
 import ErrorMessage from './ErrorMessage.vue'
+
+const i18n = createI18n({
+  legacy: false,
+  locale: 'en-US',
+  messages: {
+    'en-US': {
+      common: {
+        tryAgain: 'Try again',
+      },
+    },
+  },
+})
 
 describe('ErrorMessage', () => {
   const createWrapper = (props = {}, slots = {}) => {
@@ -11,6 +24,7 @@ describe('ErrorMessage', () => {
       },
       slots,
       global: {
+        plugins: [i18n],
         stubs: {
           VAlert: {
             template: '<div class="v-alert"><slot /><slot name="append" /></div>',

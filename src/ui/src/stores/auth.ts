@@ -6,6 +6,7 @@ import {
   setCsrfTokenGetter,
   setRefreshTokenFn,
   setForceLogoutFn,
+  resetLogoutState,
 } from "@/lib/api";
 
 export interface Role {
@@ -94,8 +95,16 @@ export const useAuthStore = defineStore("auth", () => {
       // Load user data with new token
       const userData = await api.get<User>("/api/v1/auth/me");
       user.value = userData;
-    } catch (e) {
-      clearTokens();
+    } catch (e: unknown) {
+      // Only clear tokens when refresh failed with 401 (invalid/expired refresh token).
+      // On network/5xx leave tokens so user can retry (e.g. generate again).
+      const statusCode =
+        e != null && typeof (e as { statusCode?: number }).statusCode === "number"
+          ? (e as { statusCode: number }).statusCode
+          : undefined;
+      if (statusCode === 401) {
+        clearTokens();
+      }
       throw e;
     }
   }
@@ -122,6 +131,7 @@ export const useAuthStore = defineStore("auth", () => {
       localStorage.setItem("refresh_token", newRefreshToken);
     }
 
+    resetLogoutState();
     await loadUserFromToken();
   }
 

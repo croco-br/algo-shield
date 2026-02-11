@@ -47,6 +47,11 @@ export function setForceLogoutFn(fn: () => void): void {
   forceLogoutHolder.fn = fn;
 }
 
+/** Reset logout state after successful login so future 401s can trigger redirect again. */
+export function resetLogoutState(): void {
+  isLoggingOut = false;
+}
+
 // Get synthetic mode from localStorage (synced by systemMode store)
 // NOTE: Synthetic mode is safe to store in localStorage as it's not sensitive data
 function getSyntheticMode(): boolean {
@@ -144,6 +149,9 @@ async function request<T>(
         endpoint.includes("/auth/register") ||
         endpoint.includes("/auth/refresh");
 
+      // When we attempted refresh and it failed for non-401 (e.g. network), don't force logout below.
+      let attemptedRefreshAndFailedWithNon401 = false;
+
       // Only attempt refresh if:
       // 1. We actually sent an Authorization header (token was present when request was made)
       // 2. We're not already in a logout redirect
@@ -171,18 +179,32 @@ async function request<T>(
 
           // Retry the original request once with the new token
           return request<T>(endpoint, options, true);
-        } catch {
-          // Refresh failed — force logout and fall through
+        } catch (refreshErr: unknown) {
+          // Only force logout when refresh failed with 401 (invalid/expired refresh token).
+          // On network error or 5xx we don't logout — user can retry or reload.
+          const statusCode =
+            refreshErr != null &&
+            typeof (refreshErr as { statusCode?: number }).statusCode === "number"
+              ? (refreshErr as { statusCode: number }).statusCode
+              : undefined;
+          if (statusCode === 401 && forceLogoutHolder.fn && !isLoggingOut) {
+            isLoggingOut = true;
+            forceLogoutHolder.fn();
+          } else if (statusCode !== 401) {
+            attemptedRefreshAndFailedWithNon401 = true;
+          }
+          // Fall through to throw the original request error (do not force logout again when non-401)
         }
       }
 
       // Unrecoverable 401: force logout (skip for auth endpoints like login)
-      // Use isLoggingOut flag to prevent infinite hard-reload loops
+      // Skip when we already tried refresh and it failed for non-401 — then we only throw, no redirect.
       if (
         response.status === 401 &&
         !isAuthEndpoint &&
         forceLogoutHolder.fn &&
-        !isLoggingOut
+        !isLoggingOut &&
+        !attemptedRefreshAndFailedWithNon401
       ) {
         isLoggingOut = true;
         forceLogoutHolder.fn();
@@ -217,7 +239,9 @@ async function request<T>(
         }
       }
 
-      throw new Error(errorMessage);
+      const err = new Error(errorMessage) as Error & { statusCode?: number };
+      err.statusCode = response.status;
+      throw err;
     }
 
     // Handle 204 No Content responses (common for DELETE operations)

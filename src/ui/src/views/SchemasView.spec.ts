@@ -114,8 +114,15 @@ describe('SchemasView', () => {
       locale: 'en-US',
       messages: {
         'en-US': {
+          common: {
+            confirm: 'Confirm',
+            cancel: 'Cancel',
+            delete: 'Delete',
+          },
           views: {
             schemas: {
+              deleteConfirmation: 'Are you sure you want to delete this schema?',
+              schemaDetails: 'Schema Details',
               title: 'Schemas',
               subtitle: 'Manage event schemas',
               createSchema: 'Create Schema',
@@ -486,8 +493,6 @@ describe('SchemasView', () => {
     vi.mocked(api.get).mockResolvedValue(mockSchemas)
     vi.mocked(api.delete).mockResolvedValue({})
 
-    globalThis.confirm = vi.fn(() => true) as typeof confirm
-
     const wrapper = mount(SchemasView, {
       global: {
         plugins: [router, vuetify, i18n, pinia],
@@ -496,7 +501,15 @@ describe('SchemasView', () => {
 
     await flushPromises()
 
-    await (wrapper.vm as any).deleteSchema('1')
+    // deleteSchema only opens the confirm dialog; confirmDeleteSchema (triggered by the Delete button) performs the API call.
+    // v-dialog teleports content to body, so we find the Delete button in document.body.
+    ;(wrapper.vm as any).deleteSchema('1')
+    await wrapper.vm.$nextTick()
+
+    const buttons = document.body.querySelectorAll('button')
+    const deleteBtn = Array.from(buttons).find((el) => el.textContent?.trim() === 'Delete')
+    expect(deleteBtn).toBeDefined()
+    deleteBtn!.click()
     await flushPromises()
 
     expect(api.delete).toHaveBeenCalledWith('/api/v1/schemas/1')
