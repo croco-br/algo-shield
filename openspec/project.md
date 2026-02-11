@@ -50,71 +50,7 @@ AlgoShield is an open-source, high-performance fraud detection and anti-money la
 
 ## Project Conventions
 
-### Code Style
-
-#### Go
-- Follow standard Go conventions (gofmt, golangci-lint)
-- Use `internal/` packages for private API code
-- Package structure: `cmd/` for executables, `internal/` for application logic, `pkg/` for shared libraries
-- Error handling: Always check errors, wrap with context
-- Naming: Use camelCase for unexported, PascalCase for exported
-- Use structured logging (with log levels: debug, info, warn, error)
-- Connection pooling for all database and Redis connections
-
-#### TypeScript/Vue
-- Use TypeScript strict mode
-- Prefer Composition API over Options API
-- Use `<script setup>` syntax in Vue components
-- Component naming: PascalCase for component files
-- Organize by feature, not by type
-- Use Pinia stores for shared state
-- Tailwind utility classes for styling (avoid custom CSS when possible)
-- Standardize base components for consistency across the application
-- Use standardized validation fields and form components
-- Remove unused code and components regularly
-- Use fundamental abstractions to simplify complex logic
-
-#### Internationalization (i18n)
-
-**All user-facing text MUST use translation keys. No hardcoded strings in components.**
-
-**Usage in templates:**
-```vue
-<template>
-  <div>{{ $t('common.save') }}</div>
-</template>
-```
-
-**Usage in scripts:**
-```vue
-<script setup lang="ts">
-import { useI18n } from 'vue-i18n'
-
-const { t } = useI18n()
-const message = t('common.save')
-</script>
-```
-
-**Key naming convention (dot-notation hierarchy):**
-- `common.*` - Shared translations (buttons, actions, labels)
-- `auth.*` - Authentication-related
-- `header.*` / `sidebar.*` - Layout component translations
-- `views.<viewName>.*` - View-specific translations
-- `components.<componentName>.*` - Component-specific translations
-- `errors.*` - Error messages
-- `languages.*` - Language names
-
-**Adding new translations:**
-1. Add the key to BOTH `src/ui/src/locales/pt-BR.json` and `src/ui/src/locales/en-US.json`
-2. Use descriptive key paths: `auth.errors.invalidCredentials` not `err1`
-3. Use parameters for dynamic text: `{{ $t('welcome', { name: user.name }) }}`
-
-**Language switching:**
-- Users change language via avatar menu in header
-- Preference saved to `localStorage` and persists across sessions
-- Browser locale detection on first visit (defaults to English if unsupported)
-
-**For detailed i18n documentation, see:** `src/ui/src/locales/README.md`
+> **Code style details:** See `src/api/CLAUDE.md` (Go) and `src/ui/CLAUDE.md` (Vue/TypeScript/i18n).
 
 ### Architecture Patterns
 
@@ -144,43 +80,8 @@ UI (Vue.js) → API (Fiber) → Worker (Rules Engine)
 
 ### Testing Strategy
 
-**For detailed testing guidelines, refer to:**
-- **Unit Tests**: `docs/agents/unit-test.md` - Comprehensive guide for Go and Vue/TypeScript unit testing
-- **Integration Tests**: `docs/agents/integration-test.md` - Guide for integration testing with real dependencies
-
-#### Go Testing
-- Use standard `go test` with race detector (`-race` flag)
-- Run tests in parallel (`-parallel 4`)
-- Unit tests for business logic
-- Integration tests for database interactions (use `//go:build integration` tag)
-- Benchmarks for performance-critical code (rules engine)
-- Test file naming: `*_test.go` for unit tests, `*_integration_test.go` for integration tests
-- Coverage target: **80% minimum** for new code
-- Use `testcontainers-go` for integration tests with real databases
-
-#### Commands
-- `make test`: Run all tests with race detector
-- `make bench`: Run rules engine benchmarks
-- `make lint`: Run golangci-lint
-- `go test -tags=integration ./...`: Run integration tests only
-
-### Git Workflow
-
-#### Branch Strategy
-- **Main branch**: `main` (production-ready code)
-- Feature branches: Created from `main`, merged via PR
-- No force pushes to main/master
-
-#### Commit Conventions
-- Use descriptive commit messages
-- Prefix commits with type: `feat:`, `fix:`, `chore:`, `docs:`, etc.
-- Git hooks installed via `./scripts/install-hooks.sh`
-- Pre-commit checks: linting, security scanning (gitleaks, semgrep)
-
-#### CI/CD
-- GitHub Actions for CI (likely based on `.github/` directory)
-- Docker builds for deployment
-- Automated testing on PRs
+> **Testing conventions & anti-patterns:** See `docs/agents/CLAUDE.md`.
+> **Full guides:** `docs/agents/unit-test.md` (unit) and `docs/agents/integration-test.md` (integration).
 
 ## Domain Context
 
@@ -1818,117 +1719,21 @@ These rules are **MANDATORY** and must be enforced:
 
 ### Development Guidelines for AI Agents
 
-**Important Notes**:
-1. **Code Generation**: Initial code was AI-generated and required significant refactoring. When generating code:
-   - Follow SOLID principles strictly
-   - Use vertical slice architecture
-   - Implement proper dependency injection
-   - Ensure interfaces follow ISP (not too large)
-   - Avoid unnecessary complexity (like the proxy that was removed)
-   - Use fundamental abstractions to simplify complex logic
-   - Refactor magic numbers to named constants
+> **Conventions are in the scoped CLAUDE.md files:** `src/api/CLAUDE.md` (Go), `src/ui/CLAUDE.md` (Vue/TS), `docs/agents/CLAUDE.md` (testing). The rules below cover what's NOT in those files.
 
-2. **Validation**: Always add validation to handlers - it's mandatory
+**Code Generation Principles:**
+- Follow SOLID principles, vertical slice architecture, proper DI
+- Interfaces should follow ISP (not too large)
+- Avoid unnecessary complexity — no features without clear necessity
+- Refactor magic numbers to named constants
 
-3. **Environment Variables**: Always update `.env.example` when adding new environment variables. Improve environment variable management by grouping related variables and providing clear documentation.
+**Mandatory Verification (proactive, not just when asked):**
+- All tests generated/updated, coverage >= 80%
+- No existing tests broken
+- Code follows patterns in this doc and scoped CLAUDE.md files
+- Follow "Regression Prevention Rules" section for new features
 
-4. **Testing**: 
-   - **Unit Tests**: Follow `docs/agents/unit-test.md` strictly
-   - **Integration Tests**: Follow `docs/agents/integration-test.md` strictly
-   - Use race condition flags (`-race`) when running tests
-   - Minimum coverage: 80% for new code
-   - Run `go test -count=50` to detect flaky tests
-   - Use `testcontainers-go` for integration tests with databases
-
-5. **Performance**: Keep <50ms latency target in mind. Need help with performance optimization and monitoring
-
-6. **Migrations**: Current migration process needs improvement - consider suggesting migration libraries when working with database changes
-
-7. **Avoid Unnecessary Complexity**: Don't add features (like proxies) without clear necessity
-
-8. **Frontend Component Standards**:
-   - Standardize base components for consistency (BaseButton, BaseInput, BaseTable, BaseBadge, etc.)
-   - Use standardized validation fields across forms
-   - Remove unused code and components regularly
-   - Padronize (standardize) components in front-end for maintainability
-
-9. **Build Optimization**:
-   - Use build chunks for better code splitting and faster builds
-   - Optimize build time by building only changed services when possible
-   - Use Docker BuildKit for faster builds with better caching
-
-10. **Code Quality**:
-    - Remove unused files and code regularly
-    - Fix concurrent issues and race conditions immediately
-    - Fix layout bugs introduced during migrations
-    - Keep codebase clean and maintainable
-
-11. **Documentation**:
-    - Use OpenSpec for spec-driven development
-    - Update README.md when adding significant features
-    - Document architectural decisions in project.md
-
-12. **Internationalization (i18n)**:
-    - **NEVER hardcode user-facing strings** - always use translation keys
-    - Add translations to BOTH `pt-BR.json` and `en-US.json` simultaneously
-    - Use hierarchical key naming: `views.dashboard.title`, `errors.notFound`
-    - Test UI with both languages to ensure text fits properly
-    - Refer to `src/ui/src/locales/README.md` for detailed guidelines
-
-13. **Mandatory Code Review and Testing Verification**:
-    - **REQUIRED**: Whenever the user requests a correction or analysis, AI agents MUST perform a comprehensive scan to verify:
-      - The project adheres to all guidelines defined in this document
-      - All related tests have been generated or updated appropriately
-      - Code changes follow the established patterns and conventions
-      - Test coverage meets the minimum 80% requirement for new/modified code
-      - Tests follow the guidelines in `docs/agents/unit-test.md` and `docs/agents/integration-test.md`
-    - This verification MUST be performed proactively, not just when explicitly requested
-    - If any guideline violations or missing tests are found, they MUST be addressed before considering the task complete
-
-14. **Regression Prevention**:
-    - **CRITICAL**: When adding new features, AI agents MUST follow the "Regression Prevention Rules" section in this document
-    - Complete all pre-implementation, mandatory test categories, and pre-merge checklists
-    - Verify no breaking changes introduced (or properly documented with migration plans)
-    - Ensure backward compatibility maintained
-    - Validate performance requirements met (<50ms latency target)
-    - See "Regression Prevention Rules" section for complete checklist and requirements
-
-15. **CSRF Protection**:
-    - **CRITICAL**: The system uses CSRF tokens for all state-changing requests (POST, PUT, PATCH, DELETE)
-    - **Backend Implementation**:
-      - CSRF tokens generated on login/register (`src/api/internal/auth/handler.go`)
-      - Tokens stored in Redis with 24-hour TTL (`src/pkg/csrf/csrf.go`)
-      - Middleware validates `X-CSRF-Token` header on all non-GET requests (`src/api/internal/shared/middleware/csrf.go`)
-      - Excluded paths: `/api/v1/auth/login`, `/api/v1/auth/register`, `/api/v1/branding` (public GET)
-    - **Frontend Implementation**:
-      - Auth store stores both JWT and CSRF tokens in memory (`src/ui/src/stores/auth.ts`)
-      - API client automatically adds `X-CSRF-Token` header to POST/PUT/PATCH/DELETE requests (`src/ui/src/lib/api.ts`)
-      - Login/Register views extract `csrf_token` from response (`src/ui/src/views/LoginView.vue`)
-      - CSRF token cleared on logout
-    - **Common Issues and Solutions**:
-      - **403 "CSRF token missing"**: User must logout and login again after CSRF implementation
-      - **All views use API client**: Never use `fetch()` or `axios` directly - always use `api.post()`, `api.put()`, etc.
-      - **Stores use API client**: Pinia stores (like `branding.ts`, `systemMode.ts`) must use `api` from `@/lib/api`
-      - **Token in memory only**: CSRF token is NOT in localStorage - stored in memory for security
-    - **Troubleshooting CSRF Issues**:
-      1. Check if user logged in after CSRF implementation (token issued at login)
-      2. Verify `X-CSRF-Token` header in browser DevTools Network tab
-      3. Check backend logs for "CSRF token missing" or "Invalid CSRF token"
-      4. Ensure all state-changing operations use `api.post/put/patch/delete`
-      5. Verify `csrfTokenGetterHolder.getter` is registered in `api.ts`
-    - **When Adding New Features**:
-      - Use `api.post()`, `api.put()`, `api.patch()`, `api.delete()` for all HTTP requests
-      - Never use `fetch()` directly - it won't include CSRF token
-      - Test with browser DevTools to verify `X-CSRF-Token` header is sent
-      - Verify backend accepts the request (200/201 status, not 403)
-    - **Testing CSRF Protection**:
-      - Manual test: Open DevTools → Network → Try POST/PUT operation → Check Request Headers
-      - Should see: `X-CSRF-Token: <base64-token>`
-      - Backend should return 200/201, not 403
-    - **CSRF Token Lifecycle**:
-      1. User logs in → Backend generates CSRF token → Returns in response
-      2. Frontend stores token in memory (auth store)
-      3. Frontend registers token getter with API client
-      4. API client adds token to headers on POST/PUT/PATCH/DELETE
-      5. Backend validates token on each request
-      6. User logs out → Token cleared from memory and Redis
+**CSRF Implementation Reference:**
+- Backend: tokens generated at login (`src/api/internal/auth/handler.go`), stored in Redis 24h (`src/pkg/csrf/csrf.go`), validated by middleware (`src/api/internal/shared/middleware/csrf.go`)
+- Frontend: auth store holds JWT + CSRF in memory, API client auto-adds `X-CSRF-Token`, login/register views extract `csrf_token` from response
+- Troubleshooting 403: check DevTools for `X-CSRF-Token` header, ensure `api.post/put/patch/delete` used (not raw `fetch()`), verify `csrfTokenGetterHolder.getter` registered in `api.ts`
