@@ -55,7 +55,7 @@ func Setup(app *fiber.App, db *pgxpool.Pool, redis *redis.Client, asynqClient *q
 	userService := user.NewService(userRepo, roleRepo, userTxManager, roleService, groupService)
 	tokenRevokeService := tokenrevoke.NewService(redis)
 	authService := auth.NewService(cfg, userService, tokenRevokeService)
-	permissionsService := permissions.NewService(permissionsUserRepo, roleService, groupService)
+	permissionsService := permissions.NewService(permissionsUserRepo, roleService, groupService, authService)
 	transactionService := transactions.NewService(transactionRepo, asynqClient)
 	brandingService := branding.NewService(brandingRepo)
 	// Wrap asynqClient in adapter for schema service

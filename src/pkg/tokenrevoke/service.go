@@ -59,8 +59,7 @@ func (s *Service) IsTokenRevoked(ctx context.Context, token string) (bool, error
 
 	exists, err := s.redis.Exists(ctx, key).Result()
 	if err != nil {
-		// If Redis is unavailable, log error but allow token through (availability > security for reads)
-		// In production, you might want to handle this differently based on your requirements
+		// Return error so caller fails closed (rejects request when revocation status cannot be verified)
 		return false, fmt.Errorf("failed to check token revocation status: %w", err)
 	}
 

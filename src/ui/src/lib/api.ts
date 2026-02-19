@@ -31,6 +31,36 @@ let activeRefreshPromise: Promise<void> | null = null;
 // Flag to prevent multiple force-logout redirects from causing an infinite reload loop
 let isLoggingOut = false;
 
+// Flag to indicate a refresh is in progress (used for request queuing)
+let isRefreshing = false;
+
+// Queue for requests that arrived while a token refresh is in progress
+interface QueuedRequest {
+  resolve: (value: unknown) => void;
+  reject: (reason: unknown) => void;
+  endpoint: string;
+  options: RequestInit;
+}
+let requestQueue: QueuedRequest[] = [];
+
+function replayQueuedRequests(): void {
+  const queue = [...requestQueue];
+  requestQueue = [];
+  for (const item of queue) {
+    request(item.endpoint, item.options, true)
+      .then(item.resolve)
+      .catch(item.reject);
+  }
+}
+
+function rejectQueuedRequests(reason: unknown): void {
+  const queue = [...requestQueue];
+  requestQueue = [];
+  for (const item of queue) {
+    item.reject(reason);
+  }
+}
+
 export function setTokenGetter(getter: () => string | null): void {
   tokenGetterHolder.getter = getter;
 }
@@ -50,6 +80,8 @@ export function setForceLogoutFn(fn: () => void): void {
 /** Reset logout state after successful login so future 401s can trigger redirect again. */
 export function resetLogoutState(): void {
   isLoggingOut = false;
+  isRefreshing = false;
+  requestQueue = [];
 }
 
 // Get synthetic mode from localStorage (synced by systemMode store)
@@ -142,49 +174,61 @@ async function request<T>(
     const isJson = contentType && contentType.includes("application/json");
 
     if (!response.ok) {
-      // 401 interceptor: attempt token refresh and retry once
-      // Skip for auth endpoints to prevent infinite recursion (refresh → 401 → refresh → ...)
       const isAuthEndpoint =
         endpoint.includes("/auth/login") ||
         endpoint.includes("/auth/register") ||
         endpoint.includes("/auth/refresh");
 
-      // When we attempted refresh and it failed for non-401 (e.g. network), don't force logout below.
-      let attemptedRefreshAndFailedWithNon401 = false;
+      // Detect 403 CSRF errors (distinct from 403 permission errors)
+      let isCsrf403 = false;
+      if (response.status === 403 && !isAuthEndpoint) {
+        try {
+          const body = await response.clone().text();
+          isCsrf403 = /csrf/i.test(body);
+        } catch {
+          // If we can't read the body, treat as non-CSRF 403
+        }
+      }
 
-      // Only attempt refresh if:
-      // 1. We actually sent an Authorization header (token was present when request was made)
-      // 2. We're not already in a logout redirect
-      // 3. A refresh function is registered
-      // 4. This isn't already a retry
-      // 5. This isn't an auth endpoint
-      if (
-        response.status === 401 &&
+      // Recoverable errors: 401 (expired access token) or 403 CSRF (expired/invalid CSRF token)
+      // Both are resolved by refreshing the session (which returns new access + CSRF tokens)
+      const isRecoverable =
+        (response.status === 401 || isCsrf403) &&
         token &&
         refreshTokenHolder.refreshFn &&
         !_isRetry &&
         !isAuthEndpoint &&
-        !isLoggingOut
-      ) {
+        !isLoggingOut;
+
+      let attemptedRefreshAndFailedWithNon401 = false;
+
+      if (isRecoverable) {
+        // If a refresh is already in progress, queue this request for replay after refresh
+        if (isRefreshing && activeRefreshPromise) {
+          return new Promise<T>((resolve, reject) => {
+            requestQueue.push({ resolve: resolve as (value: unknown) => void, reject, endpoint, options });
+          });
+        }
+
         try {
-          // Deduplicate concurrent refresh attempts
+          isRefreshing = true;
           if (!activeRefreshPromise) {
             activeRefreshPromise = refreshTokenHolder
-              .refreshFn()
+              .refreshFn!()
               .finally(() => {
                 activeRefreshPromise = null;
+                isRefreshing = false;
               });
           }
           await activeRefreshPromise;
-
-          // Retry the original request once with the new token
+          replayQueuedRequests();
           return request<T>(endpoint, options, true);
         } catch (refreshErr: unknown) {
-          // Only force logout when refresh failed with 401 (invalid/expired refresh token).
-          // On network error or 5xx we don't logout — user can retry or reload.
+          rejectQueuedRequests(refreshErr);
           const statusCode =
             refreshErr != null &&
-            typeof (refreshErr as { statusCode?: number }).statusCode === "number"
+            typeof (refreshErr as { statusCode?: number }).statusCode ===
+              "number"
               ? (refreshErr as { statusCode: number }).statusCode
               : undefined;
           if (statusCode === 401 && forceLogoutHolder.fn && !isLoggingOut) {
@@ -193,12 +237,9 @@ async function request<T>(
           } else if (statusCode !== 401) {
             attemptedRefreshAndFailedWithNon401 = true;
           }
-          // Fall through to throw the original request error (do not force logout again when non-401)
         }
       }
 
-      // Unrecoverable 401: force logout (skip for auth endpoints like login)
-      // Skip when we already tried refresh and it failed for non-401 — then we only throw, no redirect.
       if (
         response.status === 401 &&
         !isAuthEndpoint &&
@@ -217,25 +258,26 @@ async function request<T>(
           const error: ApiError = await response.json();
           errorMessage = error.error || errorMessage;
         } catch {
-          // If JSON parse fails, use default message
           errorMessage = `Server error (${response.status})`;
         }
       } else {
-        // Response is HTML or other non-JSON format
-        // Clone the response to read text without consuming the original body
-        const text = await response.clone().text();
-        if (text.includes("<!DOCTYPE") || text.includes("<html")) {
-          if (response.status === 404) {
-            errorMessage =
-              "API endpoint not found. Please check if the API server is running and configured correctly.";
-          } else if (response.status === 502 || response.status === 503) {
-            errorMessage =
-              "API server is not available. Please ensure the API server is running.";
+        try {
+          const text = await response.clone().text();
+          if (text.includes("<!DOCTYPE") || text.includes("<html")) {
+            if (response.status === 404) {
+              errorMessage =
+                "API endpoint not found. Please check if the API server is running and configured correctly.";
+            } else if (response.status === 502 || response.status === 503) {
+              errorMessage =
+                "API server is not available. Please ensure the API server is running.";
+            } else {
+              errorMessage = `Server error (${response.status}). The API may not be available.`;
+            }
           } else {
-            errorMessage = `Server error (${response.status}). The API may not be available.`;
+            errorMessage = text.substring(0, 200) || errorMessage;
           }
-        } else {
-          errorMessage = text.substring(0, 200) || errorMessage;
+        } catch {
+          errorMessage = `Server error (${response.status})`;
         }
       }
 

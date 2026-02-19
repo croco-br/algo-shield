@@ -2,6 +2,7 @@ package middleware
 
 import (
 	"context"
+	"time"
 
 	"github.com/algo-shield/algo-shield/src/pkg/csrf"
 	"github.com/algo-shield/algo-shield/src/pkg/models"
@@ -9,10 +10,13 @@ import (
 	"github.com/redis/go-redis/v9"
 )
 
+const defaultCSRFValidationTimeout = 3 * time.Second
+
 // CSRFConfig holds CSRF protection configuration
 type CSRFConfig struct {
-	Redis         *redis.Client
-	ExcludedPaths []string // Paths to exclude from CSRF validation (e.g., /api/v1/auth/login)
+	Redis             *redis.Client
+	ExcludedPaths     []string      // Paths to exclude from CSRF validation (e.g., /api/v1/auth/login)
+	ValidationTimeout time.Duration // Timeout for Redis CSRF validation (default 3s)
 }
 
 // CSRFProtection creates a CSRF protection middleware
@@ -53,8 +57,13 @@ func CSRFProtection(config CSRFConfig) fiber.Handler {
 			})
 		}
 
-		// Validate CSRF token
-		ctx := context.Background()
+		// Validate CSRF token with timeout to avoid blocking if Redis is slow
+		timeout := config.ValidationTimeout
+		if timeout == 0 {
+			timeout = defaultCSRFValidationTimeout
+		}
+		ctx, cancel := context.WithTimeout(c.UserContext(), timeout)
+		defer cancel()
 		if !csrf.ValidateToken(ctx, config.Redis, userID, csrfToken) {
 			return c.Status(fiber.StatusForbidden).JSON(fiber.Map{
 				"error":   "Invalid CSRF token",

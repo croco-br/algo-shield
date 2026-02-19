@@ -22,6 +22,7 @@ type AuthService interface {
 	RefreshToken(ctx context.Context, refreshToken string) (*models.User, string, string, error)
 	ValidateToken(ctx context.Context, tokenString string) (*models.User, error)
 	LogoutUser(ctx context.Context, tokenString string) error
+	RevokeRefreshToken(ctx context.Context, refreshToken string) error
 	RevokeAllUserTokens(ctx context.Context, userID uuid.UUID) error
 	GenerateJWT(user *models.User) (string, error)
 	GenerateRefreshToken(user *models.User) (string, error)
@@ -340,8 +341,11 @@ func (s *Service) ValidateToken(ctx context.Context, tokenString string) (*model
 
 // LogoutUser revokes the current token
 func (s *Service) LogoutUser(ctx context.Context, tokenString string) error {
-	// Parse token to get expiration time
+	// Parse token to get expiration time (validate signing method to prevent alg:none attacks)
 	token, err := jwt.Parse(tokenString, func(token *jwt.Token) (interface{}, error) {
+		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
+			return nil, apierrors.TokenInvalid()
+		}
 		return []byte(s.jwtSecret), nil
 	})
 	if err != nil {
@@ -366,7 +370,39 @@ func (s *Service) LogoutUser(ctx context.Context, tokenString string) error {
 	return s.tokenRevokeService.RevokeToken(ctx, tokenString, expiresAt)
 }
 
+// RevokeRefreshToken parses and revokes a refresh token (for logout).
+// Invalid/expired tokens are silently ignored so logout always succeeds.
+func (s *Service) RevokeRefreshToken(ctx context.Context, refreshToken string) error {
+	if refreshToken == "" {
+		return nil
+	}
+	token, err := jwt.Parse(refreshToken, func(token *jwt.Token) (interface{}, error) {
+		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
+			return nil, fmt.Errorf("invalid signing method")
+		}
+		return []byte(s.jwtSecret), nil
+	})
+	if err != nil {
+		return nil
+	}
+	claims, ok := token.Claims.(jwt.MapClaims)
+	if !ok {
+		return nil
+	}
+	exp, ok := claims["exp"].(float64)
+	if !ok {
+		return nil
+	}
+	expiresAt := time.Unix(int64(exp), 0)
+	return s.tokenRevokeService.RevokeToken(ctx, refreshToken, expiresAt)
+}
+
 // RevokeAllUserTokens revokes all tokens for a user (e.g., on password change or account deactivation)
+// Uses refresh token expiry so revoked users cannot use refresh tokens until they would have expired
 func (s *Service) RevokeAllUserTokens(ctx context.Context, userID uuid.UUID) error {
-	return s.tokenRevokeService.RevokeAllUserTokens(ctx, userID.String(), s.jwtExpiry)
+	ttl := s.jwtRefreshExpiry
+	if s.jwtExpiry > ttl {
+		ttl = s.jwtExpiry
+	}
+	return s.tokenRevokeService.RevokeAllUserTokens(ctx, userID.String(), ttl)
 }

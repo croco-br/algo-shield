@@ -1,5 +1,5 @@
 import { defineStore } from "pinia";
-import { ref, computed } from "vue";
+import { ref, computed, watch } from "vue";
 import {
   api,
   setTokenGetter,
@@ -23,6 +23,15 @@ export interface User {
   picture_url?: string;
   roles?: Role[];
   active: boolean;
+}
+
+// Router navigation holder — injected after router creation to avoid circular deps
+const routerNavigateHolder: { fn: ((path: string) => Promise<unknown>) | null } = {
+  fn: null,
+};
+
+export function setRouterNavigate(fn: (path: string) => Promise<unknown>): void {
+  routerNavigateHolder.fn = fn;
 }
 
 export const useAuthStore = defineStore("auth", () => {
@@ -84,7 +93,10 @@ export const useAuthStore = defineStore("auth", () => {
         refresh_token: refreshToken.value,
       });
       token.value = response.token;
-      csrfToken.value = response.csrf_token || null;
+      // Only update CSRF token if the server returned one — avoid overwriting with null
+      if (response.csrf_token) {
+        csrfToken.value = response.csrf_token;
+      }
 
       // Store new refresh token if returned (rotation)
       if (response.refresh_token) {
@@ -137,9 +149,13 @@ export const useAuthStore = defineStore("auth", () => {
 
   async function logout() {
     try {
-      await api.post("/api/v1/auth/logout");
+      await api.post("/api/v1/auth/logout", {
+        refresh_token: refreshToken.value ?? undefined,
+      });
     } catch (e) {
-      // Ignore errors on logout
+      if (import.meta.env.DEV) {
+        console.warn("[auth] server-side logout failed:", e);
+      }
     }
     clearTokens();
   }
@@ -167,11 +183,27 @@ export const useAuthStore = defineStore("auth", () => {
   setRefreshTokenFn(refreshAccessToken);
   setForceLogoutFn(() => {
     clearTokens();
-    window.location.href = "/login";
+    if (routerNavigateHolder.fn) {
+      routerNavigateHolder.fn("/login");
+    } else {
+      window.location.href = "/login";
+    }
   });
 
   // Initialize on store creation (token will be null on page load)
   loadUserFromToken();
+
+  function whenReady(): Promise<void> {
+    if (!loading.value) return Promise.resolve();
+    return new Promise<void>((resolve) => {
+      const stop = watch(loading, (val) => {
+        if (!val) {
+          stop();
+          resolve();
+        }
+      });
+    });
+  }
 
   return {
     user,
@@ -182,5 +214,6 @@ export const useAuthStore = defineStore("auth", () => {
     getToken,
     getCsrfToken,
     isAdmin,
+    whenReady,
   };
 });

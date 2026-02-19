@@ -73,7 +73,7 @@ func (h *Handler) Register(c *fiber.Ctx) error {
 	csrfCtx, csrfCancel := context.WithTimeout(context.Background(), csrfStoreTimeout)
 	defer csrfCancel()
 	if err := csrf.StoreToken(csrfCtx, h.redis, user.ID.String(), csrfToken); err != nil {
-		c.Context().Logger().Printf("Failed to store CSRF token: %v", err)
+		return apierrors.SendError(c, apierrors.InternalError("Failed to store CSRF token"))
 	}
 
 	return c.JSON(fiber.Map{
@@ -119,7 +119,7 @@ func (h *Handler) Login(c *fiber.Ctx) error {
 	csrfCtx, csrfCancel := context.WithTimeout(context.Background(), csrfStoreTimeout)
 	defer csrfCancel()
 	if err := csrf.StoreToken(csrfCtx, h.redis, user.ID.String(), csrfToken); err != nil {
-		c.Context().Logger().Printf("Failed to store CSRF token: %v", err)
+		return apierrors.SendError(c, apierrors.InternalError("Failed to store CSRF token"))
 	}
 
 	return c.JSON(fiber.Map{
@@ -162,6 +162,10 @@ func (h *Handler) Logout(c *fiber.Ctx) error {
 
 	token := parts[1]
 
+	// Optionally parse body for refresh token (client should send to revoke it server-side)
+	var req LogoutRequest
+	_ = c.BodyParser(&req)
+
 	ctx, cancel := context.WithTimeout(c.Context(), internal.GetHandlerTimeout())
 	defer cancel()
 
@@ -174,11 +178,16 @@ func (h *Handler) Logout(c *fiber.Ctx) error {
 		}
 	}
 
-	// Revoke the token
+	// Revoke access token
 	if err := h.service.LogoutUser(ctx, token); err != nil {
-		// Don't fail logout even if revocation fails
-		// Log the error for debugging
 		c.Context().Logger().Printf("Failed to revoke token on logout: %v", err)
+	}
+
+	// SECURITY: Revoke refresh token if provided so it cannot be reused
+	if req.RefreshToken != "" {
+		if err := h.service.RevokeRefreshToken(ctx, req.RefreshToken); err != nil {
+			c.Context().Logger().Printf("Failed to revoke refresh token on logout: %v", err)
+		}
 	}
 
 	return c.JSON(fiber.Map{
@@ -224,7 +233,7 @@ func (h *Handler) RefreshToken(c *fiber.Ctx) error {
 	csrfCtx, csrfCancel := context.WithTimeout(context.Background(), csrfStoreTimeout)
 	defer csrfCancel()
 	if err := csrf.StoreToken(csrfCtx, h.redis, user.ID.String(), csrfToken); err != nil {
-		c.Context().Logger().Printf("Failed to store CSRF token: %v", err)
+		return apierrors.SendError(c, apierrors.InternalError("Failed to store CSRF token"))
 	}
 
 	return c.JSON(fiber.Map{

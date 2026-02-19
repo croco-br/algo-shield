@@ -17,3 +17,8 @@ type RegisterRequest struct {
 type RefreshTokenRequest struct {
 	RefreshToken string `json:"refresh_token" validate:"required"`
 }
+
+// LogoutRequest represents a logout request DTO (body optional)
+type LogoutRequest struct {
+	RefreshToken string `json:"refresh_token"`
+}

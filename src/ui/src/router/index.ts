@@ -1,5 +1,5 @@
 import { createRouter, createWebHistory } from 'vue-router'
-import { useAuthStore } from '@/stores/auth'
+import { useAuthStore, setRouterNavigate } from '@/stores/auth'
 
 const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
@@ -55,19 +55,17 @@ const router = createRouter({
   ],
 })
 
+// Inject router.push into auth store so force-logout can navigate without page reload
+setRouterNavigate((path: string) => router.push(path))
+
 router.beforeEach(async (to, from, next) => {
   const authStore = useAuthStore()
   const isPublicRoute = to.meta.public === true
   const requiresAdmin = to.meta.requiresAdmin === true
 
-  // Wait for auth to load if still loading
+  // Wait for auth initialization to complete (promise-based, no polling)
   if (authStore.loading) {
-    // Wait a bit and check again
-    await new Promise(resolve => setTimeout(resolve, 100))
-    // If still loading, wait for the store to finish loading
-    while (authStore.loading) {
-      await new Promise(resolve => setTimeout(resolve, 50))
-    }
+    await authStore.whenReady()
   }
 
   if (!authStore.user && !isPublicRoute) {

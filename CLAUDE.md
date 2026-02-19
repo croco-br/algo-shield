@@ -8,7 +8,7 @@ AlgoShield — high-performance fraud detection & AML transaction analysis. Ultr
 **Frontend (Vue.js 3.5):** Vue 3.5.26 (`<script setup>`), TypeScript 5.9.3, Pinia 3.0, Vuetify 3.11.6, Tailwind CSS 4.1.18, Vite 7.3.1, vue-i18n 11.2.8, Font Awesome 7.1.0
 **Infrastructure:** PostgreSQL 16, Redis 7, Docker + Docker Compose
 
-## Commands
+## Commands   
 
 ```bash
 make install                 # Install all deps (Go + npm + golangci-lint)

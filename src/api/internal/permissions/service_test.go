@@ -23,7 +23,7 @@ func Test_Service_UpdateUserActive_WhenActivatingUser_ThenSucceeds(t *testing.T)
 	mockRoleService := NewMockService(ctrl)
 	mockGroupService := NewMockGroupService(ctrl)
 
-	service := NewService(mockUserRepo, mockRoleService, mockGroupService)
+	service := NewService(mockUserRepo, mockRoleService, mockGroupService, nil)
 
 	ctx := context.Background()
 	currentUserID := uuid.New()
@@ -50,7 +50,7 @@ func Test_Service_UpdateUserActive_WhenDeactivatingSelf_ThenReturnsCannotDeactiv
 	mockRoleService := NewMockService(ctrl)
 	mockGroupService := NewMockGroupService(ctrl)
 
-	service := NewService(mockUserRepo, mockRoleService, mockGroupService)
+	service := NewService(mockUserRepo, mockRoleService, mockGroupService, nil)
 
 	ctx := context.Background()
 	userID := uuid.New()
@@ -75,7 +75,7 @@ func Test_Service_UpdateUserActive_WhenDeactivatingLastAdmin_ThenReturnsCannotDe
 	mockRoleService := NewMockService(ctrl)
 	mockGroupService := NewMockGroupService(ctrl)
 
-	service := NewService(mockUserRepo, mockRoleService, mockGroupService)
+	service := NewService(mockUserRepo, mockRoleService, mockGroupService, nil)
 
 	ctx := context.Background()
 	currentUserID := uuid.New()
@@ -111,7 +111,7 @@ func Test_Service_UpdateUserActive_WhenDeactivatingAdminWithOthersActive_ThenSuc
 	mockRoleService := NewMockService(ctrl)
 	mockGroupService := NewMockGroupService(ctrl)
 
-	service := NewService(mockUserRepo, mockRoleService, mockGroupService)
+	service := NewService(mockUserRepo, mockRoleService, mockGroupService, nil)
 
 	ctx := context.Background()
 	currentUserID := uuid.New()
@@ -148,7 +148,7 @@ func Test_Service_UpdateUserActive_WhenDeactivatingNonAdmin_ThenSucceeds(t *test
 	mockRoleService := NewMockService(ctrl)
 	mockGroupService := NewMockGroupService(ctrl)
 
-	service := NewService(mockUserRepo, mockRoleService, mockGroupService)
+	service := NewService(mockUserRepo, mockRoleService, mockGroupService, nil)
 
 	ctx := context.Background()
 	currentUserID := uuid.New()
@@ -180,7 +180,7 @@ func Test_Service_GetUserByID_WhenUserExists_ThenReturnsUserWithRolesAndGroups(t
 	mockRoleService := NewMockService(ctrl)
 	mockGroupService := NewMockGroupService(ctrl)
 
-	service := NewService(mockUserRepo, mockRoleService, mockGroupService)
+	service := NewService(mockUserRepo, mockRoleService, mockGroupService, nil)
 
 	ctx := context.Background()
 	userID := uuid.New()
@@ -233,7 +233,7 @@ func Test_Service_GetUserByID_WhenUserNotFound_ThenReturnsError(t *testing.T) {
 	mockRoleService := NewMockService(ctrl)
 	mockGroupService := NewMockGroupService(ctrl)
 
-	service := NewService(mockUserRepo, mockRoleService, mockGroupService)
+	service := NewService(mockUserRepo, mockRoleService, mockGroupService, nil)
 
 	ctx := context.Background()
 	userID := uuid.New()
@@ -260,7 +260,7 @@ func Test_Service_ListUsers_WhenUsersExist_ThenReturnsUsersWithRolesAndGroups(t 
 	mockRoleService := NewMockService(ctrl)
 	mockGroupService := NewMockGroupService(ctrl)
 
-	service := NewService(mockUserRepo, mockRoleService, mockGroupService)
+	service := NewService(mockUserRepo, mockRoleService, mockGroupService, nil)
 
 	ctx := context.Background()
 
@@ -318,7 +318,7 @@ func Test_Service_ListUsers_WhenRepositoryFails_ThenReturnsError(t *testing.T) {
 	mockUserRepo := NewMockUserRepository(ctrl)
 	mockRoleService := NewMockService(ctrl)
 	mockGroupService := NewMockGroupService(ctrl)
-	service := NewService(mockUserRepo, mockRoleService, mockGroupService)
+	service := NewService(mockUserRepo, mockRoleService, mockGroupService, nil)
 
 	ctx := context.Background()
 	mockUserRepo.EXPECT().ListUsers(ctx).Return(nil, errors.New("database error"))
@@ -336,7 +336,7 @@ func Test_Service_ListUsers_WhenLoadRolesFails_ThenReturnsError(t *testing.T) {
 	mockUserRepo := NewMockUserRepository(ctrl)
 	mockRoleService := NewMockService(ctrl)
 	mockGroupService := NewMockGroupService(ctrl)
-	service := NewService(mockUserRepo, mockRoleService, mockGroupService)
+	service := NewService(mockUserRepo, mockRoleService, mockGroupService, nil)
 
 	ctx := context.Background()
 	userID := uuid.New()
@@ -360,7 +360,7 @@ func Test_Service_ListUsers_WhenLoadGroupsFails_ThenReturnsError(t *testing.T) {
 	mockUserRepo := NewMockUserRepository(ctrl)
 	mockRoleService := NewMockService(ctrl)
 	mockGroupService := NewMockGroupService(ctrl)
-	service := NewService(mockUserRepo, mockRoleService, mockGroupService)
+	service := NewService(mockUserRepo, mockRoleService, mockGroupService, nil)
 
 	ctx := context.Background()
 	userID := uuid.New()
@@ -386,7 +386,7 @@ func Test_Service_GetUserByID_WhenLoadRolesFails_ThenReturnsError(t *testing.T) 
 	mockUserRepo := NewMockUserRepository(ctrl)
 	mockRoleService := NewMockService(ctrl)
 	mockGroupService := NewMockGroupService(ctrl)
-	service := NewService(mockUserRepo, mockRoleService, mockGroupService)
+	service := NewService(mockUserRepo, mockRoleService, mockGroupService, nil)
 
 	ctx := context.Background()
 	userID := uuid.New()
@@ -408,7 +408,7 @@ func Test_Service_GetUserByID_WhenLoadGroupsFails_ThenReturnsError(t *testing.T)
 	mockUserRepo := NewMockUserRepository(ctrl)
 	mockRoleService := NewMockService(ctrl)
 	mockGroupService := NewMockGroupService(ctrl)
-	service := NewService(mockUserRepo, mockRoleService, mockGroupService)
+	service := NewService(mockUserRepo, mockRoleService, mockGroupService, nil)
 
 	ctx := context.Background()
 	userID := uuid.New()
@@ -432,7 +432,7 @@ func Test_Service_UpdateUserActive_WhenHasAdminRoleFails_ThenReturnsError(t *tes
 	mockUserRepo := NewMockUserRepository(ctrl)
 	mockRoleService := NewMockService(ctrl)
 	mockGroupService := NewMockGroupService(ctrl)
-	service := NewService(mockUserRepo, mockRoleService, mockGroupService)
+	service := NewService(mockUserRepo, mockRoleService, mockGroupService, nil)
 
 	ctx := context.Background()
 	currentUserID := uuid.New()
@@ -455,7 +455,7 @@ func Test_Service_UpdateUserActive_WhenCountActiveAdminsFails_ThenReturnsError(t
 	mockUserRepo := NewMockUserRepository(ctrl)
 	mockRoleService := NewMockService(ctrl)
 	mockGroupService := NewMockGroupService(ctrl)
-	service := NewService(mockUserRepo, mockRoleService, mockGroupService)
+	service := NewService(mockUserRepo, mockRoleService, mockGroupService, nil)
 
 	ctx := context.Background()
 	currentUserID := uuid.New()
@@ -479,7 +479,7 @@ func Test_Service_UpdateUserActive_WhenUpdateUserActiveFails_ThenReturnsError(t 
 	mockUserRepo := NewMockUserRepository(ctrl)
 	mockRoleService := NewMockService(ctrl)
 	mockGroupService := NewMockGroupService(ctrl)
-	service := NewService(mockUserRepo, mockRoleService, mockGroupService)
+	service := NewService(mockUserRepo, mockRoleService, mockGroupService, nil)
 
 	ctx := context.Background()
 	currentUserID := uuid.New()

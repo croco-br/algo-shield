@@ -10,6 +10,12 @@ import (
 	"github.com/google/uuid"
 )
 
+// TokenRevoker revokes all tokens for a user (e.g., on deactivation).
+// Implemented by auth.Service to avoid circular imports.
+type TokenRevoker interface {
+	RevokeAllUserTokens(ctx context.Context, userID uuid.UUID) error
+}
+
 // PermissionsService defines the interface for permissions operations
 type PermissionsService interface {
 	GetUserByID(ctx context.Context, userID uuid.UUID) (*models.User, error)
@@ -23,15 +29,18 @@ type Service struct {
 	userRepo     UserRepository
 	roleService  roles.Service  // Only used for LoadUserRoles
 	groupService groups.Service // Only used for LoadUserGroups
+	tokenRevoker TokenRevoker   // Optional: revokes tokens on user deactivation
 }
 
 // NewService creates a new permissions service with dependency injection
 // Follows Dependency Inversion Principle - receives interfaces, not concrete types
-func NewService(userRepo UserRepository, roleService roles.Service, groupService groups.Service) *Service {
+// tokenRevoker can be nil; if set, tokens are revoked when a user is deactivated
+func NewService(userRepo UserRepository, roleService roles.Service, groupService groups.Service, tokenRevoker TokenRevoker) *Service {
 	return &Service{
 		userRepo:     userRepo,
 		roleService:  roleService,
 		groupService: groupService,
+		tokenRevoker: tokenRevoker,
 	}
 }
 
@@ -93,7 +102,17 @@ func (s *Service) UpdateUserActive(ctx context.Context, currentUserID, targetUse
 	}
 
 	// Validation passed, update user status
-	return s.userRepo.UpdateUserActive(ctx, targetUserID, active)
+	if err := s.userRepo.UpdateUserActive(ctx, targetUserID, active); err != nil {
+		return err
+	}
+
+	// SECURITY: Revoke all tokens for the deactivated user so they cannot continue using the app
+	if s.tokenRevoker != nil {
+		if err := s.tokenRevoker.RevokeAllUserTokens(ctx, targetUserID); err != nil {
+			return apierrors.InternalError("Failed to revoke user tokens")
+		}
+	}
+	return nil
 }
 
 // loadUserRolesAndGroups aggregates roles and groups for a user.

@@ -54,7 +54,7 @@ services:
       - max_wal_size=4GB
 
   # =============================================================================
-  # Redis (Unified - DB0 for cache, DB1 for Asynq queue)
+  # Redis (Operational — tokens, CSRF, cache, rate limit)
   # =============================================================================
   redis:
     image: redis:7-alpine
@@ -64,13 +64,42 @@ services:
       redis-server
       --appendonly yes
       --appendfsync everysec
-      --maxmemory 768mb
-      --maxmemory-policy allkeys-lru
+      --maxmemory 256mb
+      --maxmemory-policy noeviction
       --databases 16
     volumes:
       - redis_data:/data
     ports:
       - 6379:6379
+    networks:
+      - algoshield-network
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: ${HEALTHCHECK_INTERVAL_REDIS:-10s}
+      timeout: ${HEALTHCHECK_TIMEOUT_REDIS:-3s}
+      retries: ${HEALTHCHECK_RETRIES:-5}
+      start_period: ${HEALTHCHECK_START_PERIOD_REDIS:-5s}
+    security_opt:
+      - no-new-privileges:true
+
+  # =============================================================================
+  # Redis Queue (Asynq job queue — separate instance)
+  # =============================================================================
+  redis-queue:
+    image: redis:7-alpine
+    container_name: algoshield-redis-queue
+    restart: unless-stopped
+    command: >
+      redis-server
+      --appendonly yes
+      --appendfsync everysec
+      --maxmemory 512mb
+      --maxmemory-policy noeviction
+      --databases 16
+    volumes:
+      - redis_queue_data:/data
+    ports:
+      - 6380:6379
     networks:
       - algoshield-network
     healthcheck:
@@ -93,14 +122,13 @@ services:
     ports:
       - 8081:8080
     environment:
-      REDIS_ADDR: redis:6379
-      REDIS_DB: 1
+      REDIS_ADDR: redis-queue:6379
       ENABLE_METRICS_EXPORTER: "true"
       PROMETHEUS_ADDR: ":9090"
     networks:
       - algoshield-network
     depends_on:
-      redis:
+      redis-queue:
         condition: service_healthy
     security_opt:
       - no-new-privileges:true
@@ -121,14 +149,14 @@ services:
       POSTGRES_USER: ${POSTGRES_USER}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
       POSTGRES_DB: ${POSTGRES_DB}
-      # Redis (DB0 for cache)
+      # Redis Operational (tokens, CSRF, cache)
       REDIS_HOST: redis
       REDIS_PORT: 6379
       REDIS_DB: 0
-      # Redis Queue (Asynq - DB1 for queue)
-      REDIS_QUEUE_HOST: redis
+      # Redis Queue (Asynq — separate instance)
+      REDIS_QUEUE_HOST: redis-queue
       REDIS_QUEUE_PORT: 6379
-      REDIS_QUEUE_DB: 1
+      REDIS_QUEUE_DB: 0
       # API
       API_HOST: 0.0.0.0
       API_PORT: 8080
@@ -149,6 +177,8 @@ services:
       postgres:
         condition: service_healthy
       redis:
+        condition: service_healthy
+      redis-queue:
         condition: service_healthy
     healthcheck:
       test: ["CMD", "/healthcheck"]
@@ -178,14 +208,14 @@ services:
       POSTGRES_USER: ${POSTGRES_USER}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
       POSTGRES_DB: ${POSTGRES_DB}
-      # Redis (DB0 for cache)
+      # Redis Operational (tokens, CSRF, cache)
       REDIS_HOST: redis
       REDIS_PORT: 6379
       REDIS_DB: 0
-      # Redis Queue (Asynq - DB1 for queue)
-      REDIS_QUEUE_HOST: redis
+      # Redis Queue (Asynq — separate instance)
+      REDIS_QUEUE_HOST: redis-queue
       REDIS_QUEUE_PORT: 6379
-      REDIS_QUEUE_DB: 1
+      REDIS_QUEUE_DB: 0
       # Asynq Configuration
       ASYNQ_CONCURRENCY: ${ASYNQ_CONCURRENCY:-10}
       ASYNQ_MAX_RETRY: ${ASYNQ_MAX_RETRY:-3}
@@ -209,6 +239,8 @@ services:
       postgres:
         condition: service_healthy
       redis:
+        condition: service_healthy
+      redis-queue:
         condition: service_healthy
     # No healthcheck — scratch image has no shell or utilities.
     # Worker liveness is managed by restart policy (unless-stopped).
@@ -299,4 +331,7 @@ volumes:
     driver: local
   redis_data:
     name: algoshield-redis-data
+    driver: local
+  redis_queue_data:
+    name: algoshield-redis-queue-data
     driver: local

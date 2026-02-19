@@ -73,10 +73,7 @@ describe('router', () => {
       const requiresAdmin = to.meta.requiresAdmin === true
 
       if (authStore.loading) {
-        await new Promise(resolve => setTimeout(resolve, 100))
-        while (authStore.loading) {
-          await new Promise(resolve => setTimeout(resolve, 50))
-        }
+        await authStore.whenReady()
       }
 
       if (!authStore.user && !isPublicRoute) {

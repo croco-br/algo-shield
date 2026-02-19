@@ -453,7 +453,8 @@ const generating = ref(false)
 const generateResult = ref<{ success: boolean; message: string } | null>(null)
 const generateProgress = ref(0)
 const generateTotal = ref(0)
-const generateBatchSize = 100
+// Backend supports up to 10000 per request; single request avoids token/CSRF issues across batches
+const generateMaxPerRequest = 10000
 
 // Transaction detail modal state
 const showDetailModal = ref(false)
@@ -758,40 +759,29 @@ async function handleGenerateEvents() {
     generateProgress.value = 0
     generateTotal.value = generateCount.value
 
-    const total = generateCount.value
-    let totalGenerated = 0
-    let totalFailed = 0
+    const total = Math.min(generateCount.value, generateMaxPerRequest)
 
-    // Split into batches for progress tracking
-    let remaining = total
-    while (remaining > 0) {
-      const batchCount = Math.min(remaining, generateBatchSize)
+    const response = await api.post<{ generated_count: number; failed_count: number; message: string }>(
+      `/api/v1/schemas/${generateSchemaId.value}/generate-events`,
+      { count: total }
+    )
 
-      const response = await api.post<{ generated_count: number; failed_count: number; message: string }>(
-        `/api/v1/schemas/${generateSchemaId.value}/generate-events`,
-        { count: batchCount }
-      )
+    const totalGenerated = response?.generated_count || 0
+    const totalFailed = response?.failed_count || 0
+    generateProgress.value = totalGenerated + totalFailed
 
-      totalGenerated += response?.generated_count || 0
-      totalFailed += response?.failed_count || 0
-      remaining -= batchCount
-      generateProgress.value = totalGenerated + totalFailed
-    }
-
-    let message: string
-    if (totalFailed === 0) {
-      message = t('views.transactions.generateSuccess', { count: totalGenerated })
-    } else {
-      message = t('views.transactions.generatePartial', {
-        total: totalGenerated + totalFailed,
-        success: totalGenerated,
-        failed: totalFailed
-      })
-    }
+    const message =
+      totalFailed === 0
+        ? t('views.transactions.generateSuccess', { count: totalGenerated })
+        : t('views.transactions.generatePartial', {
+            total: totalGenerated + totalFailed,
+            success: totalGenerated,
+            failed: totalFailed
+          })
 
     generateResult.value = {
       success: totalFailed === 0,
-      message: message,
+      message,
     }
 
     await new Promise(resolve => setTimeout(resolve, 100))
@@ -805,13 +795,14 @@ async function handleGenerateEvents() {
     }
   } catch (e: any) {
     const errorMessage = e.message || t('views.transactions.generateFailed')
-    const isCSRFError = errorMessage.includes('CSRF') || errorMessage.includes('403') || errorMessage.includes('Forbidden')
+    const isCSRFError =
+      errorMessage.includes('CSRF') ||
+      errorMessage.includes('403') ||
+      errorMessage.includes('Forbidden')
 
     generateResult.value = {
       success: false,
-      message: isCSRFError
-        ? t('errors.FORBIDDEN')
-        : errorMessage,
+      message: isCSRFError ? t('errors.FORBIDDEN') : errorMessage,
     }
   } finally {
     generating.value = false

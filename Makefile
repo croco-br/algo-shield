@@ -177,8 +177,8 @@ ui: ## Start UI service only
 	@echo "${BLUE}UI:${RESET}  http://localhost:3000"
 
 api: ## Start API service with infrastructure (postgres + redis)
-	@echo "${YELLOW}Starting infrastructure services (postgres + redis)...${RESET}"
-	@docker-compose up -d postgres redis
+	@echo "${YELLOW}Starting infrastructure services (postgres + redis + redis-queue)...${RESET}"
+	@docker-compose up -d postgres redis redis-queue
 	@echo "${YELLOW}Building API service...${RESET}"
 	@DOCKER_BUILDKIT=1 docker-compose build api
 	@echo "${YELLOW}Waiting for infrastructure to be healthy...${RESET}"
@@ -188,8 +188,8 @@ api: ## Start API service with infrastructure (postgres + redis)
 	@make logs
 
 worker: ## Start Worker service with infrastructure (postgres + redis)
-	@echo "${YELLOW}Starting infrastructure services (postgres + redis)...${RESET}"
-	@docker-compose up -d postgres redis
+	@echo "${YELLOW}Starting infrastructure services (postgres + redis + redis-queue)...${RESET}"
+	@docker-compose up -d postgres redis redis-queue
 	@echo "${YELLOW}Building Worker service...${RESET}"
 	@DOCKER_BUILDKIT=1 docker-compose build worker
 	@echo "${YELLOW}Waiting for infrastructure to be healthy...${RESET}"
@@ -214,14 +214,14 @@ dev-worker: air infra-up ## Start Worker with hot reload (requires air)
 air: ## Install air if not present
 	@which air >/dev/null 2>&1 || (echo "${YELLOW}air not found. Installing...${RESET}" && go install github.com/cosmtrek/air@latest)
 
-infra-up: ## Start only infrastructure (postgres + redis)
+infra-up: ## Start only infrastructure (postgres + redis + redis-queue)
 	@echo "${YELLOW}Starting infrastructure services...${RESET}"
-	@docker-compose up -d postgres redis
+	@docker-compose up -d postgres redis redis-queue
 	@echo "${GREEN}✓ Infrastructure started!${RESET}"
 
 infra-down: ## Stop only infrastructure
 	@echo "${YELLOW}Stopping infrastructure services...${RESET}"
-	@docker-compose stop postgres redis
+	@docker-compose stop postgres redis redis-queue
 	@echo "${GREEN}✓ Infrastructure stopped!${RESET}"
 
 test-watch: gotestsum ## Watch mode for tests (re-runs on file changes)

@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { setActivePinia, createPinia } from 'pinia'
-import { useAuthStore } from './auth'
+import { useAuthStore, setRouterNavigate } from './auth'
 import type { User } from './auth'
 import { setTokenGetter } from '@/lib/api'
 
@@ -17,6 +17,7 @@ vi.mock('@/lib/api', () => ({
 	setRefreshTokenFn: vi.fn(),
 	setForceLogoutFn: vi.fn(),
 	setSyntheticModeStorage: vi.fn(),
+	resetLogoutState: vi.fn(),
 }))
 
 describe('useAuthStore', () => {
@@ -149,7 +150,9 @@ describe('useAuthStore', () => {
 			await store.logout()
 
 			// Assert
-			expect(api.post).toHaveBeenCalledWith('/api/v1/auth/logout')
+			expect(api.post).toHaveBeenCalledWith('/api/v1/auth/logout', {
+				refresh_token: undefined,
+			})
 			expect(store.user).toBeNull()
 			expect(store.getToken()).toBeNull()
 		})
@@ -320,6 +323,120 @@ describe('useAuthStore', () => {
 
 			// Assert: Token only accessible via getToken()
 			expect(store.getToken()).toBeNull()
+		})
+	})
+
+	describe('whenReady', () => {
+		it('resolves after loading completes', async () => {
+			const { api } = await import('@/lib/api')
+			vi.mocked(api.get).mockResolvedValue(null)
+
+			const store = useAuthStore()
+
+			// whenReady should resolve once loading finishes
+			await store.whenReady()
+
+			expect(store.loading).toBe(false)
+		})
+
+		it('resolves immediately if already loaded', async () => {
+			const store = useAuthStore()
+
+			// Wait for initial load
+			await store.whenReady()
+
+			// Calling again should resolve immediately
+			const resolved = await Promise.race([
+				store.whenReady().then(() => true),
+				new Promise<boolean>(resolve => setTimeout(() => resolve(false), 50)),
+			])
+			expect(resolved).toBe(true)
+		})
+	})
+
+	describe('CSRF token preservation', () => {
+		it('preserves CSRF token when refresh response omits csrf_token', async () => {
+			const { api } = await import('@/lib/api')
+			const mockUser: User = {
+				id: 'user-123',
+				email: 'test@example.com',
+				name: 'Test User',
+				auth_type: 'local',
+				active: true,
+			}
+
+			vi.mocked(api.get).mockResolvedValue(mockUser)
+
+			const store = useAuthStore()
+			// Set initial tokens including CSRF
+			await store.setToken('token-1', 'csrf-original', 'refresh-1')
+
+			// Clear mocks and simulate refresh response without csrf_token
+			vi.clearAllMocks()
+			vi.mocked(api.post).mockResolvedValue({
+				token: 'token-2',
+				// csrf_token intentionally omitted
+			})
+			vi.mocked(api.get).mockResolvedValue(mockUser)
+
+			await store.refresh()
+
+			// CSRF token should be preserved, not overwritten with null
+			expect(store.getCsrfToken()).toBe('csrf-original')
+		})
+
+		it('updates CSRF token when refresh response includes csrf_token', async () => {
+			const { api } = await import('@/lib/api')
+			const mockUser: User = {
+				id: 'user-123',
+				email: 'test@example.com',
+				name: 'Test User',
+				auth_type: 'local',
+				active: true,
+			}
+
+			vi.mocked(api.get).mockResolvedValue(mockUser)
+
+			const store = useAuthStore()
+			await store.setToken('token-1', 'csrf-old', 'refresh-1')
+
+			vi.clearAllMocks()
+			// First api.get call fails (token expired) → triggers refreshAccessToken in catch
+			// Then api.post (refresh) returns new csrf_token
+			// Then second api.get (from refreshAccessToken) returns user
+			vi.mocked(api.get)
+				.mockRejectedValueOnce(new Error('Unauthorized'))
+				.mockResolvedValueOnce(mockUser)
+			vi.mocked(api.post).mockResolvedValue({
+				token: 'token-2',
+				csrf_token: 'csrf-new',
+			})
+
+			await store.refresh()
+
+			expect(store.getCsrfToken()).toBe('csrf-new')
+		})
+	})
+
+	describe('force logout with router navigation', () => {
+		it('uses injected router navigate when available', async () => {
+			const mockNavigate = vi.fn().mockResolvedValue(undefined)
+			setRouterNavigate(mockNavigate)
+
+			const { setForceLogoutFn } = await import('@/lib/api')
+
+			// Create store — this registers the force logout callback
+			useAuthStore()
+
+			// Get the force logout function that was registered
+			const calls = vi.mocked(setForceLogoutFn).mock.calls
+			const forceLogoutFn = calls[calls.length - 1]?.[0]
+			expect(forceLogoutFn).toBeDefined()
+
+			// Call force logout
+			forceLogoutFn!()
+
+			expect(mockNavigate).toHaveBeenCalledWith('/login')
 		})
 	})
 })

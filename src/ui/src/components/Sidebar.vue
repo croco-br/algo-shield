@@ -67,7 +67,7 @@
                 <!-- Regular menu items -->
                 <v-list-item
                     v-else
-                    :to="item.path"
+                    :to="getNavTo(item)"
                     :active="isActive(item.path)"
                     :prepend-icon="getIcon(item.icon)"
                     :title="isCollapsed ? '' : $t(item.label)"
@@ -93,7 +93,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, onUnmounted } from "vue";
+import { ref, computed, onMounted, onUnmounted, watch } from "vue";
 import { useRoute } from "vue-router";
 import { useAuthStore } from "@/stores/auth";
 import { api } from "@/lib/api";
@@ -182,6 +182,18 @@ const getIcon = (icon: string): string => {
     return icon;
 };
 
+// When collapsed or no schemas loaded, /transactions falls into the v-else branch.
+// Auto-select the first schema so the user doesn't land on an empty "No Schema" screen.
+const getNavTo = (item: NavItem): string => {
+    if (
+        item.path === "/transactions" &&
+        transactionSchemas.value.length > 0
+    ) {
+        return `/transactions?schemaId=${transactionSchemas.value[0]!.id}`;
+    }
+    return item.path;
+};
+
 const checkMobile = () => {
     isMobile.value = window.innerWidth < 960;
     if (!isMobile.value) {
@@ -213,11 +225,31 @@ async function loadTransactionSchemas() {
     }
 }
 
+// Load schemas when user becomes available (handles auth timing on page load)
+watch(
+    () => authStore.user,
+    (newUser, oldUser) => {
+        if (newUser && !oldUser) {
+            loadTransactionSchemas();
+        }
+    },
+    { immediate: true },
+);
+
+// Reload schemas when navigating away from /schemas (covers create/edit/delete)
+watch(
+    () => route.path,
+    (newPath, oldPath) => {
+        if (oldPath === "/schemas" && newPath !== "/schemas") {
+            loadTransactionSchemas();
+        }
+    },
+);
+
 onMounted(() => {
     checkMobile();
     window.addEventListener("resize", checkMobile);
     emit("collapseChange", isCollapsed.value);
-    loadTransactionSchemas();
 });
 
 onUnmounted(() => {
