@@ -564,3 +564,137 @@ func Test_Handler_ParseSchema_WhenServiceFails_ThenReturnsInternalError(t *testi
 	require.NoError(t, err)
 	assert.Equal(t, fiber.StatusInternalServerError, resp.StatusCode)
 }
+
+func Test_Handler_GenerateEvents_WhenValidRequest_ThenReturnsAccepted(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	mockService := NewMockServiceInterface(ctrl)
+	handler := NewHandler(mockService)
+	app := fiber.New()
+	app.Post("/schemas/:id/generate-events", handler.GenerateEvents)
+
+	id := uuid.New()
+	expectedResp := &GenerateEventsResponse{
+		SchemaID:       id,
+		GeneratedCount: 5,
+		FailedCount:    0,
+		Message:        "Successfully generated and queued 5 events",
+	}
+	mockService.EXPECT().
+		GenerateEvents(gomock.Any(), id, &GenerateEventsRequest{Count: 5}).
+		Return(expectedResp, nil)
+
+	body, _ := json.Marshal(GenerateEventsRequest{Count: 5})
+	httpReq := httptest.NewRequest("POST", "/schemas/"+id.String()+"/generate-events", bytes.NewReader(body))
+	httpReq.Header.Set("Content-Type", "application/json")
+	resp, err := app.Test(httpReq)
+
+	require.NoError(t, err)
+	assert.Equal(t, fiber.StatusAccepted, resp.StatusCode)
+	respBody, _ := io.ReadAll(resp.Body)
+	var result GenerateEventsResponse
+	_ = json.Unmarshal(respBody, &result)
+	assert.Equal(t, 5, result.GeneratedCount)
+}
+
+func Test_Handler_GenerateEvents_WhenInvalidID_ThenReturnsBadRequest(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	mockService := NewMockServiceInterface(ctrl)
+	handler := NewHandler(mockService)
+	app := fiber.New()
+	app.Post("/schemas/:id/generate-events", handler.GenerateEvents)
+
+	body, _ := json.Marshal(GenerateEventsRequest{Count: 5})
+	httpReq := httptest.NewRequest("POST", "/schemas/invalid-uuid/generate-events", bytes.NewReader(body))
+	httpReq.Header.Set("Content-Type", "application/json")
+	resp, err := app.Test(httpReq)
+
+	require.NoError(t, err)
+	assert.Equal(t, fiber.StatusBadRequest, resp.StatusCode)
+}
+
+func Test_Handler_GenerateEvents_WhenInvalidBody_ThenReturnsBadRequest(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	mockService := NewMockServiceInterface(ctrl)
+	handler := NewHandler(mockService)
+	app := fiber.New()
+	app.Post("/schemas/:id/generate-events", handler.GenerateEvents)
+
+	id := uuid.New()
+	httpReq := httptest.NewRequest("POST", "/schemas/"+id.String()+"/generate-events", bytes.NewReader([]byte("invalid")))
+	httpReq.Header.Set("Content-Type", "application/json")
+	resp, err := app.Test(httpReq)
+
+	require.NoError(t, err)
+	assert.Equal(t, fiber.StatusBadRequest, resp.StatusCode)
+}
+
+func Test_Handler_GenerateEvents_WhenValidationFails_ThenReturnsBadRequest(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	mockService := NewMockServiceInterface(ctrl)
+	handler := NewHandler(mockService)
+	app := fiber.New()
+	app.Post("/schemas/:id/generate-events", handler.GenerateEvents)
+
+	id := uuid.New()
+	body, _ := json.Marshal(GenerateEventsRequest{Count: 0})
+	httpReq := httptest.NewRequest("POST", "/schemas/"+id.String()+"/generate-events", bytes.NewReader(body))
+	httpReq.Header.Set("Content-Type", "application/json")
+	resp, err := app.Test(httpReq)
+
+	require.NoError(t, err)
+	assert.Equal(t, fiber.StatusBadRequest, resp.StatusCode)
+}
+
+func Test_Handler_GenerateEvents_WhenSchemaNotFound_ThenReturnsNotFound(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	mockService := NewMockServiceInterface(ctrl)
+	handler := NewHandler(mockService)
+	app := fiber.New()
+	app.Post("/schemas/:id/generate-events", handler.GenerateEvents)
+
+	id := uuid.New()
+	mockService.EXPECT().
+		GenerateEvents(gomock.Any(), id, &GenerateEventsRequest{Count: 5}).
+		Return(nil, ErrSchemaNotFound)
+
+	body, _ := json.Marshal(GenerateEventsRequest{Count: 5})
+	httpReq := httptest.NewRequest("POST", "/schemas/"+id.String()+"/generate-events", bytes.NewReader(body))
+	httpReq.Header.Set("Content-Type", "application/json")
+	resp, err := app.Test(httpReq)
+
+	require.NoError(t, err)
+	assert.Equal(t, fiber.StatusNotFound, resp.StatusCode)
+}
+
+func Test_Handler_GenerateEvents_WhenServiceFails_ThenReturnsInternalError(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	mockService := NewMockServiceInterface(ctrl)
+	handler := NewHandler(mockService)
+	app := fiber.New()
+	app.Post("/schemas/:id/generate-events", handler.GenerateEvents)
+
+	id := uuid.New()
+	mockService.EXPECT().
+		GenerateEvents(gomock.Any(), id, &GenerateEventsRequest{Count: 5}).
+		Return(nil, errors.New("internal error"))
+
+	body, _ := json.Marshal(GenerateEventsRequest{Count: 5})
+	httpReq := httptest.NewRequest("POST", "/schemas/"+id.String()+"/generate-events", bytes.NewReader(body))
+	httpReq.Header.Set("Content-Type", "application/json")
+	resp, err := app.Test(httpReq)
+
+	require.NoError(t, err)
+	assert.Equal(t, fiber.StatusInternalServerError, resp.StatusCode)
+}

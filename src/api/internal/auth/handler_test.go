@@ -368,6 +368,138 @@ func Test_Handler_Logout_WhenMissingBearerPrefix_ThenReturnsUnauthorized(t *test
 	assert.Equal(t, fiber.StatusUnauthorized, resp.StatusCode)
 }
 
+func Test_Handler_RefreshToken_WhenValidRequest_ThenReturnsTokens(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	mockService := NewMockAuthService(ctrl)
+	mockUserService := NewMockUserService(ctrl)
+	expectedUser := &models.User{
+		ID:    uuid.New(),
+		Email: "test@example.com",
+		Name:  "Test User",
+	}
+	mockService.EXPECT().
+		RefreshToken(gomock.Any(), "old-refresh-token").
+		Return(expectedUser, "new-access-token", "new-refresh-token", nil)
+	redisClient := setupTestRedis(t)
+	handler := NewHandler(mockService, mockUserService, redisClient)
+	app := fiber.New()
+	app.Post("/auth/refresh", handler.RefreshToken)
+	reqBody := RefreshTokenRequest{
+		RefreshToken: "old-refresh-token",
+	}
+	body, _ := json.Marshal(reqBody)
+	req := httptest.NewRequest("POST", "/auth/refresh", bytes.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+
+	resp, err := app.Test(req)
+
+	require.NoError(t, err)
+	assert.Equal(t, fiber.StatusOK, resp.StatusCode)
+	respBody, _ := io.ReadAll(resp.Body)
+	var result map[string]string
+	_ = json.Unmarshal(respBody, &result)
+	assert.Equal(t, "new-access-token", result["token"])
+	assert.Equal(t, "new-refresh-token", result["refresh_token"])
+	assert.NotEmpty(t, result["csrf_token"])
+}
+
+func Test_Handler_RefreshToken_WhenInvalidJSON_ThenReturnsBadRequest(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	mockService := NewMockAuthService(ctrl)
+	mockUserService := NewMockUserService(ctrl)
+	redisClient := setupTestRedis(t)
+	handler := NewHandler(mockService, mockUserService, redisClient)
+	app := fiber.New()
+	app.Post("/auth/refresh", handler.RefreshToken)
+
+	req := httptest.NewRequest("POST", "/auth/refresh", bytes.NewReader([]byte("invalid json")))
+	req.Header.Set("Content-Type", "application/json")
+
+	resp, err := app.Test(req)
+
+	require.NoError(t, err)
+	assert.Equal(t, fiber.StatusBadRequest, resp.StatusCode)
+}
+
+func Test_Handler_RefreshToken_WhenMissingToken_ThenReturnsBadRequest(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	mockService := NewMockAuthService(ctrl)
+	mockUserService := NewMockUserService(ctrl)
+	redisClient := setupTestRedis(t)
+	handler := NewHandler(mockService, mockUserService, redisClient)
+	app := fiber.New()
+	app.Post("/auth/refresh", handler.RefreshToken)
+	reqBody := RefreshTokenRequest{
+		RefreshToken: "",
+	}
+	body, _ := json.Marshal(reqBody)
+	req := httptest.NewRequest("POST", "/auth/refresh", bytes.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+
+	resp, err := app.Test(req)
+
+	require.NoError(t, err)
+	assert.Equal(t, fiber.StatusBadRequest, resp.StatusCode)
+}
+
+func Test_Handler_RefreshToken_WhenServiceReturnsAPIError_ThenForwardsError(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	mockService := NewMockAuthService(ctrl)
+	mockUserService := NewMockUserService(ctrl)
+	mockService.EXPECT().
+		RefreshToken(gomock.Any(), "revoked-token").
+		Return(nil, "", "", apierrors.TokenRevoked())
+	redisClient := setupTestRedis(t)
+	handler := NewHandler(mockService, mockUserService, redisClient)
+	app := fiber.New()
+	app.Post("/auth/refresh", handler.RefreshToken)
+	reqBody := RefreshTokenRequest{
+		RefreshToken: "revoked-token",
+	}
+	body, _ := json.Marshal(reqBody)
+	req := httptest.NewRequest("POST", "/auth/refresh", bytes.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+
+	resp, err := app.Test(req)
+
+	require.NoError(t, err)
+	assert.Equal(t, fiber.StatusUnauthorized, resp.StatusCode)
+}
+
+func Test_Handler_RefreshToken_WhenServiceReturnsGenericError_ThenReturnsInternalError(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	mockService := NewMockAuthService(ctrl)
+	mockUserService := NewMockUserService(ctrl)
+	mockService.EXPECT().
+		RefreshToken(gomock.Any(), "some-token").
+		Return(nil, "", "", errors.New("unexpected error"))
+	redisClient := setupTestRedis(t)
+	handler := NewHandler(mockService, mockUserService, redisClient)
+	app := fiber.New()
+	app.Post("/auth/refresh", handler.RefreshToken)
+	reqBody := RefreshTokenRequest{
+		RefreshToken: "some-token",
+	}
+	body, _ := json.Marshal(reqBody)
+	req := httptest.NewRequest("POST", "/auth/refresh", bytes.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+
+	resp, err := app.Test(req)
+
+	require.NoError(t, err)
+	assert.Equal(t, fiber.StatusInternalServerError, resp.StatusCode)
+}
+
 func Test_Handler_ValidateToken_WhenValidToken_ThenReturnsUser(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()

@@ -171,3 +171,177 @@ func Test_cryptoRandomInt_WhenSmallMax_ThenReturnsValidRange(t *testing.T) {
 		}
 	}
 }
+
+func Test_EventGenerator_GenerateFromSample_WhenFlatMap_ThenGeneratesRandomValues(t *testing.T) {
+	generator := NewEventGenerator()
+	sample := map[string]any{
+		"name":   "John",
+		"age":    30.0,
+		"active": true,
+	}
+
+	result := generator.generateFromSample(sample)
+
+	require.NotNil(t, result)
+	assert.Len(t, result, 3)
+	assert.IsType(t, "", result["name"])
+	assert.IsType(t, float64(0), result["age"])
+	assert.IsType(t, false, result["active"])
+}
+
+func Test_EventGenerator_GenerateFromSample_WhenNestedMap_ThenGeneratesNestedValues(t *testing.T) {
+	generator := NewEventGenerator()
+	sample := map[string]any{
+		"user": map[string]any{
+			"name": "John",
+			"age":  25.0,
+		},
+	}
+
+	result := generator.generateFromSample(sample)
+
+	require.NotNil(t, result)
+	user, ok := result["user"].(map[string]any)
+	require.True(t, ok, "user should be a nested map")
+	assert.IsType(t, "", user["name"])
+	assert.IsType(t, float64(0), user["age"])
+}
+
+func Test_EventGenerator_GenerateFromSample_WhenEmptyMap_ThenReturnsEmptyMap(t *testing.T) {
+	generator := NewEventGenerator()
+	sample := map[string]any{}
+
+	result := generator.generateFromSample(sample)
+
+	require.NotNil(t, result)
+	assert.Empty(t, result)
+}
+
+func Test_EventGenerator_GenerateValueByType_WhenNil_ThenReturnsNil(t *testing.T) {
+	generator := NewEventGenerator()
+
+	result := generator.generateValueByType(nil)
+
+	assert.Nil(t, result)
+}
+
+func Test_EventGenerator_GenerateValueByType_WhenBool_ThenReturnsBool(t *testing.T) {
+	generator := NewEventGenerator()
+
+	result := generator.generateValueByType(true)
+
+	assert.IsType(t, false, result)
+}
+
+func Test_EventGenerator_GenerateValueByType_WhenFloat64_ThenReturnsFloat64(t *testing.T) {
+	generator := NewEventGenerator()
+
+	result := generator.generateValueByType(99.5)
+
+	assert.IsType(t, float64(0), result)
+}
+
+func Test_EventGenerator_GenerateValueByType_WhenInt_ThenReturnsInt(t *testing.T) {
+	generator := NewEventGenerator()
+
+	result := generator.generateValueByType(42)
+
+	assert.IsType(t, 0, result)
+}
+
+func Test_EventGenerator_GenerateValueByType_WhenString_ThenReturnsString(t *testing.T) {
+	generator := NewEventGenerator()
+
+	result := generator.generateValueByType("hello")
+
+	assert.IsType(t, "", result)
+}
+
+func Test_EventGenerator_GenerateValueByType_WhenSlice_ThenReturnsSlice(t *testing.T) {
+	generator := NewEventGenerator()
+
+	result := generator.generateValueByType([]any{"a", "b"})
+
+	arr, ok := result.([]any)
+	require.True(t, ok, "result should be a slice")
+	assert.NotEmpty(t, arr)
+	// Elements should be strings since the sample element is a string
+	for _, v := range arr {
+		assert.IsType(t, "", v)
+	}
+}
+
+func Test_EventGenerator_GenerateValueByType_WhenMap_ThenReturnsMap(t *testing.T) {
+	generator := NewEventGenerator()
+
+	result := generator.generateValueByType(map[string]any{"key": "value"})
+
+	m, ok := result.(map[string]any)
+	require.True(t, ok, "result should be a map")
+	assert.Contains(t, m, "key")
+}
+
+func Test_EventGenerator_GenerateValueByType_WhenUnknownType_ThenReturnsString(t *testing.T) {
+	generator := NewEventGenerator()
+
+	// Pass something that doesn't match any known type (e.g., a struct)
+	type custom struct{}
+	result := generator.generateValueByType(custom{})
+
+	assert.IsType(t, "", result)
+}
+
+func Test_EventGenerator_GenerateArray_WhenEmptyArray_ThenReturnsEmptyArray(t *testing.T) {
+	generator := NewEventGenerator()
+
+	result := generator.generateArray([]any{})
+
+	assert.NotNil(t, result)
+	assert.Empty(t, result)
+}
+
+func Test_EventGenerator_GenerateArray_WhenStringElements_ThenReturnsStringArray(t *testing.T) {
+	generator := NewEventGenerator()
+
+	result := generator.generateArray([]any{"hello"})
+
+	assert.NotNil(t, result)
+	assert.GreaterOrEqual(t, len(result), 1)
+	assert.LessOrEqual(t, len(result), 3)
+	for _, v := range result {
+		assert.IsType(t, "", v)
+	}
+}
+
+func Test_EventGenerator_GenerateArray_WhenNumericElements_ThenReturnsNumericArray(t *testing.T) {
+	generator := NewEventGenerator()
+
+	result := generator.generateArray([]any{42.0})
+
+	assert.NotNil(t, result)
+	assert.GreaterOrEqual(t, len(result), 1)
+	for _, v := range result {
+		assert.IsType(t, float64(0), v)
+	}
+}
+
+func Test_EventGenerator_GenerateEvent_WhenNoExtractedFields_ThenFallsBackToSample(t *testing.T) {
+	generator := NewEventGenerator()
+	schema := &EventSchema{
+		ID:              uuid.New(),
+		Name:            "test-schema",
+		ExtractedFields: []ExtractedField{}, // Empty fields
+		SampleJSON: map[string]any{
+			"amount":   100.50,
+			"currency": "USD",
+		},
+	}
+
+	event := generator.GenerateEvent(schema)
+
+	require.NotNil(t, event)
+	assert.Contains(t, event, "amount")
+	assert.Contains(t, event, "currency")
+	assert.IsType(t, float64(0), event["amount"])
+	assert.IsType(t, "", event["currency"])
+}

@@ -13,6 +13,7 @@ import (
 	"github.com/gofiber/fiber/v2"
 	"github.com/google/uuid"
 	"github.com/hibiken/asynq"
+	"github.com/jackc/pgx/v5"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/mock/gomock"
@@ -563,4 +564,44 @@ func Test_Handler_RejectTransaction_WhenServiceFails_ThenReturnsError(t *testing
 	assert.Equal(t, fiber.StatusInternalServerError, resp.StatusCode)
 	body, _ := io.ReadAll(resp.Body)
 	assert.Contains(t, string(body), "Failed to reject transaction")
+}
+
+func Test_Handler_ApproveTransaction_WhenNotFoundOrNotPending_ThenReturnsBadRequest(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	txID := uuid.New()
+	mockService := NewMockTransactionService(ctrl)
+	mockService.EXPECT().ApproveTransaction(gomock.Any(), txID).Return(nil, pgx.ErrNoRows)
+	handler := NewHandler(mockService)
+	app := fiber.New()
+	app.Patch("/transactions/:id/approve", handler.ApproveTransaction)
+
+	req := httptest.NewRequest("PATCH", "/transactions/"+txID.String()+"/approve", nil)
+	resp, err := app.Test(req)
+
+	require.NoError(t, err)
+	assert.Equal(t, fiber.StatusBadRequest, resp.StatusCode)
+	body, _ := io.ReadAll(resp.Body)
+	assert.Contains(t, string(body), "Transaction not found or not in pending/in_review status")
+}
+
+func Test_Handler_RejectTransaction_WhenNotFoundOrNotPending_ThenReturnsBadRequest(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	txID := uuid.New()
+	mockService := NewMockTransactionService(ctrl)
+	mockService.EXPECT().RejectTransaction(gomock.Any(), txID).Return(nil, pgx.ErrNoRows)
+	handler := NewHandler(mockService)
+	app := fiber.New()
+	app.Patch("/transactions/:id/reject", handler.RejectTransaction)
+
+	req := httptest.NewRequest("PATCH", "/transactions/"+txID.String()+"/reject", nil)
+	resp, err := app.Test(req)
+
+	require.NoError(t, err)
+	assert.Equal(t, fiber.StatusBadRequest, resp.StatusCode)
+	body, _ := io.ReadAll(resp.Body)
+	assert.Contains(t, string(body), "Transaction not found or not in pending/in_review status")
 }

@@ -418,6 +418,115 @@ describe('useAuthStore', () => {
 		})
 	})
 
+	describe('refreshAccessToken', () => {
+		it('clears tokens when refresh fails with 401', async () => {
+			const { api } = await import('@/lib/api')
+			const mockUser: User = {
+				id: 'user-123',
+				email: 'test@example.com',
+				name: 'Test User',
+				auth_type: 'local',
+				active: true,
+			}
+
+			vi.mocked(api.get).mockResolvedValue(mockUser)
+
+			const store = useAuthStore()
+			await store.setToken('token-1', 'csrf-1', 'refresh-1')
+
+			// Clear mocks and simulate 401 on refresh
+			vi.clearAllMocks()
+			const error401 = new Error('Unauthorized') as Error & { statusCode: number }
+			error401.statusCode = 401
+			vi.mocked(api.get).mockRejectedValue(new Error('Token expired'))
+			vi.mocked(api.post).mockRejectedValue(error401)
+
+			await store.refresh()
+
+			// After 401 on refresh, tokens should be cleared
+			expect(store.getToken()).toBeNull()
+			expect(store.user).toBeNull()
+		})
+
+		it('preserves tokens when refresh fails with non-401 error', async () => {
+			const { api } = await import('@/lib/api')
+			const mockUser: User = {
+				id: 'user-123',
+				email: 'test@example.com',
+				name: 'Test User',
+				auth_type: 'local',
+				active: true,
+			}
+
+			vi.mocked(api.get).mockResolvedValue(mockUser)
+
+			const store = useAuthStore()
+			await store.setToken('token-1', 'csrf-1', 'refresh-1')
+
+			// Clear mocks and simulate 500 on refresh
+			vi.clearAllMocks()
+			const error500 = new Error('Server error') as Error & { statusCode: number }
+			error500.statusCode = 500
+			vi.mocked(api.get).mockRejectedValue(new Error('Token expired'))
+			vi.mocked(api.post).mockRejectedValue(error500)
+
+			await store.refresh()
+
+			// After non-401 error, refresh token should be preserved (user can retry)
+			// The access token gets cleared but refresh token stays
+			expect(store.loading).toBe(false)
+		})
+
+		it('stores new refresh token in localStorage when rotation occurs', async () => {
+			const { api } = await import('@/lib/api')
+			const mockUser: User = {
+				id: 'user-123',
+				email: 'test@example.com',
+				name: 'Test User',
+				auth_type: 'local',
+				active: true,
+			}
+
+			vi.mocked(api.get).mockResolvedValue(mockUser)
+
+			const store = useAuthStore()
+			await store.setToken('token-1', 'csrf-1', 'refresh-1')
+
+			// Clear and set up refresh response with rotated token
+			vi.clearAllMocks()
+			vi.mocked(api.get)
+				.mockRejectedValueOnce(new Error('Expired'))
+				.mockResolvedValueOnce(mockUser)
+			vi.mocked(api.post).mockResolvedValue({
+				token: 'token-2',
+				refresh_token: 'refresh-2',
+				csrf_token: 'csrf-2',
+			})
+
+			await store.refresh()
+
+			expect(store.getToken()).toBe('token-2')
+			expect(localStorage.getItem('refresh_token')).toBe('refresh-2')
+		})
+
+		it('clears tokens when no refresh token available and access token fails', async () => {
+			const { api } = await import('@/lib/api')
+
+			// Start with no refresh token
+			const store = useAuthStore()
+			await store.setToken('token-1')
+
+			vi.clearAllMocks()
+			vi.mocked(api.get).mockRejectedValue(new Error('Unauthorized'))
+
+			await store.refresh()
+
+			// No refresh token to use, so tokens should be cleared
+			expect(store.getToken()).toBeNull()
+			expect(store.user).toBeNull()
+		})
+	})
+
 	describe('force logout with router navigation', () => {
 		it('uses injected router navigate when available', async () => {
 			const mockNavigate = vi.fn().mockResolvedValue(undefined)

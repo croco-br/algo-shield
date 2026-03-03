@@ -2,6 +2,7 @@ package schemas
 
 import (
 	"context"
+	"errors"
 	"sync"
 	"testing"
 
@@ -586,6 +587,263 @@ func Test_ExtractFieldPathAndValue_WhenNumericValue_ThenConvertsToString(t *test
 
 	assert.Equal(t, "user_id", path)
 	assert.Equal(t, "12345", value)
+}
+
+// velocityCount invocation tests
+
+func Test_BuildExpressionEnv_VelocityCount_WhenValidField_ThenReturnsCount(t *testing.T) {
+	schema := &EventSchema{
+		ExtractedFields: []ExtractedField{
+			{Path: "origin", Type: FieldTypeString},
+		},
+	}
+	eventData := map[string]any{"origin": "192.168.1.1"}
+	mockRepo := &mockHistoryRepository{countResult: 5}
+
+	env := BuildExpressionEnv(context.Background(), eventData, schema, mockRepo)
+
+	velocityCount := env["velocityCount"].(func(any, int) int)
+	count := velocityCount("origin", 3600)
+
+	assert.Equal(t, 5, count)
+}
+
+func Test_BuildExpressionEnv_VelocityCount_WhenRepoError_ThenReturnsZero(t *testing.T) {
+	schema := &EventSchema{
+		ExtractedFields: []ExtractedField{
+			{Path: "origin", Type: FieldTypeString},
+		},
+	}
+	eventData := map[string]any{"origin": "192.168.1.1"}
+	mockRepo := &mockHistoryRepository{countErr: errors.New("db error")}
+
+	env := BuildExpressionEnv(context.Background(), eventData, schema, mockRepo)
+
+	velocityCount := env["velocityCount"].(func(any, int) int)
+	count := velocityCount("origin", 3600)
+
+	assert.Equal(t, 0, count)
+}
+
+func Test_BuildExpressionEnv_VelocityCount_WhenInvalidFieldPath_ThenReturnsZero(t *testing.T) {
+	schema := &EventSchema{
+		ExtractedFields: []ExtractedField{
+			{Path: "origin", Type: FieldTypeString},
+		},
+	}
+	eventData := map[string]any{"origin": "192.168.1.1"}
+	mockRepo := &mockHistoryRepository{countResult: 10}
+
+	env := BuildExpressionEnv(context.Background(), eventData, schema, mockRepo)
+
+	velocityCount := env["velocityCount"].(func(any, int) int)
+	// Non-existent field path
+	count := velocityCount("nonexistent", 3600)
+
+	assert.Equal(t, 0, count)
+}
+
+func Test_BuildExpressionEnv_VelocityCount_WhenNonStringArg_ThenReturnsZero(t *testing.T) {
+	schema := &EventSchema{
+		ExtractedFields: []ExtractedField{
+			{Path: "origin", Type: FieldTypeString},
+		},
+	}
+	eventData := map[string]any{"origin": "192.168.1.1"}
+	mockRepo := &mockHistoryRepository{countResult: 10}
+
+	env := BuildExpressionEnv(context.Background(), eventData, schema, mockRepo)
+
+	velocityCount := env["velocityCount"].(func(any, int) int)
+	// Pass non-string as field path
+	count := velocityCount(123, 3600)
+
+	assert.Equal(t, 0, count)
+}
+
+// velocitySum invocation tests
+
+func Test_BuildExpressionEnv_VelocitySum_WhenTwoArgs_ThenAutoDetectsSumField(t *testing.T) {
+	schema := &EventSchema{
+		ExtractedFields: []ExtractedField{
+			{Path: "origin", Type: FieldTypeString},
+			{Path: "amount", Type: FieldTypeNumber},
+		},
+	}
+	eventData := map[string]any{"origin": "account-1", "amount": 100.0}
+	mockRepo := &mockHistoryRepository{sumResult: 1500.50}
+
+	env := BuildExpressionEnv(context.Background(), eventData, schema, mockRepo)
+
+	velocitySum := env["velocitySum"].(func(...any) float64)
+	sum := velocitySum("origin", 3600)
+
+	assert.Equal(t, 1500.50, sum)
+}
+
+func Test_BuildExpressionEnv_VelocitySum_WhenThreeArgs_ThenUsesSpecifiedSumField(t *testing.T) {
+	schema := &EventSchema{
+		ExtractedFields: []ExtractedField{
+			{Path: "origin", Type: FieldTypeString},
+			{Path: "price", Type: FieldTypeNumber},
+		},
+	}
+	eventData := map[string]any{"origin": "account-1", "price": 50.0}
+	mockRepo := &mockHistoryRepository{sumResult: 2000.0}
+
+	env := BuildExpressionEnv(context.Background(), eventData, schema, mockRepo)
+
+	velocitySum := env["velocitySum"].(func(...any) float64)
+	sum := velocitySum("origin", "price", 7200)
+
+	assert.Equal(t, 2000.0, sum)
+}
+
+func Test_BuildExpressionEnv_VelocitySum_WhenRepoError_ThenReturnsZero(t *testing.T) {
+	schema := &EventSchema{
+		ExtractedFields: []ExtractedField{
+			{Path: "origin", Type: FieldTypeString},
+			{Path: "amount", Type: FieldTypeNumber},
+		},
+	}
+	eventData := map[string]any{"origin": "account-1", "amount": 100.0}
+	mockRepo := &mockHistoryRepository{sumErr: errors.New("db error")}
+
+	env := BuildExpressionEnv(context.Background(), eventData, schema, mockRepo)
+
+	velocitySum := env["velocitySum"].(func(...any) float64)
+	sum := velocitySum("origin", 3600)
+
+	assert.Equal(t, 0.0, sum)
+}
+
+func Test_BuildExpressionEnv_VelocitySum_WhenTooFewArgs_ThenReturnsZero(t *testing.T) {
+	schema := &EventSchema{
+		ExtractedFields: []ExtractedField{
+			{Path: "origin", Type: FieldTypeString},
+		},
+	}
+	eventData := map[string]any{"origin": "account-1"}
+	mockRepo := &mockHistoryRepository{sumResult: 100.0}
+
+	env := BuildExpressionEnv(context.Background(), eventData, schema, mockRepo)
+
+	velocitySum := env["velocitySum"].(func(...any) float64)
+	sum := velocitySum("origin")
+
+	assert.Equal(t, 0.0, sum)
+}
+
+func Test_BuildExpressionEnv_VelocitySum_WhenTooManyArgs_ThenReturnsZero(t *testing.T) {
+	schema := &EventSchema{
+		ExtractedFields: []ExtractedField{
+			{Path: "origin", Type: FieldTypeString},
+		},
+	}
+	eventData := map[string]any{"origin": "account-1"}
+	mockRepo := &mockHistoryRepository{sumResult: 100.0}
+
+	env := BuildExpressionEnv(context.Background(), eventData, schema, mockRepo)
+
+	velocitySum := env["velocitySum"].(func(...any) float64)
+	sum := velocitySum("origin", "amount", 3600, "extra")
+
+	assert.Equal(t, 0.0, sum)
+}
+
+func Test_BuildExpressionEnv_VelocitySum_WhenInvalidTimeWindowType_ThenReturnsZero(t *testing.T) {
+	schema := &EventSchema{
+		ExtractedFields: []ExtractedField{
+			{Path: "origin", Type: FieldTypeString},
+		},
+	}
+	eventData := map[string]any{"origin": "account-1"}
+	mockRepo := &mockHistoryRepository{sumResult: 100.0}
+
+	env := BuildExpressionEnv(context.Background(), eventData, schema, mockRepo)
+
+	velocitySum := env["velocitySum"].(func(...any) float64)
+	// Pass string instead of int for timeWindowSeconds
+	sum := velocitySum("origin", "not-a-number")
+
+	assert.Equal(t, 0.0, sum)
+}
+
+func Test_BuildExpressionEnv_VelocitySum_WhenThreeArgsInvalidSumField_ThenReturnsZero(t *testing.T) {
+	schema := &EventSchema{
+		ExtractedFields: []ExtractedField{
+			{Path: "origin", Type: FieldTypeString},
+		},
+	}
+	eventData := map[string]any{"origin": "account-1"}
+	mockRepo := &mockHistoryRepository{sumResult: 100.0}
+
+	env := BuildExpressionEnv(context.Background(), eventData, schema, mockRepo)
+
+	velocitySum := env["velocitySum"].(func(...any) float64)
+	// Pass non-string as sumFieldPath
+	sum := velocitySum("origin", 123, 3600)
+
+	assert.Equal(t, 0.0, sum)
+}
+
+func Test_BuildExpressionEnv_VelocitySum_WhenThreeArgsInvalidTimeWindow_ThenReturnsZero(t *testing.T) {
+	schema := &EventSchema{
+		ExtractedFields: []ExtractedField{
+			{Path: "origin", Type: FieldTypeString},
+		},
+	}
+	eventData := map[string]any{"origin": "account-1"}
+	mockRepo := &mockHistoryRepository{sumResult: 100.0}
+
+	env := BuildExpressionEnv(context.Background(), eventData, schema, mockRepo)
+
+	velocitySum := env["velocitySum"].(func(...any) float64)
+	// Pass non-int as timeWindowSeconds in 3-arg form
+	sum := velocitySum("origin", "amount", "not-a-number")
+
+	assert.Equal(t, 0.0, sum)
+}
+
+func Test_BuildExpressionEnv_VelocitySum_WhenInvalidGroupField_ThenReturnsZero(t *testing.T) {
+	schema := &EventSchema{
+		ExtractedFields: []ExtractedField{
+			{Path: "origin", Type: FieldTypeString},
+		},
+	}
+	eventData := map[string]any{"origin": "account-1"}
+	mockRepo := &mockHistoryRepository{sumResult: 100.0}
+
+	env := BuildExpressionEnv(context.Background(), eventData, schema, mockRepo)
+
+	velocitySum := env["velocitySum"].(func(...any) float64)
+	// Use a field that doesn't exist in eventData
+	sum := velocitySum("nonexistent", 3600)
+
+	assert.Equal(t, 0.0, sum)
+}
+
+// setNestedValue edge case
+
+func Test_SetNestedValue_WhenExistingValueNotMap_ThenOverwritesWithMap(t *testing.T) {
+	env := map[string]any{
+		"user": "string-value", // Not a map
+	}
+
+	setNestedValue(env, "user.id", "user123")
+
+	userMap, ok := env["user"].(map[string]any)
+	require.True(t, ok, "should have overwritten with a map")
+	assert.Equal(t, "user123", userMap["id"])
+}
+
+// EvaluateExpressionWithSchema edge case
+
+func Test_EvaluateExpressionWithSchema_WhenNilSchema_ThenReturnsFalse(t *testing.T) {
+	// With nil schema, env is empty, so expression referencing vars should fail
+	result := EvaluateExpressionWithSchema(context.Background(), "amount > 100", map[string]any{"amount": 150.0}, nil, nil)
+
+	assert.False(t, result)
 }
 
 // Mock implementations

@@ -907,6 +907,444 @@ func Test_Service_RevokeAllUserTokens_WhenServiceFails_ThenReturnsError(t *testi
 	assert.Contains(t, err.Error(), "redis error")
 }
 
+// Test_Service_RefreshToken_WhenValidToken_ThenReturnsNewTokens tests successful token refresh
+func Test_Service_RefreshToken_WhenValidToken_ThenReturnsNewTokens(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	mockUserService := NewMockUserService(ctrl)
+	mockTokenRevoke := NewMockTokenRevokeService(ctrl)
+
+	jwtSecret := "test-secret-key"
+	cfg := &config.Config{
+		Auth: config.AuthConfig{
+			JWTSecret:                 jwtSecret,
+			JWTExpirationHours:        24,
+			JWTRefreshExpirationHours: 168,
+		},
+	}
+
+	service := NewService(cfg, mockUserService, mockTokenRevoke)
+
+	userID := uuid.New()
+	user := &models.User{
+		ID:     userID,
+		Email:  "test@example.com",
+		Name:   "Test User",
+		Active: true,
+	}
+
+	refreshToken, err := service.GenerateRefreshToken(user)
+	require.NoError(t, err)
+
+	ctx := context.Background()
+
+	mockTokenRevoke.EXPECT().
+		IsTokenOrUserRevoked(gomock.Any(), refreshToken, userID.String()).
+		Return(false, nil)
+
+	mockUserService.EXPECT().
+		GetUserByID(gomock.Any(), userID).
+		Return(user, nil)
+
+	// Old token gets revoked (rotation)
+	mockTokenRevoke.EXPECT().
+		RevokeToken(gomock.Any(), refreshToken, gomock.Any()).
+		Return(nil)
+
+	returnedUser, newAccessToken, newRefreshToken, err := service.RefreshToken(ctx, refreshToken)
+
+	require.NoError(t, err)
+	assert.NotNil(t, returnedUser)
+	assert.Equal(t, userID, returnedUser.ID)
+	assert.NotEmpty(t, newAccessToken)
+	assert.NotEmpty(t, newRefreshToken)
+}
+
+// Test_Service_RefreshToken_WhenExpiredToken_ThenReturnsTokenExpired tests expired refresh token
+func Test_Service_RefreshToken_WhenExpiredToken_ThenReturnsTokenExpired(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	mockUserService := NewMockUserService(ctrl)
+	mockTokenRevoke := NewMockTokenRevokeService(ctrl)
+
+	jwtSecret := "test-secret-key"
+	cfg := &config.Config{
+		Auth: config.AuthConfig{
+			JWTSecret:                 jwtSecret,
+			JWTExpirationHours:        24,
+			JWTRefreshExpirationHours: 168,
+		},
+	}
+
+	service := NewService(cfg, mockUserService, mockTokenRevoke)
+
+	// Create an expired refresh token
+	userID := uuid.New()
+	claims := jwt.MapClaims{
+		"user_id": userID.String(),
+		"type":    "refresh",
+		"iat":     time.Now().Add(-200 * time.Hour).Unix(),
+		"exp":     time.Now().Add(-1 * time.Hour).Unix(), // Already expired
+	}
+	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
+	expiredToken, err := token.SignedString([]byte(jwtSecret))
+	require.NoError(t, err)
+
+	ctx := context.Background()
+
+	_, _, _, err = service.RefreshToken(ctx, expiredToken)
+
+	require.Error(t, err)
+	apiErr, ok := err.(*apierrors.APIError)
+	require.True(t, ok)
+	assert.Equal(t, apierrors.ErrTokenExpired, apiErr.Code)
+}
+
+// Test_Service_RefreshToken_WhenAccessTokenUsedAsRefresh_ThenReturnsError tests token type enforcement
+func Test_Service_RefreshToken_WhenAccessTokenUsedAsRefresh_ThenReturnsError(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	mockUserService := NewMockUserService(ctrl)
+	mockTokenRevoke := NewMockTokenRevokeService(ctrl)
+
+	jwtSecret := "test-secret-key"
+	cfg := &config.Config{
+		Auth: config.AuthConfig{
+			JWTSecret:          jwtSecret,
+			JWTExpirationHours: 24,
+		},
+	}
+
+	service := NewService(cfg, mockUserService, mockTokenRevoke)
+
+	user := &models.User{
+		ID:     uuid.New(),
+		Email:  "test@example.com",
+		Name:   "Test User",
+		Active: true,
+	}
+
+	// Generate an access token and try to use it as a refresh token
+	accessToken, err := service.GenerateJWT(user)
+	require.NoError(t, err)
+
+	ctx := context.Background()
+
+	_, _, _, err = service.RefreshToken(ctx, accessToken)
+
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "Invalid token type")
+}
+
+// Test_Service_RefreshToken_WhenTokenRevoked_ThenReturnsTokenRevoked tests revoked token
+func Test_Service_RefreshToken_WhenTokenRevoked_ThenReturnsTokenRevoked(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	mockUserService := NewMockUserService(ctrl)
+	mockTokenRevoke := NewMockTokenRevokeService(ctrl)
+
+	jwtSecret := "test-secret-key"
+	cfg := &config.Config{
+		Auth: config.AuthConfig{
+			JWTSecret:                 jwtSecret,
+			JWTExpirationHours:        24,
+			JWTRefreshExpirationHours: 168,
+		},
+	}
+
+	service := NewService(cfg, mockUserService, mockTokenRevoke)
+
+	userID := uuid.New()
+	user := &models.User{
+		ID:     userID,
+		Email:  "test@example.com",
+		Name:   "Test User",
+		Active: true,
+	}
+
+	refreshToken, err := service.GenerateRefreshToken(user)
+	require.NoError(t, err)
+
+	ctx := context.Background()
+
+	mockTokenRevoke.EXPECT().
+		IsTokenOrUserRevoked(gomock.Any(), refreshToken, userID.String()).
+		Return(true, nil)
+
+	_, _, _, err = service.RefreshToken(ctx, refreshToken)
+
+	require.Error(t, err)
+	apiErr, ok := err.(*apierrors.APIError)
+	require.True(t, ok)
+	assert.Equal(t, apierrors.ErrTokenRevoked, apiErr.Code)
+}
+
+// Test_Service_RefreshToken_WhenRedisError_ThenFailsClosed tests fail-closed on Redis error
+func Test_Service_RefreshToken_WhenRedisError_ThenFailsClosed(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	mockUserService := NewMockUserService(ctrl)
+	mockTokenRevoke := NewMockTokenRevokeService(ctrl)
+
+	jwtSecret := "test-secret-key"
+	cfg := &config.Config{
+		Auth: config.AuthConfig{
+			JWTSecret:                 jwtSecret,
+			JWTExpirationHours:        24,
+			JWTRefreshExpirationHours: 168,
+		},
+	}
+
+	service := NewService(cfg, mockUserService, mockTokenRevoke)
+
+	userID := uuid.New()
+	user := &models.User{
+		ID:     userID,
+		Email:  "test@example.com",
+		Name:   "Test User",
+		Active: true,
+	}
+
+	refreshToken, err := service.GenerateRefreshToken(user)
+	require.NoError(t, err)
+
+	ctx := context.Background()
+
+	mockTokenRevoke.EXPECT().
+		IsTokenOrUserRevoked(gomock.Any(), refreshToken, userID.String()).
+		Return(false, errors.New("redis connection error"))
+
+	_, _, _, err = service.RefreshToken(ctx, refreshToken)
+
+	require.Error(t, err)
+	apiErr, ok := err.(*apierrors.APIError)
+	require.True(t, ok)
+	assert.Equal(t, apierrors.ErrInternalError, apiErr.Code)
+}
+
+// Test_Service_RefreshToken_WhenUserInactive_ThenReturnsUserInactive tests inactive user during refresh
+func Test_Service_RefreshToken_WhenUserInactive_ThenReturnsUserInactive(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	mockUserService := NewMockUserService(ctrl)
+	mockTokenRevoke := NewMockTokenRevokeService(ctrl)
+
+	jwtSecret := "test-secret-key"
+	cfg := &config.Config{
+		Auth: config.AuthConfig{
+			JWTSecret:                 jwtSecret,
+			JWTExpirationHours:        24,
+			JWTRefreshExpirationHours: 168,
+		},
+	}
+
+	service := NewService(cfg, mockUserService, mockTokenRevoke)
+
+	userID := uuid.New()
+	user := &models.User{
+		ID:     userID,
+		Email:  "test@example.com",
+		Name:   "Test User",
+		Active: true,
+	}
+
+	refreshToken, err := service.GenerateRefreshToken(user)
+	require.NoError(t, err)
+
+	inactiveUser := &models.User{
+		ID:     userID,
+		Email:  "test@example.com",
+		Name:   "Test User",
+		Active: false,
+	}
+
+	ctx := context.Background()
+
+	mockTokenRevoke.EXPECT().
+		IsTokenOrUserRevoked(gomock.Any(), refreshToken, userID.String()).
+		Return(false, nil)
+
+	mockUserService.EXPECT().
+		GetUserByID(gomock.Any(), userID).
+		Return(inactiveUser, nil)
+
+	_, _, _, err = service.RefreshToken(ctx, refreshToken)
+
+	require.Error(t, err)
+	apiErr, ok := err.(*apierrors.APIError)
+	require.True(t, ok)
+	assert.Equal(t, apierrors.ErrUserInactive, apiErr.Code)
+}
+
+// Test_Service_RefreshToken_WhenUserNotFound_ThenReturnsNotFound tests user not found during refresh
+func Test_Service_RefreshToken_WhenUserNotFound_ThenReturnsNotFound(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	mockUserService := NewMockUserService(ctrl)
+	mockTokenRevoke := NewMockTokenRevokeService(ctrl)
+
+	jwtSecret := "test-secret-key"
+	cfg := &config.Config{
+		Auth: config.AuthConfig{
+			JWTSecret:                 jwtSecret,
+			JWTExpirationHours:        24,
+			JWTRefreshExpirationHours: 168,
+		},
+	}
+
+	service := NewService(cfg, mockUserService, mockTokenRevoke)
+
+	userID := uuid.New()
+	user := &models.User{
+		ID:     userID,
+		Email:  "test@example.com",
+		Name:   "Test User",
+		Active: true,
+	}
+
+	refreshToken, err := service.GenerateRefreshToken(user)
+	require.NoError(t, err)
+
+	ctx := context.Background()
+
+	mockTokenRevoke.EXPECT().
+		IsTokenOrUserRevoked(gomock.Any(), refreshToken, userID.String()).
+		Return(false, nil)
+
+	mockUserService.EXPECT().
+		GetUserByID(gomock.Any(), userID).
+		Return(nil, errors.New("user not found"))
+
+	_, _, _, err = service.RefreshToken(ctx, refreshToken)
+
+	require.Error(t, err)
+	apiErr, ok := err.(*apierrors.APIError)
+	require.True(t, ok)
+	assert.Equal(t, apierrors.ErrNotFound, apiErr.Code)
+}
+
+// Test_Service_RefreshToken_WhenInvalidToken_ThenReturnsTokenInvalid tests invalid token
+func Test_Service_RefreshToken_WhenInvalidToken_ThenReturnsTokenInvalid(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	mockUserService := NewMockUserService(ctrl)
+	mockTokenRevoke := NewMockTokenRevokeService(ctrl)
+
+	cfg := &config.Config{
+		Auth: config.AuthConfig{
+			JWTSecret:          "test-secret-key",
+			JWTExpirationHours: 24,
+		},
+	}
+
+	service := NewService(cfg, mockUserService, mockTokenRevoke)
+
+	ctx := context.Background()
+
+	_, _, _, err := service.RefreshToken(ctx, "invalid.token.here")
+
+	require.Error(t, err)
+	apiErr, ok := err.(*apierrors.APIError)
+	require.True(t, ok)
+	assert.Equal(t, apierrors.ErrTokenInvalid, apiErr.Code)
+}
+
+// Test_Service_RevokeRefreshToken_WhenEmptyToken_ThenReturnsNil tests empty token
+func Test_Service_RevokeRefreshToken_WhenEmptyToken_ThenReturnsNil(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	mockUserService := NewMockUserService(ctrl)
+	mockTokenRevoke := NewMockTokenRevokeService(ctrl)
+
+	cfg := &config.Config{
+		Auth: config.AuthConfig{
+			JWTSecret:          "test-secret-key",
+			JWTExpirationHours: 24,
+		},
+	}
+
+	service := NewService(cfg, mockUserService, mockTokenRevoke)
+
+	ctx := context.Background()
+
+	err := service.RevokeRefreshToken(ctx, "")
+
+	require.NoError(t, err)
+}
+
+// Test_Service_RevokeRefreshToken_WhenValidToken_ThenRevokesToken tests successful revocation
+func Test_Service_RevokeRefreshToken_WhenValidToken_ThenRevokesToken(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	mockUserService := NewMockUserService(ctrl)
+	mockTokenRevoke := NewMockTokenRevokeService(ctrl)
+
+	jwtSecret := "test-secret-key"
+	cfg := &config.Config{
+		Auth: config.AuthConfig{
+			JWTSecret:                 jwtSecret,
+			JWTExpirationHours:        24,
+			JWTRefreshExpirationHours: 168,
+		},
+	}
+
+	service := NewService(cfg, mockUserService, mockTokenRevoke)
+
+	user := &models.User{
+		ID:     uuid.New(),
+		Email:  "test@example.com",
+		Name:   "Test User",
+		Active: true,
+	}
+
+	refreshToken, err := service.GenerateRefreshToken(user)
+	require.NoError(t, err)
+
+	ctx := context.Background()
+
+	mockTokenRevoke.EXPECT().
+		RevokeToken(ctx, refreshToken, gomock.Any()).
+		Return(nil)
+
+	err = service.RevokeRefreshToken(ctx, refreshToken)
+
+	require.NoError(t, err)
+}
+
+// Test_Service_RevokeRefreshToken_WhenInvalidToken_ThenReturnsNil tests invalid token is silently ignored
+func Test_Service_RevokeRefreshToken_WhenInvalidToken_ThenReturnsNil(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	mockUserService := NewMockUserService(ctrl)
+	mockTokenRevoke := NewMockTokenRevokeService(ctrl)
+
+	cfg := &config.Config{
+		Auth: config.AuthConfig{
+			JWTSecret:          "test-secret-key",
+			JWTExpirationHours: 24,
+		},
+	}
+
+	service := NewService(cfg, mockUserService, mockTokenRevoke)
+
+	ctx := context.Background()
+
+	err := service.RevokeRefreshToken(ctx, "invalid.token.here")
+
+	require.NoError(t, err)
+}
+
 // Test_Service_ValidateToken_WhenRefreshTokenUsedAsAccess_ThenReturnsTokenInvalid tests token type enforcement
 func Test_Service_ValidateToken_WhenRefreshTokenUsedAsAccess_ThenReturnsTokenInvalid(t *testing.T) {
 	ctrl := gomock.NewController(t)

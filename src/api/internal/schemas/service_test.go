@@ -721,6 +721,124 @@ func Test_ExtractFields_WhenNestedDateTimeField_ThenExtractsDateTimeType(t *test
 	assert.Equal(t, FieldTypeDateTime, dateTimeField.Type)
 }
 
+func Test_Service_GenerateEvents_WhenSuccess_ThenReturnsResponse(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	id := uuid.New()
+	schema := &EventSchema{
+		ID:   id,
+		Name: "test-schema",
+		ExtractedFields: []ExtractedField{
+			{Path: "amount", Type: FieldTypeNumber},
+			{Path: "currency", Type: FieldTypeString},
+		},
+	}
+	mockRepo := NewMockRepository(ctrl)
+	mockEnqueuer := NewMockTaskEnqueuer(ctrl)
+	mockRepo.EXPECT().GetByID(gomock.Any(), id).Return(schema, nil)
+	mockEnqueuer.EXPECT().
+		EnqueueTransactionWithPriority(gomock.Any(), gomock.Any(), "default").
+		Return(nil, nil).
+		Times(3)
+
+	service := NewService(mockRepo, mockEnqueuer)
+	req := &GenerateEventsRequest{Count: 3}
+
+	resp, err := service.GenerateEvents(context.Background(), id, req)
+
+	require.NoError(t, err)
+	assert.Equal(t, id, resp.SchemaID)
+	assert.Equal(t, 3, resp.GeneratedCount)
+	assert.Equal(t, 0, resp.FailedCount)
+	assert.Contains(t, resp.Message, "Successfully generated")
+}
+
+func Test_Service_GenerateEvents_WhenNoEnqueuer_ThenReturnsError(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	mockRepo := NewMockRepository(ctrl)
+	service := NewService(mockRepo, nil)
+
+	id := uuid.New()
+	req := &GenerateEventsRequest{Count: 1}
+
+	resp, err := service.GenerateEvents(context.Background(), id, req)
+
+	assert.Nil(t, resp)
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "task enqueuer not configured")
+}
+
+func Test_Service_GenerateEvents_WhenSchemaNotFound_ThenReturnsError(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	id := uuid.New()
+	mockRepo := NewMockRepository(ctrl)
+	mockEnqueuer := NewMockTaskEnqueuer(ctrl)
+	mockRepo.EXPECT().GetByID(gomock.Any(), id).Return(nil, pgx.ErrNoRows)
+	service := NewService(mockRepo, mockEnqueuer)
+
+	req := &GenerateEventsRequest{Count: 1}
+
+	resp, err := service.GenerateEvents(context.Background(), id, req)
+
+	assert.Nil(t, resp)
+	assert.ErrorIs(t, err, ErrSchemaNotFound)
+}
+
+func Test_Service_GenerateEvents_WhenRepositoryFails_ThenReturnsError(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	id := uuid.New()
+	mockRepo := NewMockRepository(ctrl)
+	mockEnqueuer := NewMockTaskEnqueuer(ctrl)
+	mockRepo.EXPECT().GetByID(gomock.Any(), id).Return(nil, errors.New("database error"))
+	service := NewService(mockRepo, mockEnqueuer)
+
+	req := &GenerateEventsRequest{Count: 1}
+
+	resp, err := service.GenerateEvents(context.Background(), id, req)
+
+	assert.Nil(t, resp)
+	assert.Error(t, err)
+}
+
+func Test_Service_GenerateEvents_WhenEnqueueFails_ThenReportsFailures(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	id := uuid.New()
+	schema := &EventSchema{
+		ID:   id,
+		Name: "test-schema",
+		ExtractedFields: []ExtractedField{
+			{Path: "amount", Type: FieldTypeNumber},
+		},
+	}
+	mockRepo := NewMockRepository(ctrl)
+	mockEnqueuer := NewMockTaskEnqueuer(ctrl)
+	mockRepo.EXPECT().GetByID(gomock.Any(), id).Return(schema, nil)
+	mockEnqueuer.EXPECT().
+		EnqueueTransactionWithPriority(gomock.Any(), gomock.Any(), "default").
+		Return(nil, errors.New("queue full")).
+		Times(2)
+
+	service := NewService(mockRepo, mockEnqueuer)
+	req := &GenerateEventsRequest{Count: 2}
+
+	resp, err := service.GenerateEvents(context.Background(), id, req)
+
+	require.NoError(t, err)
+	assert.Equal(t, id, resp.SchemaID)
+	assert.Equal(t, 0, resp.GeneratedCount)
+	assert.Equal(t, 2, resp.FailedCount)
+	assert.Contains(t, resp.Message, "failed")
+}
+
 func findFieldByPath(fields []ExtractedField, path string) *ExtractedField {
 	for i := range fields {
 		if fields[i].Path == path {
